@@ -380,7 +380,6 @@ socket.on("promoted-to-admin", () => {
     displaySystemMessage("The previous admin left. You are the new admin!");
 });
 
-
 socket.on("update-user-list", (users) => updateUserList(users));
 
 socket.on("room-killed", () => {
