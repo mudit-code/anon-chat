@@ -113,10 +113,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("file-uploaded", ({ roomKey, username, path }) => {
+  socket.on("file-uploaded", ({ roomKey, username, file, messageId }) => {
     if (rooms[roomKey]) {
-        rooms[roomKey].files.push({ username, path });
-        io.to(roomKey).emit("file-uploaded", { username, path });
+        rooms[roomKey].files.push({ username, file, messageId });
+        io.to(roomKey).emit("file-uploaded", { username, file, messageId });
     }
   });
 

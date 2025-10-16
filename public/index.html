@@ -148,10 +148,10 @@
   </div>
 
   <!-- Chat Screen (Structure Remains the Same) -->
-  <div id="chatScreen" class="hidden flex h-full w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden" style="background-color: #1a1a2e;">
+  <div id="chatScreen" class="hidden flex h-screen w-full max-w-4xl mx-auto rounded-2xl shadow-2xl overflow-hidden" style="background-color: #1a1a2e;">
     <div class="flex-1 flex flex-col">
         <div class="flex items-center justify-between p-4 bg-gray-800 z-10">
-            <h2 class="text-2xl font-bold text-white">Chat Room</h2>
+            <h2 class="text-2xl font-bold text-white">Anon-Chat</h2>
             <div class="flex items-center space-x-4">
                 <button id="killRoomBtn" title="Delete the chat room" class="hidden px-4 py-2 bg-red-700 rounded-lg hover:bg-red-800 transition-transform transform hover:scale-105 font-semibold">End Room</button>
                 <button id="leaveBtn" title="Leave the chat room" class="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-transform transform hover:scale-105 font-semibold">Leave Chat</button>
@@ -168,21 +168,21 @@
             </div>
           </div>
         </div>
-        <div class="p-4 bg-gray-800">
+        <div class="p-4 bg-gray-800 mx-auto mb-4 w-11/12 rounded-2xl">
           <div id="media-picker" class="hidden h-64 overflow-y-auto bg-gray-900 p-4 rounded-t-lg"></div>
           <div class="flex items-center space-x-2">
-            <input id="messageInput" type="text" placeholder="Type a message..." class="flex-1 p-3 rounded-full bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="emojiBtn" class="p-3 text-2xl text-gray-400 hover:text-white transition rounded-full"><i class="far fa-smile"></i></button>
-            <button id="gifBtn" class="p-3 text-lg font-bold text-gray-400 hover:text-white transition rounded-full">GIF</button>
-            <button id="stickerBtn" class="p-3 text-2xl text-gray-400 hover:text-white transition rounded-full"><i class="far fa-sticky-note"></i></button>
-            <button id="sendBtn" class="p-3 bg-blue-600 rounded-full hover:bg-blue-700 transition-transform transform hover:scale-105"><i class="fas fa-paper-plane"></i></button>
+            <button id="emojiBtn" title="Send an emoji" class="p-3 text-2xl text-gray-400 hover:text-white transition rounded-full"><i class="far fa-smile"></i></button>
+            <button id="gifBtn" title="Send a GIF" class="p-3 text-lg font-bold text-gray-400 hover:text-white transition rounded-full">GIF</button>
             <form id="uploadForm" class="contents">
-              <label for="fileInput" class="p-3 bg-green-600 rounded-full hover:bg-green-700 transition-transform transform hover:scale-105 cursor-pointer"><i class="fas fa-upload"></i></label>
+              <label for="fileInput" title="Share a file" class="p-3 text-2xl text-gray-400 hover:text-white transition rounded-full cursor-pointer"><i class="fas fa-paperclip"></i></label>
               <input type="file" id="fileInput" class="hidden">
             </form>
+            <input id="messageInput" type="text" placeholder="Type a message..." class="flex-1 p-3 rounded-full bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="sendBtn" title="Send message" class="p-3 bg-blue-600 rounded-full hover:bg-blue-700 transition-transform transform hover:scale-105"><i class="fas fa-paper-plane"></i></button>
           </div>
-          <div class="w-full bg-gray-700 rounded-full h-2.5 mt-3 mb-2 hidden" id="progress-container">
+          <div class="w-full bg-gray-700 rounded-full mt-3 mb-2 hidden" id="progress-container">
             <div class="bg-blue-600 h-2.5 rounded-full" id="progress-bar" style="width: 0%"></div>
+            <p id="progress-text" class="text-xs text-white text-center"></p>
           </div>
         </div>
     </div>
