@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let uploadToCancel = null;
     const fileUploads = {};
 
-    const GIPHY_API_KEY = "X2rfEL5mqbPjVprW2ev39QFtsE12J7Py";
     let emojis = [];
 
     // Functions
@@ -124,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cancelBtn = `
         <foreignObject x="0" y="0" width="100%" height="100%">
             <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center justify-center">
-                <svg class="w-5 h-5 text-white cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" onclick="promptCancelUpload('${messageId}')">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </div>
@@ -132,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
         return `
-        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="relative">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="relative cursor-pointer" onclick="promptCancelUpload('${messageId}')">
             <circle stroke-width="${strokeWidth}" stroke="rgba(255, 255, 255, 0.3)" fill="transparent" r="${radius}" cx="${size/2}" cy="${size/2}"/>
             <circle stroke-width="${strokeWidth}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke="rgb(255, 255, 255)" fill="transparent" r="${radius}" cx="${size/2}" cy="${size/2}" transform="rotate(-90 ${size/2} ${size/2})"></circle>
             ${progress < 100 ? cancelBtn : ''}
@@ -192,7 +191,17 @@ document.addEventListener('DOMContentLoaded', () => {
         userList.innerHTML = "";
         users.forEach(user => {
             const li = document.createElement("li");
+            li.className = "flex justify-between items-center";
             li.textContent = user.username + (user.id === socket.id ? " (You)" : "");
+            if(isAdmin && user.id !== socket.id) {
+                const removeBtn = document.createElement("button");
+                removeBtn.textContent = "Remove";
+                removeBtn.className = "text-red-500 hover:text-red-700";
+                removeBtn.onclick = () => {
+                    socket.emit("remove-user", { roomKey, userId: user.id });
+                };
+                li.appendChild(removeBtn);
+            }
             userList.appendChild(li);
         });
     }
@@ -414,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaPicker.appendChild(resultsDiv);
 
             function searchGifs(query) {
-                fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${query}&limit=12`)
+                fetch(`/api/gifs?query=${query}`)
                     .then(res => res.json())
                     .then(data => {
                         resultsDiv.innerHTML = "";
@@ -481,6 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on("room-killed", () => {
         alert("The admin has ended the room.");
+        leaveBtn.click();
+    });
+
+    socket.on("user-removed", () => {
+        alert("You have been removed from the room by the admin.");
         leaveBtn.click();
     });
 

@@ -5,6 +5,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
+const fetch = require("node-fetch");
 
 const app = express();
 const server = http.createServer(app);
@@ -24,9 +25,23 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+const GIPHY_API_KEY = "X2rfEL5mqbPjVprW2ev39QFtsE12J7Py";
+
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded." });
   res.json({ path: `/uploads/${req.file.filename}` });
+});
+
+app.get("/api/gifs", async (req, res) => {
+    const { query } = req.query;
+    const url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${query}&limit=12`;
+    try {
+        const response = await fetch(url);
+        const json = await response.json();
+        res.json(json);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch GIFs" });
+    }
 });
 
 app.use("/uploads", express.static(uploadDir));
@@ -105,6 +120,23 @@ io.on("connection", (socket) => {
         delete rooms[roomKey];
     }
   });
+
+  socket.on("remove-user", ({ roomKey, userId }) => {
+    const room = rooms[roomKey];
+    if (room && room.admin.id === socket.id) {
+        const userToRemove = room.users.find(u => u.id === userId);
+        if (userToRemove) {
+            const userSocket = io.sockets.sockets.get(userId);
+            if (userSocket) {
+                userSocket.emit("user-removed");
+                userSocket.leave(roomKey);
+            }
+            room.users = room.users.filter(u => u.id !== userId);
+            io.to(roomKey).emit("user-left", userToRemove.username);
+            updateUserList(roomKey);
+        }
+    }
+});
 
   socket.on("chat-message", ({ roomKey, username, message }) => {
     if (rooms[roomKey]) {
