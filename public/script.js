@@ -1,4 +1,4 @@
-const socket = io();
+'''const socket = io();
 
 // DOM Elements
 const createRoomBtn = document.getElementById("createRoomBtn");
@@ -22,10 +22,14 @@ const denyJoinBtn = document.getElementById("denyJoinBtn");
 const uploadForm = document.getElementById("uploadForm");
 const killRoomBtn = document.getElementById("killRoomBtn");
 const userList = document.getElementById("userList");
+const cancelUploadModal = document.getElementById("cancelUploadModal");
+const confirmCancelBtn = document.getElementById("confirmCancelBtn");
+const denyCancelBtn = document.getElementById("denyCancelBtn");
 
 // State
 let roomKey, username, isAdmin = false;
 let pendingJoinRequest = null;
+let uploadToCancel = null;
 const fileUploads = {};
 
 const GIPHY_API_KEY = "X2rfEL5mqbPjVprW2ev39QFtsE12J7Py";
@@ -79,14 +83,37 @@ function formatBytes(bytes, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-function getFileIcon(fileType) {
+function getMimeType(file) {
+    if (file.type) {
+        return file.type;
+    }
+    const extension = file.name.split('.').pop().toLowerCase();
+    switch (extension) {
+        case 'jpg':
+        case 'jpeg':
+            return 'image/jpeg';
+        case 'png':
+            return 'image/png';
+        case 'gif':
+            return 'image/gif';
+        case 'mp4':
+            return 'video/mp4';
+        case 'pdf':
+            return 'application/pdf';
+        default:
+            return 'application/octet-stream';
+    }
+}
+
+function getFileIcon(file) {
+    const fileType = getMimeType(file);
     if (fileType.startsWith("image")) return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l-1-1m5 5l-2-2"></path></svg>`;
     if (fileType.startsWith("video")) return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.55a1 1 0 01.45 1.74l-4.5 3.5a1 1 0 01-1.5-.74V9a1 1 0 011.5-.74zM4 6a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>`;
     if (fileType === "application/pdf") return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
     return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
 }
 
-function createProgressCircle(progress, xhr) {
+function createProgressCircle(progress, messageId) {
     const size = 50;
     const strokeWidth = 4;
     const radius = (size - strokeWidth) / 2;
@@ -96,7 +123,7 @@ function createProgressCircle(progress, xhr) {
     const cancelBtn = `
         <foreignObject x="0" y="0" width="100%" height="100%">
             <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center justify-center">
-                <svg class="w-5 h-5 text-white cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" onclick="cancelUpload('${xhr.messageId}')">
+                <svg class="w-5 h-5 text-white cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" onclick="promptCancelUpload('${messageId}')">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </div>
@@ -112,6 +139,11 @@ function createProgressCircle(progress, xhr) {
     `;
 }
 
+function promptCancelUpload(messageId) {
+    uploadToCancel = messageId;
+    cancelUploadModal.classList.remove("hidden");
+}
+
 function cancelUpload(messageId) {
     if (fileUploads[messageId]) {
         fileUploads[messageId].abort();
@@ -121,17 +153,18 @@ function cancelUpload(messageId) {
 function displayFile(user, file, messageId) {
     const messageDiv = document.getElementById(messageId);
     const bubbleClass = user === username ? 'bg-blue-500 text-white' : 'bg-gray-700';
-
     const truncatedName = file.name.length > 15 ? file.name.substring(0, 10) + "..." + file.name.substring(file.name.length - 5) : file.name;
+    const fileType = getMimeType(file);
+    const fileTypeSuffix = fileType.split('/')[1] ? fileType.split('/')[1].toUpperCase() + ' File' : 'File';
 
     const fileHtml = `
         <div class="flex items-center">
             <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-600 mr-4">
-                ${getFileIcon(file.type)}
+                ${getFileIcon(file)}
             </div>
             <div class="overflow-hidden">
                 <div class="font-medium truncate">${truncatedName}</div>
-                <div class="text-sm text-gray-300">${formatBytes(file.size)} - ${file.type.split('/')[1].toUpperCase()} File</div>
+                <div class="text-sm text-gray-300">${formatBytes(file.size)} - ${fileTypeSuffix}</div>
             </div>
         </div>
         <div class="flex gap-2 mt-3">
@@ -225,7 +258,7 @@ fileInput.onchange = () => {
 
   const initialContent = `
     <div class="flex items-center gap-3">
-        <div class="progress-circle relative w-12 h-12 flex-shrink-0 flex items-center justify-center">${createProgressCircle(0, xhr)}</div>
+        <div class="progress-circle relative w-12 h-12 flex-shrink-0 flex items-center justify-center">${createProgressCircle(0, messageId)}</div>
         <div class="overflow-hidden">
             <div class="font-medium truncate">${truncatedName}</div>
             <div class="text-sm text-gray-300 upload-status">0 Bytes / ${formatBytes(file.size)}</div>
@@ -247,10 +280,18 @@ fileInput.onchange = () => {
   xhr.upload.onprogress = (e) => {
     const percent = Math.round((e.loaded / e.total) * 100);
     const progressCircleDiv = messageBubble.querySelector(".progress-circle");
-    progressCircleDiv.innerHTML = createProgressCircle(percent, xhr);
+    progressCircleDiv.innerHTML = createProgressCircle(percent, messageId);
     const uploadStatus = messageBubble.querySelector(".upload-status");
     uploadStatus.textContent = `${formatBytes(e.loaded)} / ${formatBytes(e.total)}`;
   };
+
+  xhr.onabort = () => {
+    const messageToRemove = document.getElementById(messageId);
+    if (messageToRemove) {
+        messageToRemove.remove();
+    }
+    delete fileUploads[messageId];
+  }
 
   xhr.onload = () => {
     delete fileUploads[messageId];
@@ -262,12 +303,9 @@ fileInput.onchange = () => {
         socket.emit("file-uploaded", { roomKey, username, file: fileData, messageId });
       }
     } else {
-      if (xhr.statusText !== 'abort') {
-          messageBubble.innerHTML = "File upload failed";
-      } else {
-        const messageToRemove = document.getElementById(messageId);
-        if(messageToRemove) messageToRemove.remove();
-      }
+        if(xhr.status !== 0) {
+            messageBubble.innerHTML = "File upload failed";
+        }
     }
   };
 
@@ -289,6 +327,19 @@ denyJoinBtn.onclick = () => {
         joinRequestModal.classList.add("hidden");
         pendingJoinRequest = null;
     }
+};
+
+confirmCancelBtn.onclick = () => {
+    if (uploadToCancel) {
+        cancelUpload(uploadToCancel);
+        uploadToCancel = null;
+    }
+    cancelUploadModal.classList.add("hidden");
+};
+
+denyCancelBtn.onclick = () => {
+    uploadToCancel = null;
+    cancelUploadModal.classList.add("hidden");
 };
 
 emojiBtn.onclick = () => toggleMediaPicker("emoji");
@@ -416,3 +467,4 @@ socket.on("file-uploaded", ({ username: user, file, messageId }) => {
 
 socket.on("user-joined", (username) => displaySystemMessage(`${username} joined the room`));
 socket.on("user-left", (username) => displaySystemMessage(`${username} left the room`));
+''
