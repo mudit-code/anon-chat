@@ -536,4 +536,17 @@
       display: none !important;
     }
   }
+
+  /* Drag and drop styling */
+  #chat-input-container.drag-over {
+    border: 2px dashed rgba(147, 51, 234, 0.8);
+    background-color: rgba(147, 51, 234, 0.1);
+  }
+
+  /* Always show download button on mobile (no hover on touch devices) */
+  @media (max-width: 768px) {
+    .group .opacity-0 {
+      opacity: 1 !important;
+    }
+  }
 }

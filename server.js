@@ -313,13 +313,13 @@ io.on("connection", (socket) => {
 // Clean up inactive rooms every 30 seconds
 setInterval(() => {
   const now = Date.now();
-  const twoMinutes = 2 * 60 * 1000; // 2 minutes in milliseconds
+  const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
 
   for (const roomKey in rooms) {
     const room = rooms[roomKey];
-    if (now - room.lastActivity > twoMinutes) {
+    if (now - room.lastActivity > tenMinutes) {
       console.log(`Deleting inactive room: ${roomKey} (inactive for ${Math.round((now - room.lastActivity) / 1000 / 60)} minutes)`);
-      io.to(roomKey).emit("room-inactive", "Room has been closed due to 2 minutes of inactivity.");
+      io.to(roomKey).emit("room-inactive", "Room has been closed due to 10 minutes of inactivity.");
       delete rooms[roomKey];
     }
   }

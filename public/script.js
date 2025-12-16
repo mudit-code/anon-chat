@@ -142,14 +142,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             messageBubble.className = `message-bubble-media`;
             if (message.type === 'gif') {
-                contentHtml = `<img src="${message.content}" class="message-file-preview" loading="lazy">`;
+                contentHtml = `
+                <div class="relative group">
+                    <img src="${message.content}" class="message-file-preview" loading="lazy">
+                    <a href="${message.content}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>`;
             } else if (message.type === 'image') {
-                contentHtml = `<img src="${message.content}" class="message-file-preview" loading="lazy">`;
+                contentHtml = `
+                <div class="relative group">
+                    <img src="${message.content}" class="message-file-preview" loading="lazy">
+                    <a href="${message.content}" download="image-${Date.now()}.jpg" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>`;
             } else if (message.type === 'video') {
-                contentHtml = `<video src="${message.content}" class="message-file-preview" controls></video>`;
+                contentHtml = `
+                <div class="relative group">
+                    <video src="${message.content}" class="message-file-preview" controls></video>
+                    <a href="${message.content}" download="video-${Date.now()}.mp4" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>`;
             }
         }
-
         if (!isConsecutive) {
             if (user === username) {
                 // Sender side - No "You" label, just content
@@ -384,9 +401,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileType.startsWith('image') || fileType.startsWith('video')) {
             bubbleExtraClass = "message-bubble-media";
             if (fileType.startsWith('image')) {
-                fileHtml = `<img src="${file.path}" class="message-file-preview" loading="lazy">`;
+                fileHtml = `
+                    <div class="relative group">
+                        <img src="${file.path}" class="message-file-preview" loading="lazy">
+                        <a href="${file.path}" download="${file.name}" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>`;
             } else {
-                fileHtml = `<video src="${file.path}" class="message-file-preview" controls></video>`;
+                fileHtml = `
+                    <div class="relative group">
+                        <video src="${file.path}" class="message-file-preview" controls></video>
+                        <a href="${file.path}" download="${file.name}" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>`;
             }
         } else {
             // Apply fixed-width class for document files
@@ -881,13 +910,55 @@ document.addEventListener('DOMContentLoaded', () => {
     messageInput.addEventListener('paste', (event) => {
         const items = (event.clipboardData || event.originalEvent.clipboardData).items;
         for (const item of items) {
-            if (item.kind === 'file') {
+            if (item.type.indexOf('image') !== -1) {
                 const file = item.getAsFile();
                 uploadFile(file);
                 event.preventDefault();
             }
         }
     });
+
+    // Drag and drop file upload with overlay
+    const dragDropOverlay = document.getElementById('dragDropOverlay');
+    let dragCounter = 0;
+
+    // Prevent default drag behaviors on the entire document
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
+    // Show overlay when dragging files over the chat screen
+    chatScreen.addEventListener('dragenter', (e) => {
+        // Only show for files, not text
+        if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+            dragCounter++;
+            dragDropOverlay.classList.remove('hidden');
+        }
+    }, false);
+
+    chatScreen.addEventListener('dragleave', (e) => {
+        dragCounter--;
+        if (dragCounter === 0) {
+            dragDropOverlay.classList.add('hidden');
+        }
+    }, false);
+
+    // Handle dropped files
+    chatScreen.addEventListener('drop', (e) => {
+        dragCounter = 0;
+        dragDropOverlay.classList.add('hidden');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            // Handle multiple files
+            Array.from(files).forEach(file => {
+                uploadFile(file);
+            });
+        }
+    }, false);
 
     sendBtn.onclick = () => {
         if (fileToSend) {
@@ -1221,6 +1292,40 @@ document.addEventListener('DOMContentLoaded', () => {
         killRoomBtn.classList.remove("hidden");
         saveSession();
         displaySystemMessage("The previous admin left. You are the new admin!");
+    });
+
+    // Handle forced disconnections without leave prompt
+    socket.on("room-inactive", (message) => {
+        // Room closed due to inactivity - skip leave prompt
+        if (window.cleanupMobileKeyboard) {
+            window.cleanupMobileKeyboard();
+        }
+        localStorage.removeItem("roomKey");
+        localStorage.removeItem("username");
+        localStorage.removeItem("isAdmin");
+        chatScreen.style.display = "none";
+        joinScreen.style.display = "flex";
+        messagesDiv.innerHTML = "";
+        isAdmin = false;
+        killRoomBtn.classList.add("hidden");
+        document.body.classList.remove("chat-active");
+        alert(message);
+    });
+
+    socket.on("user-removed", () => {
+        // Removed by admin - skip leave prompt
+        if (window.cleanupMobileKeyboard) {
+            window.cleanupMobileKeyboard();
+        }
+        localStorage.removeItem("roomKey");
+        localStorage.removeItem("username"); localStorage.removeItem("isAdmin");
+        chatScreen.style.display = "none";
+        joinScreen.style.display = "flex";
+        messagesDiv.innerHTML = "";
+        isAdmin = false;
+        killRoomBtn.classList.add("hidden");
+        document.body.classList.remove("chat-active");
+        alert("You have been removed from the room by the admin.");
     });
 
     socket.on("update-user-list", (users) => updateUserList(users));
