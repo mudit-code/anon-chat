@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const messagesDiv = document.getElementById("messages");
     const fileInput = document.getElementById("fileInput");
     const emojiBtn = document.getElementById("emojiBtn");
-    const gifBtn = document.getElementById("gifBtn");
     const mediaPicker = document.getElementById("media-picker");
     const joinRequestModal = document.getElementById("joinRequestModal");
     const joinRequestUser = document.getElementById("joinRequestUser");
@@ -32,15 +31,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewModal = document.getElementById("previewModal");
     const previewContent = document.getElementById("previewContent");
     const closePreview = document.getElementById("closePreview");
+    const userCount = document.getElementById("userCount");
+
+    // Warning modals
+    const leaveChatModal = document.getElementById("leaveChatModal");
+    const confirmLeaveBtn = document.getElementById("confirmLeaveBtn");
+    const cancelLeaveBtn = document.getElementById("cancelLeaveBtn");
+    const endRoomModal = document.getElementById("endRoomModal");
+    const confirmEndRoomBtn = document.getElementById("confirmEndRoomBtn");
+    const cancelEndRoomBtn = document.getElementById("cancelEndRoomBtn");
+    const removeUserModal = document.getElementById("removeUserModal");
+    const confirmRemoveUserBtn = document.getElementById("confirmRemoveUserBtn");
+    const cancelRemoveUserBtn = document.getElementById("cancelRemoveUserBtn");
+    const removeUserText = document.getElementById("removeUserText");
+
 
     // State
     let roomKey, username, isAdmin = false;
+    let userToRemove = null; // Store user info for removal
     let pendingJoinRequest = null;
     let uploadToCancel = null;
     const fileUploads = {};
     let emojis = [];
     let fileToSend = null;
     let lastMessageUser = null;
+
+    // Production-grade typing indicator state
+    let isTyping = false;
+    let typingTimeout = null;
+    const typingUsers = new Map(); // userId -> username
+    const typingSafetyTimeouts = new Map(); // userId -> timeout
+
+    // Track current room users for seen status filtering
+    const currentRoomUsers = new Set();
+
+    // Track tab visibility for proper seen status
+    let isTabVisible = !document.hidden;
+    const pendingSeenMessages = new Set(); // Messages to mark as seen when tab becomes visible
 
     // Functions
     function showChatScreen() {
@@ -51,68 +78,169 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function displaySystemMessage(message) {
         const div = document.createElement("div");
-        div.className = "message italic mb-2 text-gray-400 text-center";
+        div.className = "system-message";
         div.innerText = message;
         messagesDiv.appendChild(div);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
         lastMessageUser = null;
     }
 
-    function displayMessage(user, message) {
+    function displayMessage(user, message, id, seenBy = []) {
+        // If message already exists (e.g. from file upload flow), don't duplicate, just update if needed
+        if (id && document.getElementById(id)) {
+            const existingMsg = document.getElementById(id);
+            // Update seen status if needed
+            const seenStatus = existingMsg.querySelector('.seen-status');
+            if (seenStatus) {
+                const otherViewers = seenBy.filter(u => u !== username);
+                if (otherViewers.length > 0) {
+                    seenStatus.textContent = `Seen by ${otherViewers.join(", ")}`;
+                    seenStatus.classList.add('visible');
+                }
+            }
+            return;
+        }
+
         const isConsecutive = lastMessageUser === user;
-    
-        const div = document.createElement("div");
-        const messageBubble = document.createElement("div");
-    
+
         const bubbleClass = user === username ? 'sent-message' : 'received-message';
         const alignmentClass = user === username ? 'justify-end' : 'justify-start';
-    
-        div.className = `message mb-2 flex items-end ${alignmentClass}`;
+
+        const wrapper = document.createElement("div");
+        // Instagram-like grouping: tighter spacing for same user, larger when sender changes
+        wrapper.className = `message flex flex-col ${user === username ? 'items-end' : 'items-start'} ${isConsecutive ? 'same-user' : 'new-user'}`;
+
         if (isConsecutive) {
-            div.classList.add("consecutive");
+            wrapper.classList.add("consecutive");
         }
+
+        const messageRow = document.createElement("div");
+        // Keep row alignment across full width for left/right alignment
+        messageRow.className = `flex items-end w-full ${alignmentClass} message-row`;
+
+        const messageBubble = document.createElement("div");
 
         let contentHtml = '';
         if (message.type === 'text') {
-            messageBubble.className = `p-3 rounded-lg max-w-xs ${bubbleClass}`;
-            contentHtml = message.content;
+            messageBubble.className = `${bubbleClass}`;
+            // Escape HTML but preserve line breaks
+            const escapedContent = message.content
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            contentHtml = escapedContent;
         } else {
-            messageBubble.className = `max-w-xs message-bubble-media`;
+            messageBubble.className = `message-bubble-media`;
             if (message.type === 'gif') {
-                contentHtml = `<img src="${message.content}" class="mt-2 rounded-lg message-file-preview">`;
+                contentHtml = `<img src="${message.content}" class="message-file-preview" loading="lazy">`;
             } else if (message.type === 'image') {
-                contentHtml = `<img src="${message.content}" class="mt-2 rounded-lg message-file-preview">`;
+                contentHtml = `<img src="${message.content}" class="message-file-preview" loading="lazy">`;
             } else if (message.type === 'video') {
-                contentHtml = `<video src="${message.content}" class="mt-2 rounded-lg message-file-preview" controls></video>`;
+                contentHtml = `<video src="${message.content}" class="message-file-preview" controls></video>`;
             }
         }
-    
+
         if (!isConsecutive) {
-            const profileIcon = document.createElement("img");
-            profileIcon.src = "profile.png";
-            profileIcon.className = "profile-icon";
-            
-            const displayName = user === username ? "You" : `~${user}`;
-            messageBubble.innerHTML = message.type === 'text' ? `<span class="font-bold">${displayName}:</span> ${contentHtml}` : contentHtml;
-    
             if (user === username) {
-                div.appendChild(messageBubble);
-                div.appendChild(profileIcon);
+                // Sender side - No "You" label, just content
+                if (message.type === 'text') {
+                    messageBubble.innerHTML = `<span class="text-sm leading-relaxed">${contentHtml}</span>`;
+                } else {
+                    messageBubble.innerHTML = contentHtml;
+                }
+
+                messageRow.appendChild(messageBubble);
             } else {
-                div.appendChild(profileIcon);
-                div.appendChild(messageBubble);
+                // Receiver side - Show username only (no icon)
+                const displayName = `~${user}`;
+                if (message.type === 'text') {
+                    messageBubble.innerHTML = `<span class="font-semibold text-xs mb-1 block opacity-90">${displayName}</span><span class="text-sm leading-relaxed">${contentHtml}</span>`;
+                } else {
+                    messageBubble.innerHTML = contentHtml;
+                }
+
+                messageRow.appendChild(messageBubble);
             }
         } else {
-            messageBubble.innerHTML = contentHtml;
-            div.appendChild(messageBubble);
+            messageBubble.innerHTML = message.type === 'text' ? `<span class="text-sm leading-relaxed">${contentHtml}</span>` : contentHtml;
+            messageRow.appendChild(messageBubble);
         }
-    
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    
+
+        wrapper.appendChild(messageRow);
+
+        // Add Seen Status (will be shown/hidden based on whether this is the last message)
+        const seenStatus = document.createElement("div");
+        seenStatus.className = "seen-status";
+        seenStatus.setAttribute('data-msg-user', user);
+        wrapper.appendChild(seenStatus);
+
+        if (id) {
+            wrapper.id = id;
+            if (user !== username) {
+                // Only mark as seen if tab is visible (user is actually viewing)
+                if (isTabVisible) {
+                    socket.emit("mark-seen", { roomKey, messageId: id, username });
+                } else {
+                    // Queue to mark as seen when user returns to tab
+                    pendingSeenMessages.add(id);
+                }
+            }
+        }
+
+        messagesDiv.appendChild(wrapper);
+
+        // Update seen status display - only show on last message from sender
+        if (user === username && seenBy && seenBy.length > 0) {
+            updateSeenStatusDisplay(user, seenBy);
+        }
+
+        // Smooth scroll
+        messagesDiv.scrollTo({
+            top: messagesDiv.scrollHeight,
+            behavior: 'smooth'
+        });
+
         lastMessageUser = user;
     }
-    
+
+    // Helper function to update seen status - only show on last message from a user
+    function updateSeenStatusDisplay(user, seenBy) {
+        // Find all messages from this user
+        const allMessages = messagesDiv.querySelectorAll('.message');
+        let lastMessageFromUser = null;
+
+        // Find the last message from this specific user
+        for (let i = allMessages.length - 1; i >= 0; i--) {
+            const msg = allMessages[i];
+            const seenStatus = msg.querySelector('.seen-status');
+            if (seenStatus && seenStatus.getAttribute('data-msg-user') === user) {
+                if (!lastMessageFromUser) {
+                    lastMessageFromUser = msg;
+                } else {
+                    // Hide seen status on all previous messages from this user
+                    seenStatus.classList.remove('visible');
+                    seenStatus.textContent = '';
+                }
+            }
+        }
+
+        // Show seen status only on the last message
+        if (lastMessageFromUser) {
+            const seenStatus = lastMessageFromUser.querySelector('.seen-status');
+            // Filter to show only users who are still in the room AND not the current user
+            const otherViewers = seenBy.filter(u => u !== username && currentRoomUsers.has(u));
+            if (seenStatus && otherViewers.length > 0) {
+                seenStatus.textContent = `Seen by ${otherViewers.join(", ")}`;
+                seenStatus.classList.add('visible');
+            } else if (seenStatus) {
+                // Hide if no valid viewers
+                seenStatus.classList.remove('visible');
+                seenStatus.textContent = '';
+            }
+        }
+    }
+
     function formatBytes(bytes, decimals = 2) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -144,12 +272,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function getFriendlyFileType(mimeType, fileName) {
+        // Extract extension from filename
+        const extension = fileName.split('.').pop().toLowerCase();
+
+        // Map MIME types and extensions to friendly names
+        if (mimeType.includes('wordprocessingml') || extension === 'docx') {
+            return 'Word Doc';
+        }
+        if (mimeType.includes('spreadsheetml') || extension === 'xlsx') {
+            return 'Excel Sheet';
+        }
+        if (mimeType.includes('presentationml') || extension === 'pptx') {
+            return 'PowerPoint';
+        }
+        if (mimeType === 'application/pdf' || extension === 'pdf') {
+            return 'PDF';
+        }
+        if (mimeType.startsWith('image/')) {
+            return 'Image';
+        }
+        if (mimeType.startsWith('video/')) {
+            return 'Video';
+        }
+        if (mimeType.startsWith('audio/')) {
+            return 'Audio';
+        }
+        if (mimeType.includes('text/') || extension === 'txt') {
+            return 'Text File';
+        }
+        if (extension === 'zip' || extension === 'rar' || extension === '7z') {
+            return 'Archive';
+        }
+
+        // Default: use extension or generic
+        return extension ? extension.toUpperCase() : 'File';
+    }
+
     function getFileIcon(file) {
         const fileType = getMimeType(file);
         if (fileType.startsWith("image")) return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l-1-1m5 5l-2-2"></path></svg>`;
         if (fileType.startsWith("video")) return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.55a1 1 0 01.45 1.74l-4.5 3.5a1 1 0 01-1.5-.74V9a1 1 0 011.5-.74zM4 6a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>`;
         if (fileType === "application/pdf") return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
         return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
+    }
+
+    function formatTypingText(users) {
+        if (!users || users.length === 0) return "";
+        if (users.length === 1) return `${users[0]} is typing...`;
+        if (users.length === 2) return `${users[0]} and ${users[1]} are typing...`;
+        const last = users.pop();
+        return `${users.join(", ")} and ${last} are typing...`;
     }
 
     function createProgressCircle(progress, messageId) {
@@ -171,14 +344,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
         <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="relative cursor-pointer" onclick="promptCancelUpload('${messageId}')">
-            <circle stroke-width="${strokeWidth}" stroke="rgba(255, 255, 255, 0.3)" fill="transparent" r="${radius}" cx="${size/2}" cy="${size/2}"/>
-            <circle stroke-width="${strokeWidth}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke="rgb(255, 255, 255)" fill="transparent" r="${radius}" cx="${size/2}" cy="${size/2}" transform="rotate(-90 ${size/2} ${size/2})"></circle>
+            <circle stroke-width="${strokeWidth}" stroke="rgba(255, 255, 255, 0.3)" fill="transparent" r="${radius}" cx="${size / 2}" cy="${size / 2}"/>
+            <circle stroke-width="${strokeWidth}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke="rgb(255, 255, 255)" fill="transparent" r="${radius}" cx="${size / 2}" cy="${size / 2}" transform="rotate(-90 ${size / 2} ${size / 2})"></circle>
             ${progress < 100 ? cancelBtn : ''}
         </svg>
     `;
     }
 
-    window.promptCancelUpload = function(messageId) {
+    window.promptCancelUpload = function (messageId) {
         uploadToCancel = messageId;
         cancelUploadModal.classList.remove("hidden");
     }
@@ -189,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayFile(user, file, messageId) {
+    function displayFile(user, file, messageId, seenBy = []) {
         const messageDiv = document.getElementById(messageId);
         const bubbleClass = user === username ? 'sent-message' : 'received-message';
         const alignmentClass = user === username ? 'justify-end' : 'justify-start';
@@ -202,56 +375,121 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileType.startsWith('image') || fileType.startsWith('video')) {
             bubbleExtraClass = "message-bubble-media";
             if (fileType.startsWith('image')) {
-                fileHtml = `<img src="${file.path}" class="mt-2 rounded-lg message-file-preview">`;
+                fileHtml = `<img src="${file.path}" class="message-file-preview" loading="lazy">`;
             } else {
-                fileHtml = `<video src="${file.path}" class="mt-2 rounded-lg message-file-preview" controls></video>`;
+                fileHtml = `<video src="${file.path}" class="message-file-preview" controls></video>`;
             }
         } else {
-            const truncatedName = file.name.length > 15 ? file.name.substring(0, 10) + "..." + file.name.substring(file.name.length - 5) : file.name;
-            const fileTypeSuffix = fileType.split('/')[1] ? fileType.split('/')[1].toUpperCase() + ' File' : 'File';
+            // Apply fixed-width class for document files
+            bubbleExtraClass = "file-document-bubble";
+            const truncatedName = file.name.length > 20 ? file.name.substring(0, 15) + "..." + file.name.substring(file.name.length - 5) : file.name;
+            const friendlyType = getFriendlyFileType(fileType, file.name);
+            const subTextColor = user === username ? 'text-purple-100/70' : 'text-slate-400';
+
+            // Create tooltip with full file information
+            const fullFileInfo = `${file.name} (${formatBytes(file.size)})`;
+
             fileHtml = `
-            <div class="flex items-center">
-                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-600 mr-4">
+            <div class="flex items-center p-2" title="${fullFileInfo}">
+                <div class="w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl bg-slate-700/50 mr-4 border border-slate-600/50">
                     ${getFileIcon(file)}
                 </div>
-                <div class="overflow-hidden">
-                    <div class="font-medium truncate">${truncatedName}</div>
-                    <div class="text-sm text-gray-300">${formatBytes(file.size)} - ${fileTypeSuffix}</div>
+                <div class="overflow-hidden flex-1">
+                    <div class="font-semibold text-sm truncate ${user === username ? 'text-white' : 'text-slate-200'}" title="${file.name}">${truncatedName}</div>
+                    <div class="text-xs ${subTextColor} mt-1">${formatBytes(file.size)} • ${friendlyType}</div>
                 </div>
             </div>
-            <div class="flex gap-2 mt-3">
-                <a href="${file.path}" target="_blank" class="flex-1 text-center bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg text-sm">Open</a>
-                <a href="${file.path}" download="${file.name}" class="flex-1 text-center bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg text-sm">Save As</a>
+            <div class="flex gap-2 mt-3 px-2 pb-2">
+                <a href="${file.path}" target="_blank" class="flex-1 text-center bg-slate-700/50 hover:bg-slate-600/50 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-all border border-slate-600/50">
+                    <i class="fas fa-external-link-alt mr-2"></i>Open
+                </a>
+                <a href="${file.path}" download="${file.name}" class="flex-1 text-center bg-purple-600/50 hover:bg-purple-600/70 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-all border border-purple-500/30">
+                    <i class="fas fa-download mr-2"></i>Save
+                </a>
             </div>
         `;
         }
 
         if (messageDiv) {
-            const bubble = messageDiv.querySelector(".p-3");
-            bubble.innerHTML = fileHtml;
-            bubble.className = `p-3 rounded-lg max-w-xs ${bubbleClass} ${bubbleExtraClass}`;
+            const bubble = messageDiv.querySelector(".sent-message") || messageDiv.querySelector(".received-message");
+            if (bubble) {
+                bubble.innerHTML = fileHtml;
+                if (bubbleExtraClass) {
+                    bubble.classList.add(bubbleExtraClass);
+                }
+            }
         } else {
-            const div = document.createElement("div");
-            div.id = messageId;
-            div.className = `message mb-4 flex ${alignmentClass}`;
-            div.innerHTML = `<div class="p-3 rounded-lg max-w-xs ${bubbleClass} ${bubbleExtraClass}">${fileHtml}</div>`;
-            messagesDiv.appendChild(div);
+            const wrapper = document.createElement("div");
+            wrapper.id = messageId;
+            wrapper.className = `message flex flex-col ${user === username ? 'items-end' : 'items-start'} ${lastMessageUser === user ? 'same-user' : 'new-user'}`;
+
+            const messageRow = document.createElement("div");
+            messageRow.className = `flex items-end w-full ${alignmentClass} message-row`;
+
+            const messageBubble = document.createElement("div");
+            messageBubble.className = `${bubbleClass} ${bubbleExtraClass || ''}`;
+            messageBubble.innerHTML = fileHtml;
+            messageRow.appendChild(messageBubble);
+
+            wrapper.appendChild(messageRow);
+
+            const seenStatus = document.createElement("div");
+            seenStatus.className = "seen-status";
+            seenStatus.setAttribute('data-msg-user', user);
+            wrapper.appendChild(seenStatus);
+
+            if (messageId && user !== username) {
+                // Only mark as seen if tab is visible
+                if (isTabVisible) {
+                    socket.emit("mark-seen", { roomKey, messageId, username });
+                } else {
+                    // Queue to mark as seen when user returns to tab
+                    pendingSeenMessages.add(messageId);
+                }
+            }
+
+            messagesDiv.appendChild(wrapper);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            // Update seen status display - only show on last message from sender
+            if (user === username && seenBy && seenBy.length > 0) {
+                updateSeenStatusDisplay(user, seenBy);
+            }
         }
     }
 
     function updateUserList(users) {
         userList.innerHTML = "";
+        userCount.textContent = users.length;
+
+        // Update current room users Set for seen status filtering
+        currentRoomUsers.clear();
         users.forEach(user => {
+            currentRoomUsers.add(user.username);
+
             const li = document.createElement("li");
-            li.className = "flex justify-between items-center";
-            li.textContent = user.username + (user.id === socket.id ? " (You)" : "");
-            if(isAdmin && user.id !== socket.id) {
+            li.className = "flex items-center justify-between p-3 bg-slate-800/30 rounded-xl hover:bg-slate-800/50 transition-all";
+
+            const userInfo = document.createElement("div");
+            userInfo.className = "flex items-center space-x-3";
+
+            const userName = document.createElement("span");
+            userName.className = "font-medium";
+            userName.textContent = user.username + (user.id === socket.id ? " (You)" : "");
+
+            userInfo.appendChild(userName);
+            li.appendChild(userInfo);
+
+            if (isAdmin && user.id !== socket.id) {
                 const removeBtn = document.createElement("button");
-                removeBtn.textContent = "Remove";
-                removeBtn.className = "text-red-500 hover:text-red-700";
+                removeBtn.innerHTML = '<i class="fas fa-user-minus"></i>';
+                removeBtn.className = "text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded-lg transition-all";
+                removeBtn.title = "Remove user";
                 removeBtn.onclick = () => {
-                    socket.emit("remove-user", { roomKey, userId: user.id });
+                    // Show custom modal with user info
+                    userToRemove = { id: user.id, username: user.username };
+                    removeUserText.textContent = `Are you sure you want to remove ${user.username} from the room?`;
+                    removeUserModal.classList.remove("hidden");
                 };
                 li.appendChild(removeBtn);
             }
@@ -259,22 +497,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Confirm remove user
+    confirmRemoveUserBtn.onclick = () => {
+        if (userToRemove) {
+            socket.emit("remove-user", { roomKey, userId: userToRemove.id });
+            userToRemove = null;
+        }
+        removeUserModal.classList.add("hidden");
+    };
+
+    // Cancel remove user
+    cancelRemoveUserBtn.onclick = () => {
+        userToRemove = null;
+        removeUserModal.classList.add("hidden");
+    };
+
     function uploadFile(file) {
         fileToSend = file;
         messageInput.value = `Pasted file: ${file.name}. Press send to upload.`;
         messageInput.disabled = true;
     }
-    
+
 
     function sendFile(file) {
         const messageId = `file-${Date.now()}`;
-        const div = document.createElement("div");
-        div.className = "message mb-4 flex justify-end";
-        div.id = messageId;
+
+        // Create wrapper to match displayMessage structure
+        const wrapper = document.createElement("div");
+        wrapper.className = "message flex flex-col items-end";
+        wrapper.id = messageId;
+
+        // Create messageRow with w-full for proper sizing
+        const messageRow = document.createElement("div");
+        messageRow.className = "flex items-end w-full justify-end";
 
         const messageBubble = document.createElement("div");
-        messageBubble.className = "p-3 rounded-lg max-w-xs sent-message text-white";
-        messageBubble.style.width = '320px';
+        messageBubble.className = "sent-message text-white file-document-bubble";
 
         const truncatedName = file.name.length > 15 ? file.name.substring(0, 10) + "..." + file.name.substring(file.name.length - 5) : file.name;
 
@@ -282,17 +540,18 @@ document.addEventListener('DOMContentLoaded', () => {
         xhr.messageId = messageId;
 
         const initialContent = `
-    <div class="flex items-center gap-3">
-        <div class="progress-circle relative w-12 h-12 flex-shrink-0 flex items-center justify-center">${createProgressCircle(0, messageId)}</div>
-        <div class="overflow-hidden">
-            <div class="font-medium truncate">${truncatedName}</div>
-            <div class="text-sm text-gray-300 upload-status">0 Bytes / ${formatBytes(file.size)}</div>
+    <div class="flex items-center gap-4 p-2">
+        <div class="progress-circle relative w-14 h-14 flex-shrink-0 flex items-center justify-center">${createProgressCircle(0, messageId)}</div>
+        <div class="overflow-hidden flex-1">
+            <div class="font-semibold text-sm truncate text-white">${truncatedName}</div>
+            <div class="text-xs text-purple-200/70 upload-status mt-1">0 Bytes / ${formatBytes(file.size)}</div>
         </div>
     </div>`;
 
         messageBubble.innerHTML = initialContent;
-        div.appendChild(messageBubble);
-        messagesDiv.appendChild(div);
+        messageRow.appendChild(messageBubble);
+        wrapper.appendChild(messageRow);
+        messagesDiv.appendChild(wrapper);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
         const formData = new FormData();
@@ -321,51 +580,94 @@ document.addEventListener('DOMContentLoaded', () => {
         xhr.onload = () => {
             delete fileUploads[messageId];
             if (xhr.status === 200) {
-                const {
-                    path
-                } = JSON.parse(xhr.responseText);
-                if (path) {
-                    const fileData = {
-                        name: file.name,
-                        size: file.size,
-                        type: file.type,
-                        path
-                    };
-                    displayFile(username, fileData, messageId);
-                    socket.emit("file-uploaded", {
-                        roomKey,
-                        username,
-                        file: fileData,
-                        messageId
-                    });
+                console.log("Upload success, parsing response...");
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    console.log("Parsed response:", response);
+                    const { path } = response;
+                    if (path) {
+                        const fileData = {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            path
+                        };
+
+                        const fileMimeType = getMimeType(file);
+
+                        // Send images and videos as chat messages (like GIFs) for better integration
+                        if (fileMimeType.startsWith('image') || fileMimeType.startsWith('video')) {
+                            const messageType = fileMimeType.startsWith('image') ? 'image' : 'video';
+                            // Remove the progress message and send as regular chat message
+                            const messageToRemove = document.getElementById(messageId);
+                            if (messageToRemove) {
+                                messageToRemove.remove();
+                            }
+                            // Send as chat message - server will broadcast to all users including sender
+                            if (roomKey && username) {
+                                socket.emit("chat-message", {
+                                    roomKey,
+                                    username,
+                                    id: messageId,
+                                    message: {
+                                        type: messageType,
+                                        content: path
+                                    },
+                                    seenBy: []
+                                });
+                            }
+                        } else {
+                            // For other files, use the file-uploaded event
+                            displayFile(username, fileData, messageId, []);
+                            if (roomKey && username) {
+                                socket.emit("file-uploaded", {
+                                    roomKey,
+                                    username,
+                                    file: fileData,
+                                    id: messageId,
+                                    seenBy: []
+                                });
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error processing upload response:", error);
+                    alert("Error processing upload: " + error.message); // Visible alert
+                    messageBubble.innerHTML = '<div class="text-red-400 text-sm">Upload processing failed</div>';
                 }
             } else {
                 if (xhr.status !== 0) {
-                    messageBubble.innerHTML = "File upload failed";
+                    messageBubble.innerHTML = '<div class="text-red-400 text-sm">File upload failed</div>';
+                    alert("Upload failed with status: " + xhr.status); // Visible alert
                 }
             }
         };
 
+        xhr.onerror = () => {
+            delete fileUploads[messageId];
+            messageBubble.innerHTML = '<div class="text-red-400 text-sm">Upload error occurred</div>';
+        };
+
         xhr.send(formData);
     }
-    
+
     function saveSession() {
-        sessionStorage.setItem("roomKey", roomKey);
-        sessionStorage.setItem("username", username);
-        sessionStorage.setItem("isAdmin", isAdmin);
+        localStorage.setItem("roomKey", roomKey);
+        localStorage.setItem("username", username);
+        localStorage.setItem("isAdmin", isAdmin);
     }
 
     function restoreSession() {
-        const savedRoomKey = sessionStorage.getItem("roomKey");
-        const savedUsername = sessionStorage.getItem("username");
-        const savedIsAdmin = sessionStorage.getItem("isAdmin");
+        const savedRoomKey = localStorage.getItem("roomKey");
+        const savedUsername = localStorage.getItem("username");
+        const savedIsAdmin = localStorage.getItem("isAdmin");
 
         if (savedRoomKey && savedUsername) {
             roomKey = savedRoomKey;
             username = savedUsername;
             isAdmin = savedIsAdmin === 'true';
 
-            socket.emit("rejoin-room", { roomKey, username });
+            socket.emit("rejoin-room", { roomKey, username, isAdmin });
         }
     }
 
@@ -391,7 +693,29 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     leaveBtn.onclick = () => {
+        // Show custom modal instead of confirm dialog
+        leaveChatModal.classList.remove("hidden");
+    };
+
+    // Confirm leave chat
+    confirmLeaveBtn.onclick = () => {
+        leaveChatModal.classList.add("hidden");
+
+        // Clear typing state on leave
+        if (isTyping) {
+            socket.emit("typing:stop", { roomKey, userId: socket.id });
+            isTyping = false;
+        }
+        if (typingTimeout) clearTimeout(typingTimeout);
+        typingUsers.clear();
+        typingSafetyTimeouts.forEach(t => clearTimeout(t));
+        typingSafetyTimeouts.clear();
+
         socket.emit("leave-room", { roomKey, username });
+        localStorage.removeItem("roomKey");
+        localStorage.removeItem("username");
+        localStorage.removeItem("isAdmin");
+
         chatScreen.style.display = "none";
         joinScreen.style.display = "flex";
         messagesDiv.innerHTML = "";
@@ -401,10 +725,27 @@ document.addEventListener('DOMContentLoaded', () => {
         lastMessageUser = null;
     };
 
+    // Cancel leave chat
+    cancelLeaveBtn.onclick = () => {
+        leaveChatModal.classList.add("hidden");
+    };
+
     killRoomBtn.onclick = () => {
         if (isAdmin) {
-            socket.emit("kill-room", { roomKey });
+            // Show custom modal
+            endRoomModal.classList.remove("hidden");
         }
+    };
+
+    // Confirm end room
+    confirmEndRoomBtn.onclick = () => {
+        endRoomModal.classList.add("hidden");
+        socket.emit("kill-room", { roomKey });
+    };
+
+    // Cancel end room
+    cancelEndRoomBtn.onclick = () => {
+        endRoomModal.classList.add("hidden");
     };
 
     messageInput.addEventListener("keydown", (e) => {
@@ -413,7 +754,43 @@ document.addEventListener('DOMContentLoaded', () => {
             sendBtn.click();
         }
     });
-    
+
+    messageInput.addEventListener("input", () => {
+        // Only emit if there's content and we're in a room
+        if (!roomKey || !username) return;
+
+        const hasContent = messageInput.value.trim().length > 0;
+
+        // Emit typing:start only once when typing begins
+        if (!isTyping && hasContent) {
+            socket.emit("typing:start", {
+                roomKey,
+                userId: socket.id,
+                username
+            });
+            isTyping = true;
+        }
+
+        // Reset debounce timer on each keystroke
+        if (typingTimeout) clearTimeout(typingTimeout);
+
+        // If field is empty, stop typing immediately
+        if (!hasContent && isTyping) {
+            socket.emit("typing:stop", { roomKey, userId: socket.id });
+            isTyping = false;
+            return;
+        }
+
+        // Auto-stop after 2 seconds of inactivity
+        typingTimeout = setTimeout(() => {
+            if (isTyping) {
+                socket.emit("typing:stop", { roomKey, userId: socket.id });
+                isTyping = false;
+            }
+        }, 2000);
+    });
+
+
     messageInput.addEventListener("focus", () => {
         mediaPicker.style.display = "none";
     });
@@ -436,16 +813,32 @@ document.addEventListener('DOMContentLoaded', () => {
             messageInput.value = "";
             messageInput.disabled = false;
             messageInput.focus();
+
+            // Stop typing on send
+            if (isTyping) {
+                socket.emit("typing:stop", { roomKey, userId: socket.id });
+                isTyping = false;
+                if (typingTimeout) clearTimeout(typingTimeout);
+            }
             return;
         }
-        
+
         const message = messageInput.value.trim();
         if (message === "") return;
-        socket.emit("chat-message", { roomKey, username, message: { type: 'text', content: message } });
+
+        // Stop typing when sending message
+        if (isTyping) {
+            socket.emit("typing:stop", { roomKey, userId: socket.id });
+            isTyping = false;
+            if (typingTimeout) clearTimeout(typingTimeout);
+        }
+
+        const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        socket.emit("chat-message", { roomKey, username, id: messageId, message: { type: 'text', content: message }, seenBy: [] });
         messageInput.value = "";
         messageInput.focus();
     };
-    
+
 
     fileInput.onchange = () => {
         const file = fileInput.files[0];
@@ -483,19 +876,49 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelUploadModal.classList.add("hidden");
     };
 
-    emojiBtn.onclick = () => toggleMediaPicker("emoji");
-    gifBtn.onclick = () => toggleMediaPicker("gif");
+    emojiBtn.onclick = () => toggleMediaPicker();
 
-    function toggleMediaPicker(type) {
-        if (mediaPicker.style.display === "block" && mediaPicker.dataset.type === type) {
+    function toggleMediaPicker() {
+        if (mediaPicker.style.display === "block") {
             mediaPicker.style.display = "none";
             return;
         }
         mediaPicker.style.display = "block";
-        mediaPicker.dataset.type = type;
         mediaPicker.innerHTML = "";
 
-        if (type === "emoji") {
+        // Create tabs container
+        const tabsContainer = document.createElement("div");
+        tabsContainer.className = "flex border-b border-slate-700/50 mb-4";
+
+        const emojiTab = document.createElement("button");
+        emojiTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-slate-300 hover:text-purple-400 border-b-2 border-transparent hover:border-purple-500/50 transition-colors";
+        emojiTab.textContent = "Emoji";
+        emojiTab.onclick = () => showEmojiPicker();
+
+        const gifTab = document.createElement("button");
+        gifTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-slate-300 hover:text-purple-400 border-b-2 border-transparent hover:border-purple-500/50 transition-colors";
+        gifTab.textContent = "GIF";
+        gifTab.onclick = () => showGifPicker();
+
+        tabsContainer.appendChild(emojiTab);
+        tabsContainer.appendChild(gifTab);
+        mediaPicker.appendChild(tabsContainer);
+
+        // Content area
+        const contentArea = document.createElement("div");
+        contentArea.id = "media-picker-content";
+        mediaPicker.appendChild(contentArea);
+
+        // Show emoji by default
+        showEmojiPicker();
+
+        function showEmojiPicker() {
+            emojiTab.classList.add("border-purple-500", "text-purple-400");
+            emojiTab.classList.remove("border-transparent", "text-slate-300");
+            gifTab.classList.remove("border-purple-500", "text-purple-400");
+            gifTab.classList.add("border-transparent", "text-slate-300");
+
+            contentArea.innerHTML = "";
             if (emojis.length === 0) {
                 fetch('/emojis.json').then(res => res.json()).then(data => {
                     emojis = data.map(emoji => emoji.unicode);
@@ -504,34 +927,48 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 renderEmojis();
             }
-        } else if (type === "gif") {
+        }
+
+        function showGifPicker() {
+            gifTab.classList.add("border-purple-500", "text-purple-400");
+            gifTab.classList.remove("border-transparent", "text-slate-300");
+            emojiTab.classList.remove("border-purple-500", "text-purple-400");
+            emojiTab.classList.add("border-transparent", "text-slate-300");
+
+            contentArea.innerHTML = "";
             const searchInput = document.createElement("input");
             searchInput.type = "text";
             searchInput.placeholder = "Search for GIFs...";
-            searchInput.className = "w-full p-2 rounded-lg bg-gray-700 text-white";
+            searchInput.className = "w-full p-3 rounded-xl bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 mb-3";
             searchInput.oninput = () => {
                 searchGifs(searchInput.value);
             };
-            mediaPicker.appendChild(searchInput);
+            contentArea.appendChild(searchInput);
+
             const resultsDiv = document.createElement("div");
-            resultsDiv.className = "mt-2 grid grid-cols-3 gap-2";
-            mediaPicker.appendChild(resultsDiv);
+            resultsDiv.className = "mt-3 grid grid-cols-3 gap-3";
+            resultsDiv.id = "gif-results";
+            contentArea.appendChild(resultsDiv);
 
             function searchGifs(query) {
-                fetch(`/api/gifs?query=${query}`)
+                fetch(`/api/gifs?query=${query || "trending"}`)
                     .then(res => res.json())
                     .then(data => {
-                        resultsDiv.innerHTML = "";
-                        data.data.forEach(gif => {
-                            const img = document.createElement("img");
-                            img.src = gif.images.fixed_height.url;
-                            img.className = "cursor-pointer w-full";
-                            img.onclick = () => {
-                                socket.emit("chat-message", { roomKey, username, message: { type: 'gif', content: img.src } });
-                                mediaPicker.style.display = "none";
-                            };
-                            resultsDiv.appendChild(img);
-                        });
+                        const gifResults = document.getElementById("gif-results");
+                        if (gifResults) {
+                            gifResults.innerHTML = "";
+                            data.data.forEach(gif => {
+                                const img = document.createElement("img");
+                                img.src = gif.images.fixed_height.url;
+                                img.className = "cursor-pointer w-full rounded-lg hover:opacity-80 transition-opacity";
+                                img.loading = "lazy";
+                                img.onclick = () => {
+                                    socket.emit("chat-message", { roomKey, username, message: { type: 'gif', content: img.src } });
+                                    mediaPicker.style.display = "none";
+                                };
+                                gifResults.appendChild(img);
+                            });
+                        }
                     });
             }
 
@@ -540,24 +977,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderEmojis() {
-        mediaPicker.innerHTML = "";
+        const contentArea = document.getElementById("media-picker-content");
+        if (!contentArea) return;
+
+        contentArea.innerHTML = "";
+        const emojiGrid = document.createElement("div");
+        emojiGrid.className = "grid grid-cols-8 gap-2";
         emojis.forEach(emoji => {
             const btn = document.createElement("button");
             btn.innerHTML = emoji;
-            btn.className = "m-1 text-2xl";
+            btn.className = "text-2xl hover:scale-125 transition-transform p-2 rounded-lg hover:bg-slate-700/50 active:scale-100";
             btn.onclick = () => {
                 messageInput.value += emoji;
+                messageInput.focus();
             };
-            mediaPicker.appendChild(btn);
+            emojiGrid.appendChild(btn);
         });
+        contentArea.appendChild(emojiGrid);
     }
 
     function openPreview(src, type) {
         previewModal.classList.remove('hidden');
         if (type.startsWith('image') || type === 'gif') {
-            previewContent.innerHTML = `<img src="${src}">`;
+            previewContent.innerHTML = `<img src="${src}" class="max-w-full max-h-[90vh] object-contain">`;
         } else if (type.startsWith('video')) {
-            previewContent.innerHTML = `<video src="${src}" controls autoplay></video>`;
+            previewContent.innerHTML = `<video src="${src}" controls autoplay class="max-w-full max-h-[90vh]"></video>`;
         }
     }
 
@@ -594,6 +1038,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     restoreSession();
 
+    // Track tab visibility for proper "seen" status
+    document.addEventListener('visibilitychange', () => {
+        isTabVisible = !document.hidden;
+
+        // When user returns to tab, mark all pending messages as seen
+        if (isTabVisible && pendingSeenMessages.size > 0) {
+            pendingSeenMessages.forEach(messageId => {
+                socket.emit("mark-seen", { roomKey, messageId, username });
+            });
+            pendingSeenMessages.clear();
+        }
+    });
+
     // Socket.io Handlers
     socket.on("room-created", (data) => {
         isAdmin = data.isAdmin;
@@ -606,8 +1063,22 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("join-approved", (data) => {
         messagesDiv.innerHTML = "";
         lastMessageUser = null;
-        data.messages.forEach(msg => displayMessage(msg.username, msg.message));
-        data.files.forEach(file => displayFile(file.username, file.file, file.messageId));
+
+        // Sort messages by timestamp to maintain chronological order
+        const messages = data.messages || [];
+        messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        // Display messages in chronological order
+        messages.forEach(msg => {
+            if (msg.file) {
+                // This is a file message
+                displayFile(msg.username, msg.file, msg.id || msg.messageId, msg.seenBy || []);
+            } else {
+                // This is a text/media message
+                displayMessage(msg.username, msg.message, msg.id || msg.messageId, msg.seenBy || []);
+            }
+        });
+
         saveSession();
         showChatScreen();
         displaySystemMessage("Your request was approved. Welcome to the room!");
@@ -632,6 +1103,11 @@ document.addEventListener('DOMContentLoaded', () => {
         leaveBtn.click();
     });
 
+    socket.on("room-inactive", (message) => {
+        alert(message || "Room has been closed due to inactivity.");
+        leaveBtn.click();
+    });
+
     socket.on("room-exists", (m) => alert(m));
     socket.on("room-not-found", (m) => alert(m));
     socket.on("admin-offline", (m) => alert(m));
@@ -649,15 +1125,88 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("chat-history", ({ messages, files }) => {
         messagesDiv.innerHTML = "";
         lastMessageUser = null;
-        messages.forEach((msg) => displayMessage(msg.username, msg.message));
-        files.forEach((file) => displayFile(file.username, file.file, file.messageId));
+        messages.forEach((msg) => displayMessage(msg.username, msg.message, msg.id || msg.messageId, msg.seenBy || []));
+        files.forEach((file) => displayFile(file.username, file.file, file.id || file.messageId, file.seenBy || []));
     });
 
-    socket.on("chat-message", ({ username, message }) => displayMessage(username, message));
+    socket.on("chat-message", (msg) => displayMessage(msg.username, msg.message, msg.id, msg.seenBy || []));
 
-    socket.on("file-uploaded", ({ username: user, file, messageId }) => {
+    // Production-grade typing indicator handlers
+    socket.on("user-typing-start", ({ userId, username: typingUsername }) => {
+        // Never show own typing indicator
+        if (userId === socket.id) return;
+
+        // Add user to typing Map
+        typingUsers.set(userId, typingUsername);
+        updateTypingIndicator();
+
+        // Safety timeout: auto-remove after 3s if no stop received
+        if (typingSafetyTimeouts.has(userId)) {
+            clearTimeout(typingSafetyTimeouts.get(userId));
+        }
+        const timeout = setTimeout(() => {
+            typingUsers.delete(userId);
+            typingSafetyTimeouts.delete(userId);
+            updateTypingIndicator();
+        }, 3000);
+        typingSafetyTimeouts.set(userId, timeout);
+    });
+
+    socket.on("user-typing-stop", ({ userId }) => {
+        typingUsers.delete(userId);
+        if (typingSafetyTimeouts.has(userId)) {
+            clearTimeout(typingSafetyTimeouts.get(userId));
+            typingSafetyTimeouts.delete(userId);
+        }
+        updateTypingIndicator();
+    });
+
+    // Update typing indicator display
+    function updateTypingIndicator() {
+        const indicator = document.getElementById("typingIndicator");
+        const count = typingUsers.size;
+
+        if (count === 0) {
+            if (indicator) {
+                indicator.classList.add("hidden");
+            }
+            return;
+        }
+
+        if (!indicator) return; // Element not yet created
+
+        indicator.classList.remove("hidden");
+        const typingText = indicator.querySelector(".typing-text");
+        if (!typingText) return;
+
+        const users = Array.from(typingUsers.values());
+
+        // Instagram-like text formatting
+        if (count === 1) {
+            typingText.textContent = `${users[0]} is typing`;
+        } else if (count === 2) {
+            typingText.textContent = `${users[0]} and ${users[1]} are typing`;
+        } else {
+            typingText.textContent = "Several people are typing";
+        }
+    }
+
+    socket.on("message-seen-update", ({ messageId, seenBy }) => {
+        const msgEnv = document.getElementById(messageId);
+        if (msgEnv) {
+            const seenStatus = msgEnv.querySelector('.seen-status');
+            if (seenStatus) {
+                const msgUser = seenStatus.getAttribute('data-msg-user');
+                // Update seen status display for this user (will handle showing only on last message)
+                updateSeenStatusDisplay(msgUser, seenBy);
+            }
+        }
+    });
+
+
+    socket.on("file-uploaded", ({ id, username: user, file, seenBy = [] }) => {
         if (user !== username) {
-            displayFile(user, file, messageId);
+            displayFile(user, file, id, seenBy);
         }
     });
 

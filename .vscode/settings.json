@@ -1,0 +1,5 @@
+{
+    "css.lint.unknownAtRules": "ignore",
+    "css.lint.propertyIgnoredDueToDisplay": "ignore",
+    "css.lint.vendorPrefix": "ignore"
+}
