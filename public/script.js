@@ -420,6 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (messageDiv) {
+            // Message already exists (from upload progress), just update content
             const bubble = messageDiv.querySelector(".sent-message") || messageDiv.querySelector(".received-message");
             if (bubble) {
                 bubble.innerHTML = fileHtml;
@@ -427,7 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     bubble.classList.add(bubbleExtraClass);
                 }
             }
+            // Update lastMessageUser even when updating existing message
+            lastMessageUser = user;
         } else {
+            // Create new message element
             const wrapper = document.createElement("div");
             wrapper.id = messageId;
             wrapper.className = `message flex flex-col ${user === username ? 'items-end' : 'items-start'} ${lastMessageUser === user ? 'same-user' : 'new-user'}`;
@@ -464,6 +468,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (user === username && seenBy && seenBy.length > 0) {
                 updateSeenStatusDisplay(user, seenBy);
             }
+
+            // Update lastMessageUser for new messages
+            lastMessageUser = user;
         }
     }
 
@@ -673,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     roomKey,
                                     username,
                                     file: fileData,
-                                    id: messageId,
+                                    messageId: messageId,
                                     seenBy: []
                                 });
                             }
@@ -759,6 +766,11 @@ document.addEventListener('DOMContentLoaded', () => {
         typingUsers.clear();
         typingSafetyTimeouts.forEach(t => clearTimeout(t));
         typingSafetyTimeouts.clear();
+
+        // Cleanup mobile keyboard handler
+        if (window.cleanupMobileKeyboard) {
+            window.cleanupMobileKeyboard();
+        }
 
         socket.emit("leave-room", { roomKey, username });
         localStorage.removeItem("roomKey");
@@ -1093,19 +1105,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function handleKeyboard() {
-        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        if (isMobile) {
-            messageInput.addEventListener('focus', () => {
-                document.body.classList.add('keyboard-open');
-            });
-            messageInput.addEventListener('blur', () => {
-                document.body.classList.remove('keyboard-open');
-            });
+    function handleMobileKeyboard() {
+        // Check for visualViewport support
+        if (!window.visualViewport) {
+            console.warn('visualViewport not supported, keyboard handling may be limited');
+            return;
         }
+
+        const chatScreen = document.getElementById('chatScreen');
+        const messagesDiv = document.getElementById('messages');
+
+        if (!chatScreen) return;
+
+        let isAtBottom = true;
+
+        function updateViewportHeight() {
+            // Get the visual viewport height (excludes keyboard)
+            const viewportHeight = window.visualViewport.height;
+
+            // Set CSS variable for dynamic height
+            document.documentElement.style.setProperty('--vvh', `${viewportHeight}px`);
+
+            // If user was at bottom before keyboard opened, keep them at bottom
+            if (messagesDiv && isAtBottom) {
+                requestAnimationFrame(() => {
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                });
+            }
+        }
+
+        function checkScrollPosition() {
+            if (!messagesDiv) return;
+            // Check if user is at bottom (within 100px threshold)
+            const threshold = 100;
+            isAtBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < threshold;
+        }
+
+        // Listen to scroll to track if user is at bottom
+        if (messagesDiv) {
+            messagesDiv.addEventListener('scroll', checkScrollPosition);
+        }
+
+        // Listen to resize events (keyboard open/close)
+        window.visualViewport.addEventListener('resize', updateViewportHeight);
+        window.visualViewport.addEventListener('scroll', updateViewportHeight);
+
+        // Initial call
+        updateViewportHeight();
+
+        // Cleanup function (call when leaving chat)
+        window.cleanupMobileKeyboard = function () {
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', updateViewportHeight);
+                window.visualViewport.removeEventListener('scroll', updateViewportHeight);
+            }
+            if (messagesDiv) {
+                messagesDiv.removeEventListener('scroll', checkScrollPosition);
+            }
+            document.documentElement.style.removeProperty('--vvh');
+        };
     }
 
-    handleKeyboard();
+    handleMobileKeyboard();
 
     restoreSession();
 
@@ -1276,9 +1337,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     socket.on("file-uploaded", ({ id, username: user, file, seenBy = [] }) => {
-        if (user !== username) {
-            displayFile(user, file, id, seenBy);
+        // Don't display if message already exists (uploader already displayed it)
+        if (document.getElementById(id)) {
+            return;
         }
+        // Display for all users (server broadcasts to everyone)
+        displayFile(user, file, id, seenBy);
     });
 
     socket.on("user-joined", (username) => displaySystemMessage(`${username} joined the room`));

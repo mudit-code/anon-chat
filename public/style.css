@@ -45,8 +45,8 @@
   #chatScreen {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
+    /* Use CSS variable set by JS, fallback to dvh */
+    height: var(--vvh, 100dvh);
     width: 100%;
     background: linear-gradient(to bottom, #0f172a, #1e1b4b, #0f172a);
     overflow: hidden;
@@ -84,17 +84,9 @@
 
   #chat-input-container {
     flex-shrink: 0;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
-    /* Handle iPhone home bar and mobile browser navigation */
+    padding-bottom: env(safe-area-inset-bottom, 1rem);
     position: relative;
     z-index: 5;
-  }
-
-  @media (max-width: 768px) {
-    #chat-input-container {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
-      /* Extra padding for mobile navigation bars */
-    }
   }
 
   #chat-input-container>div:first-of-type {
