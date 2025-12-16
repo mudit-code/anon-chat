@@ -1299,10 +1299,6 @@ button:focus-visible,
   display: grid;
 }
 
-.contents {
-  display: contents;
-}
-
 .hidden {
   display: none;
 }
@@ -1481,10 +1477,6 @@ button:focus-visible,
 
 .animate-slide-up {
   animation: slide-up 0.6s ease-out;
-}
-
-.cursor-not-allowed {
-  cursor: not-allowed;
 }
 
 .cursor-pointer {
