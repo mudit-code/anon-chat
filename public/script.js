@@ -17,8 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const messagesDiv = document.getElementById("messages");
     const fileInput = document.getElementById("fileInput");
     const fileBtn = document.getElementById("fileBtn");
-    const emojiBtn = document.getElementById("emojiBtn");
-    const mediaPicker = document.getElementById("media-picker");
     const joinRequestModal = document.getElementById("joinRequestModal");
     const joinRequestUser = document.getElementById("joinRequestUser");
     const approveJoinBtn = document.getElementById("approveJoinBtn");
@@ -1016,6 +1014,67 @@ document.addEventListener('DOMContentLoaded', () => {
     fileBtn.onclick = () => {
         fileInput.click();
     };
+
+    // Handle paste events (for stickers from mobile keyboard)
+    messageInput.addEventListener('paste', async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        // Look for image items in clipboard
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault(); // Prevent default paste behavior
+
+                const blob = items[i].getAsFile();
+                if (!blob) continue;
+
+                try {
+                    // Upload the pasted image
+                    const formData = new FormData();
+                    formData.append('file', blob, 'sticker.png');
+
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Upload failed');
+                    }
+
+                    const data = await response.json();
+                    const stickerUrl = data.path;
+
+                    // Generate message ID
+                    const messageId = `sticker-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+                    // Send sticker message
+                    socket.emit('chat-message', {
+                        roomKey,
+                        username,
+                        id: messageId,
+                        message: {
+                            type: 'sticker',
+                            content: stickerUrl
+                        },
+                        seenBy: []
+                    });
+
+                    // Display locally
+                    displayMessage(username, {
+                        type: 'sticker',
+                        content: stickerUrl
+                    }, messageId, []);
+
+                } catch (error) {
+                    console.error('Sticker paste failed:', error);
+                    alert('Failed to send sticker. Please try again.');
+                }
+
+                break; // Only handle first image
+            }
+        }
+    });
     approveJoinBtn.onclick = () => {
         if (pendingJoinRequest) {
             socket.emit("approve-join", { roomKey, userId: pendingJoinRequest.userId });
