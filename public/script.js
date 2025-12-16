@@ -33,6 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const closePreview = document.getElementById("closePreview");
     const userCount = document.getElementById("userCount");
 
+    // Mobile user sidebar elements
+    const mobileUsersBtn = document.getElementById("mobileUsersBtn");
+    const mobileUserSidebar = document.getElementById("mobileUserSidebar");
+    const mobileUserBackdrop = document.getElementById("mobileUserBackdrop");
+    const closeMobileSidebar = document.getElementById("closeMobileSidebar");
+    const mobileUserList = document.getElementById("mobileUserList");
+    const mobileUserCount = document.getElementById("mobileUserCount");
+    const mobileUserCountText = document.getElementById("mobileUserCountText");
+
     // Warning modals
     const leaveChatModal = document.getElementById("leaveChatModal");
     const confirmLeaveBtn = document.getElementById("confirmLeaveBtn");
@@ -462,6 +471,10 @@ document.addEventListener('DOMContentLoaded', () => {
         userList.innerHTML = "";
         userCount.textContent = users.length;
 
+        // Update mobile user counts
+        if (mobileUserCount) mobileUserCount.textContent = users.length;
+        if (mobileUserCountText) mobileUserCountText.textContent = users.length;
+
         // Update current room users Set for seen status filtering
         currentRoomUsers.clear();
         users.forEach(user => {
@@ -495,6 +508,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             userList.appendChild(li);
         });
+
+        // Update mobile user list
+        if (mobileUserList) {
+            mobileUserList.innerHTML = "";
+            users.forEach(user => {
+                const li = document.createElement("li");
+                li.className = "flex items-center justify-between p-3 bg-slate-800/30 rounded-xl hover:bg-slate-800/50 transition-all";
+
+                const userInfo = document.createElement("div");
+                userInfo.className = "flex items-center space-x-3";
+
+                const userName = document.createElement("span");
+                userName.className = "font-medium";
+                userName.textContent = user.username + (user.id === socket.id ? " (You)" : "");
+
+                userInfo.appendChild(userName);
+                li.appendChild(userInfo);
+
+                if (isAdmin && user.id !== socket.id) {
+                    const removeBtn = document.createElement("button");
+                    removeBtn.innerHTML = '<i class="fas fa-user-minus"></i>';
+                    removeBtn.className = "text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded-lg transition-all";
+                    removeBtn.title = "Remove user";
+                    removeBtn.onclick = () => {
+                        // Show custom modal with user info
+                        userToRemove = { id: user.id, username: user.username };
+                        removeUserText.textContent = `Are you sure you want to remove ${user.username} from the room?`;
+                        removeUserModal.classList.remove("hidden");
+                        // Close mobile sidebar when showing modal
+                        closeMobileSidebar.click();
+                    };
+                    li.appendChild(removeBtn);
+                }
+                mobileUserList.appendChild(li);
+            });
+        }
     }
 
     // Confirm remove user
@@ -747,6 +796,28 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelEndRoomBtn.onclick = () => {
         endRoomModal.classList.add("hidden");
     };
+
+    // Mobile sidebar toggle
+    if (mobileUsersBtn) {
+        mobileUsersBtn.onclick = () => {
+            mobileUserSidebar.classList.remove("translate-x-full");
+            mobileUserBackdrop.classList.remove("hidden");
+        };
+    }
+
+    if (closeMobileSidebar) {
+        closeMobileSidebar.onclick = () => {
+            mobileUserSidebar.classList.add("translate-x-full");
+            mobileUserBackdrop.classList.add("hidden");
+        };
+    }
+
+    if (mobileUserBackdrop) {
+        mobileUserBackdrop.onclick = () => {
+            mobileUserSidebar.classList.add("translate-x-full");
+            mobileUserBackdrop.classList.add("hidden");
+        };
+    }
 
     messageInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {

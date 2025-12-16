@@ -83,6 +83,12 @@
               Anon-Chat</h2>
           </div>
           <div class="flex items-center space-x-3">
+            <button id="mobileUsersBtn" title="View users"
+              class="md:hidden w-10 h-10 flex items-center justify-center bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl hover:bg-slate-700/50 transition-all transform hover:scale-105 active:scale-95 text-white relative">
+              <i class="fas fa-users text-sm"></i>
+              <span id="mobileUserCount"
+                class="absolute -top-1 -right-1 bg-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+            </button>
             <button id="killRoomBtn" title="Delete the chat room"
               class="hidden px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 rounded-xl hover:from-red-500 hover:to-red-600 transition-all transform hover:scale-105 active:scale-95 font-semibold text-white shadow-lg shadow-red-500/25 text-sm">
               <i class="fas fa-trash-alt mr-2"></i><span class="full-text">End Room</span><span
@@ -147,6 +153,30 @@
           </div>
         </div>
       </div>
+      <!-- Mobile User Sidebar Overlay -->
+      <div id="mobileUserSidebar"
+        class="md:hidden fixed inset-y-0 right-0 w-80 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/50 transform translate-x-full transition-transform duration-300 z-30 overflow-y-auto custom-scrollbar">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-white flex items-center">
+              <i class="fas fa-users mr-2 text-purple-400"></i>Online
+            </h3>
+            <div class="flex items-center space-x-3">
+              <span id="mobileUserCountText"
+                class="text-sm text-slate-400 bg-slate-800/50 px-3 py-1 rounded-full">0</span>
+              <button id="closeMobileSidebar"
+                class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                <i class="fas fa-times text-lg"></i>
+              </button>
+            </div>
+          </div>
+          <ul id="mobileUserList" class="space-y-2"></ul>
+        </div>
+      </div>
+
+      <!-- Overlay backdrop for mobile sidebar -->
+      <div id="mobileUserBackdrop" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-20 md:hidden"></div>
+
       <div
         class="w-1/3 bg-slate-900/80 backdrop-blur-xl border-l border-slate-700/50 p-6 overflow-y-auto hidden md:block custom-scrollbar">
         <div class="flex items-center justify-between mb-6">

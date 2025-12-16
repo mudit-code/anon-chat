@@ -84,8 +84,17 @@
 
   #chat-input-container {
     flex-shrink: 0;
-    padding-bottom: env(safe-area-inset-bottom, 1rem);
-    /* Handle iPhone home bar */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+    /* Handle iPhone home bar and mobile browser navigation */
+    position: relative;
+    z-index: 5;
+  }
+
+  @media (max-width: 768px) {
+    #chat-input-container {
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+      /* Extra padding for mobile navigation bars */
+    }
   }
 
   #chat-input-container>div:first-of-type {
@@ -525,5 +534,14 @@
     transition-property: color, background-color, border-color, transform, opacity;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
+  }
+
+  /* Force hide mobile sidebar on desktop */
+  @media (min-width: 768px) {
+
+    #mobileUserSidebar,
+    #mobileUserBackdrop {
+      display: none !important;
+    }
   }
 }
