@@ -549,4 +549,20 @@
       opacity: 1 !important;
     }
   }
+
+  /* Sticker messages */
+  .sticker-message {
+    max-width: 120px;
+    max-height: 120px;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+  }
+
+  .sticker-bubble {
+    background: transparent !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
 }

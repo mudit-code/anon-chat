@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const messagesDiv = document.getElementById("messages");
     const fileInput = document.getElementById("fileInput");
     const emojiBtn = document.getElementById("emojiBtn");
+    const stickerBtn = document.getElementById("stickerBtn");
+    const stickerInput = document.getElementById("stickerInput");
     const mediaPicker = document.getElementById("media-picker");
     const joinRequestModal = document.getElementById("joinRequestModal");
     const joinRequestUser = document.getElementById("joinRequestUser");
@@ -139,6 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>');
             contentHtml = escapedContent;
+        } else if (message.type === 'sticker') {
+            // Stickers have no bubble - just the image
+            messageBubble.className = 'sticker-bubble';
+            contentHtml = `
+                <div class="relative group">
+                    <img src="${message.content}" class="sticker-message" loading="lazy">
+                    <a href="${message.content}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>`;
         } else {
             messageBubble.className = `message-bubble-media`;
             if (message.type === 'gif') {
@@ -995,12 +1007,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     fileInput.onchange = () => {
+        uploadForm.reset();
         const file = fileInput.files[0];
         if (!file) return;
-        sendFile(file);
+        uploadFile(file);
         fileInput.value = "";
     };
 
+    // Sticker functionality
+    stickerBtn.onclick = () => {
+        stickerInput.click();
+    };
+
+    stickerInput.onchange = async () => {
+        const file = stickerInput.files[0];
+        if (!file) return;
+
+        // Validate it's an image
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            stickerInput.value = '';
+            return;
+        }
+
+        // Disable sticker button during upload
+        stickerBtn.disabled = true;
+        stickerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+        try {
+            // Upload sticker
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const data = await response.json();
+            const stickerUrl = data.path;
+
+            // Generate message ID
+            const messageId = `sticker-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+            // Send sticker message
+            socket.emit('chat-message', {
+                roomKey,
+                username,
+                id: messageId,
+                message: {
+                    type: 'sticker',
+                    content: stickerUrl
+                },
+                seenBy: []
+            });
+
+            // Display locally (don't wait for broadcast)
+            displayMessage(username, {
+                type: 'sticker',
+                content: stickerUrl
+            }, messageId, []);
+
+        } catch (error) {
+            console.error('Sticker upload failed:', error);
+            alert('Failed to send sticker. Please try again.');
+        } finally {
+            // Re-enable sticker button
+            stickerBtn.disabled = false;
+            stickerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            stickerInput.value = '';
+        }
+    };
     approveJoinBtn.onclick = () => {
         if (pendingJoinRequest) {
             socket.emit("approve-join", { roomKey, userId: pendingJoinRequest.userId });

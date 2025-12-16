@@ -1128,6 +1128,23 @@ button:focus-visible,
   }
 }
 
+/* Sticker messages */
+
+.sticker-message {
+  max-width: 120px;
+  max-height: 120px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
+.sticker-bubble {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
 .visible {
   visibility: visible;
 }
@@ -1464,6 +1481,10 @@ button:focus-visible,
 
 .animate-slide-up {
   animation: slide-up 0.6s ease-out;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
 }
 
 .cursor-pointer {
