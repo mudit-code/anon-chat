@@ -79,6 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let isTabVisible = !document.hidden;
     const pendingSeenMessages = new Set(); // Messages to mark as seen when tab becomes visible
 
+    // Media paste state
+    const pastedMedia = []; // Array to hold {file, objectUrl} before sending
+    const MAX_MEDIA_ITEMS = 10;
+    let mediaPasteEnabled = true; // Disable when limit reached
+
     // Functions
     function showChatScreen() {
         joinScreen.style.display = "none";
@@ -352,6 +357,104 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileType.startsWith("video")) return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.55a1 1 0 01.45 1.74l-4.5 3.5a1 1 0 01-1.5-.74V9a1 1 0 011.5-.74zM4 6a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path></svg>`;
         if (fileType === "application/pdf") return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
         return `<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
+    }
+
+    // Auto-resize textarea with production bug fixes
+    function autoResizeTextarea() {
+        requestAnimationFrame(() => {
+            // Reset height to 'auto' to get accurate scrollHeight (prevents infinite growth)
+            messageInput.style.height = 'auto';
+
+            const minHeight = 40;
+            const maxHeight = 150;
+            const scrollHeight = messageInput.scrollHeight;
+
+            // Clamp between min and max
+            const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+            messageInput.style.height = newHeight + 'px';
+
+            // Enable overflow scrolling only when max height is reached
+            if (scrollHeight > maxHeight) {
+                messageInput.style.overflowY = 'auto';
+            } else {
+                messageInput.style.overflowY = 'hidden';
+            }
+        });
+    }
+
+    // Render media previews
+    function renderMediaPreviews() {
+        const previewContainer = document.getElementById('mediaPreviews');
+
+        if (pastedMedia.length === 0) {
+            previewContainer.classList.add('hidden');
+            previewContainer.innerHTML = '';
+            mediaPasteEnabled = true;
+            return;
+        }
+
+        previewContainer.classList.remove('hidden');
+        previewContainer.innerHTML = '';
+
+        // Display count
+        if (pastedMedia.length > 0) {
+            const countDiv = document.createElement('div');
+            countDiv.className = 'media-preview-count';
+            countDiv.textContent = `${pastedMedia.length} / ${MAX_MEDIA_ITEMS} media item${pastedMedia.length !== 1 ? 's' : ''}`;
+            previewContainer.appendChild(countDiv);
+        }
+
+        // Display each media item
+        pastedMedia.forEach((mediaItem, index) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'media-preview-item';
+
+            // Create thumbnail
+            const thumbnail = document.createElement(mediaItem.file.type.startsWith('video') ? 'video' : 'img');
+            thumbnail.src = mediaItem.objectUrl;
+            thumbnail.className = 'media-preview-thumbnail';
+            if (mediaItem.file.type.startsWith('video')) {
+                thumbnail.muted = true;
+            }
+
+            // Create remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'media-remove-btn';
+            removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+            removeBtn.onclick = (e) => {
+                e.preventDefault();
+                removeMediaPreview(index);
+            };
+
+            itemDiv.appendChild(thumbnail);
+            itemDiv.appendChild(removeBtn);
+            previewContainer.appendChild(itemDiv);
+        });
+
+        // Show limit warning if at max
+        if (pastedMedia.length >= MAX_MEDIA_ITEMS) {
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'media-preview-limit-warning';
+            warningDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>Maximum 10 items reached. Remove items to add more.';
+            previewContainer.appendChild(warningDiv);
+            mediaPasteEnabled = false;
+        } else {
+            mediaPasteEnabled = true;
+        }
+    }
+
+    // Remove media preview with URL cleanup
+    function removeMediaPreview(index) {
+        if (index >= 0 && index < pastedMedia.length) {
+            // Revoke object URL to prevent memory leak
+            URL.revokeObjectURL(pastedMedia[index].objectUrl);
+
+            // Remove from array
+            pastedMedia.splice(index, 1);
+
+            // Re-render
+            renderMediaPreviews();
+        }
     }
 
     function formatTypingText(users) {
@@ -879,6 +982,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     messageInput.addEventListener("input", () => {
+        // Auto-resize textarea
+        autoResizeTextarea();
+
         // Only emit if there's content and we're in a room
         if (!roomKey || !username) return;
 
@@ -918,14 +1024,54 @@ document.addEventListener('DOMContentLoaded', () => {
         mediaPicker.style.display = "none";
     });
 
-    messageInput.addEventListener('paste', (event) => {
-        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-        for (const item of items) {
-            if (item.type.indexOf('image') !== -1) {
+    messageInput.addEventListener('paste', async (event) => {
+        if (!mediaPasteEnabled) {
+            // Don't prevent default - allow text paste even when media limit reached
+            return;
+        }
+
+        const items = event.clipboardData?.items;
+        if (!items) return;
+
+        let hasMediaFiles = false;
+        const newMediaItems = [];
+
+        // Loop through clipboard items
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+
+            // Check item.kind === "file" to ignore text-only paste
+            if (item.kind === 'file') {
                 const file = item.getAsFile();
-                uploadFile(file);
-                event.preventDefault();
+                if (!file) continue;
+
+                // Only accept images and videos
+                if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+                    hasMediaFiles = true;
+
+                    // Check if adding this would exceed limit
+                    if (pastedMedia.length + newMediaItems.length < MAX_MEDIA_ITEMS) {
+                        // Create object URL for preview
+                        const objectUrl = URL.createObjectURL(file);
+                        newMediaItems.push({ file, objectUrl });
+                    } else {
+                        // Limit reached - show warning
+                        console.warn('Media paste limit reached');
+                        break;
+                    }
+                }
             }
+        }
+
+        // If we found media files, prevent default paste and add to preview
+        if (hasMediaFiles && newMediaItems.length > 0) {
+            event.preventDefault();
+
+            // Add new items to pastedMedia array
+            pastedMedia.push(...newMediaItems);
+
+            // Render previews
+            renderMediaPreviews();
         }
     });
 
@@ -971,26 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, false);
 
-    sendBtn.onclick = () => {
-        if (fileToSend) {
-            sendFile(fileToSend);
-            fileToSend = null;
-            messageInput.value = "";
-            messageInput.disabled = false;
-            messageInput.focus();
-
-            // Stop typing on send
-            if (isTyping) {
-                socket.emit("typing:stop", { roomKey, userId: socket.id });
-                isTyping = false;
-                if (typingTimeout) clearTimeout(typingTimeout);
-            }
-            return;
-        }
-
-        const message = messageInput.value.trim();
-        if (message === "") return;
-
+    sendBtn.onclick = async () => {
         // Stop typing when sending message
         if (isTyping) {
             socket.emit("typing:stop", { roomKey, userId: socket.id });
@@ -998,17 +1125,164 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typingTimeout) clearTimeout(typingTimeout);
         }
 
-        const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        socket.emit("chat-message", { roomKey, username, id: messageId, message: { type: 'text', content: message }, seenBy: [] });
+        if (fileToSend) {
+            sendFile(fileToSend);
+            fileToSend = null;
+            messageInput.value = "";
+            messageInput.disabled = false;
+            autoResizeTextarea(); // Reset height
+            messageInput.focus();
+            return;
+        }
+
+        const message = messageInput.value.trim();
+        const hasMedia = pastedMedia.length > 0;
+
+        // Require either text or media
+        if (message === "" && !hasMedia) return;
+
+        // Helper function to upload a single media file
+        const uploadMediaFile = async (mediaItem) => {
+            const formData = new FormData();
+            formData.append('file', mediaItem.file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed with status ${response.status}`);
+                }
+
+                const data = await response.json();
+                return { success: true, path: data.path, file: mediaItem.file };
+            } catch (error) {
+                console.error('Media upload failed:', error);
+                return { success: false, error: error.message };
+            }
+        };
+
+        // Upload media with concurrency limit (3 at a time)
+        const uploadWithConcurrency = async (items, limit = 3) => {
+            const results = [];
+            const executing = [];
+
+            for (const item of items) {
+                const promise = uploadMediaFile(item).then(result => {
+                    executing.splice(executing.indexOf(promise), 1);
+                    return result;
+                });
+
+                results.push(promise);
+                executing.push(promise);
+
+                if (executing.length >= limit) {
+                    await Promise.race(executing);
+                }
+            }
+
+            return Promise.allSettled(results);
+        };
+
+        // Upload all media files if any
+        let uploadedMedia = [];
+        if (hasMedia) {
+            const uploadResults = await uploadWithConcurrency(pastedMedia, 3);
+
+            // Process results - only keep successful uploads
+            uploadedMedia = uploadResults
+                .filter(result => result.status === 'fulfilled' && result.value.success)
+                .map(result => result.value);
+
+            // Show warning if some uploads failed
+            const failedCount = uploadResults.length - uploadedMedia.length;
+            if (failedCount > 0) {
+                console.warn(`${failedCount} media upload(s) failed`);
+            }
+        }
+
+        // Send text message if present
+        if (message !== "") {
+            const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            socket.emit("chat-message", {
+                roomKey,
+                username,
+                id: messageId,
+                message: { type: 'text', content: message },
+                seenBy: []
+            });
+        }
+
+        // Send media messages
+        for (const media of uploadedMedia) {
+            const messageType = media.file.type.startsWith('image') ? 'image' : 'video';
+            const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+            socket.emit("chat-message", {
+                roomKey,
+                username,
+                id: messageId,
+                message: {
+                    type: messageType,
+                    content: media.path
+                },
+                seenBy: []
+            });
+        }
+
+        // Cleanup: revoke all object URLs
+        pastedMedia.forEach(item => {
+            URL.revokeObjectURL(item.objectUrl);
+        });
+
+        // Clear state
+        pastedMedia.length = 0; // Clear array
         messageInput.value = "";
+        autoResizeTextarea(); // Reset height
+        renderMediaPreviews(); // Hide preview strip
         messageInput.focus();
     };
 
 
     fileInput.onchange = () => {
-        const file = fileInput.files[0];
-        if (!file) return;
-        sendFile(file);
+        const files = Array.from(fileInput.files);
+        if (files.length === 0) return;
+
+        const mediaFiles = [];
+        const otherFiles = [];
+
+        // Separate media from other file types
+        for (const file of files) {
+            if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+                mediaFiles.push(file);
+            } else {
+                otherFiles.push(file);
+            }
+        }
+
+        // Add media files to preview (up to limit)
+        for (const file of mediaFiles) {
+            if (pastedMedia.length >= MAX_MEDIA_ITEMS) {
+                console.warn('Media limit reached, some files not added');
+                break;
+            }
+            const objectUrl = URL.createObjectURL(file);
+            pastedMedia.push({ file, objectUrl });
+        }
+
+        // Render previews if media was added
+        if (mediaFiles.length > 0) {
+            renderMediaPreviews();
+        }
+
+        // Send other files immediately (PDFs, docs, etc.)
+        for (const file of otherFiles) {
+            sendFile(file);
+        }
+
+        // Clear input to allow selecting same files again
         fileInput.value = "";
     };
 
@@ -1016,67 +1290,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fileBtn.onclick = () => {
         fileInput.click();
     };
-
-    // Handle paste events (for stickers from mobile keyboard)
-    messageInput.addEventListener('paste', async (e) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
-
-        // Look for image items in clipboard
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf('image') !== -1) {
-                e.preventDefault(); // Prevent default paste behavior
-
-                const blob = items[i].getAsFile();
-                if (!blob) continue;
-
-                try {
-                    // Upload the pasted image
-                    const formData = new FormData();
-                    formData.append('file', blob, 'sticker.png');
-
-                    const response = await fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Upload failed');
-                    }
-
-                    const data = await response.json();
-                    const stickerUrl = data.path;
-
-                    // Generate message ID
-                    const messageId = `sticker-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-                    // Send sticker message
-                    socket.emit('chat-message', {
-                        roomKey,
-                        username,
-                        id: messageId,
-                        message: {
-                            type: 'sticker',
-                            content: stickerUrl
-                        },
-                        seenBy: []
-                    });
-
-                    // Display locally
-                    displayMessage(username, {
-                        type: 'sticker',
-                        content: stickerUrl
-                    }, messageId, []);
-
-                } catch (error) {
-                    console.error('Sticker paste failed:', error);
-                    alert('Failed to send sticker. Please try again.');
-                }
-
-                break; // Only handle first image
-            }
-        }
-    });
     approveJoinBtn.onclick = () => {
         if (pendingJoinRequest) {
             socket.emit("approve-join", { roomKey, userId: pendingJoinRequest.userId });
