@@ -267,6 +267,36 @@ io.on("connection", (socket) => {
     socket.to(roomKey).emit("user-typing-stop", { userId });
   });
 
+  // Audio recording indicators
+  socket.on("recording:start", ({ roomKey, userId, username }) => {
+    const room = rooms[roomKey];
+    if (!room) return;
+
+    // Store recording state AND roomKey in socket.data for disconnect cleanup
+    socket.data = socket.data || {};
+    socket.data.isRecording = true;
+    socket.data.recordingRoomKey = roomKey;
+    socket.data.userId = userId;
+    socket.data.username = username;
+
+    // Broadcast to all OTHER users in room (not sender)
+    socket.to(roomKey).emit("user-recording-start", { userId, username });
+  });
+
+  socket.on("recording:stop", ({ roomKey, userId }) => {
+    const room = rooms[roomKey];
+    if (!room) return;
+
+    // Clear recording state
+    if (socket.data) {
+      socket.data.isRecording = false;
+      socket.data.recordingRoomKey = null;
+    }
+
+    // Broadcast to all OTHER users in room (not sender)
+    socket.to(roomKey).emit("user-recording-stop", { userId });
+  });
+
   const handleUserLeave = (roomKey, username) => {
     if (!rooms[roomKey]) return;
     const room = rooms[roomKey];
@@ -292,6 +322,13 @@ io.on("connection", (socket) => {
 
   socket.on("leave-room", ({ roomKey, username }) => handleUserLeave(roomKey, username));
   socket.on("disconnect", () => {
+    // Clean up recording indicator if user was recording
+    if (socket.data?.isRecording && socket.data?.recordingRoomKey) {
+      socket.to(socket.data.recordingRoomKey).emit("user-recording-stop", {
+        userId: socket.data.userId
+      });
+    }
+
     // Auto-cleanup typing indicator on disconnect
     if (socket.data && socket.data.roomKey && socket.data.userId) {
       socket.to(socket.data.roomKey).emit("user-typing-stop", {

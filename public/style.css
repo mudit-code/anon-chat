@@ -390,6 +390,105 @@
     }
   }
 
+  /* Recording indicator - takes priority over typing */
+  .recording-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 16px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: rgba(252, 165, 165, 0.9);
+    font-size: 0.875rem;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    align-self: flex-start;
+  }
+
+  .recording-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #ef4444;
+    animation: recordingPulse 1s infinite ease-in-out;
+  }
+
+  @keyframes recordingPulse {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.5;
+      transform: scale(0.85);
+    }
+  }
+
+  /* Recording button states */
+  #recordBtn.recording {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+  }
+
+  #recordBtn.recording i {
+    animation: recordingPulse 1s infinite ease-in-out;
+  }
+
+  /* Recording timer */
+  #recordingTimer {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Audio preview in media strip */
+  .audio-preview-item {
+    position: relative;
+    width: 280px;
+    padding: 12px;
+    border-radius: 0.75rem;
+    background: rgba(15, 23, 42, 0.5);
+    border: 2px solid rgba(147, 51, 234, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .audio-preview-item:hover {
+    border-color: rgba(147, 51, 234, 0.6);
+  }
+
+  .audio-preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .audio-preview-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(226, 232, 240, 0.8);
+    font-size: 0.875rem;
+  }
+
+  .audio-preview-duration {
+    color: rgba(148, 163, 184, 0.7);
+    font-size: 0.75rem;
+  }
+
   /* User list styling */
   #userList li {
     padding: 0.75rem 1rem;

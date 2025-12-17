@@ -84,6 +84,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_MEDIA_ITEMS = 10;
     let mediaPasteEnabled = true; // Disable when limit reached
 
+    // Audio recording state
+    let audioRecorder = null;
+    let isRecording = false;
+    let recordingTimer = null;
+    let recordingStartTime = null;
+    let audioPreviewBlob = null;
+    let audioDuration = 0;
+    const recordingUsers = new Map(); // userId -> username (for recording indicator)
+    let recordingIndicatorActive = false;
+
+    // Audio recording UI elements
+    const recordBtn = document.getElementById("recordBtn");
+    const recordingTimerUI = document.getElementById("recordingTimer");
+    const recordingIndicator = document.getElementById("recordingIndicator");
+
     // Functions
     function showChatScreen() {
         joinScreen.style.display = "none";
@@ -463,6 +478,220 @@ document.addEventListener('DOMContentLoaded', () => {
         if (users.length === 2) return `${users[0]} and ${users[1]} are typing...`;
         const last = users.pop();
         return `${users.join(", ")} and ${last} are typing...`;
+    }
+
+    // ======== AUDIO RECORDING FUNCTIONS ========
+
+    // Check if we can start recording (browser support + media limit)
+    function checkCanRecord() {
+        if (!AudioRecorder.isSupported()) {
+            alert('Audio recording not supported in this browser');
+            return false;
+        }
+
+        const currentMediaCount = pastedMedia.length + (audioPreviewBlob ? 1 : 0);
+        if (currentMediaCount >= MAX_MEDIA_ITEMS) {
+            alert(`Media limit reached (${MAX_MEDIA_ITEMS}/${MAX_MEDIA_ITEMS}). Remove items to record audio.`);
+            return false;
+        }
+
+        return true;
+    }
+
+    // Start audio recording
+    async function startAudioRecording() {
+        if (!checkCanRecord()) return;
+
+        // Initialize recorder if not already done
+        if (!audioRecorder) {
+            audioRecorder = new AudioRecorder({ maxDuration: 120 }); // 2 minutes
+        }
+
+        const started = await audioRecorder.startRecording({
+            onStop: (blob, duration) => {
+                // Recording stopped - create preview
+                audioPreviewBlob = blob;
+                audioDuration = duration;
+                addAudioPreview(blob, duration);
+
+                // Emit stop event to server
+                socket.emit('recording:stop', { roomKey, userId: socket.id });
+
+                // Reset UI
+                isRecording = false;
+                recordBtn.classList.remove('recording');
+                recordBtn.querySelector('i').className = 'fas fa-microphone';
+                recordingTimerUI.classList.add('hidden');
+
+                // Stop timer
+                if (recordingTimer) {
+                    clearInterval(recordingTimer);
+                    recordingTimer = null;
+                }
+
+                // Resume typing indicator if user is typing
+                if (messageInput.value.trim().length > 0 && !isTyping) {
+                    socket.emit('typing:start', { roomKey, userId: socket.id, username });
+                    isTyping = true;
+                }
+            },
+            onMaxDuration: () => {
+                console.log('Max recording duration reached - preview shown (NOT auto-sent)');
+            },
+            onError: (type, message) => {
+                alert(message);
+                isRecording = false;
+                recordBtn.classList.remove('recording');
+                recordBtn.querySelector('i').className = 'fas fa-microphone';
+                recordingTimerUI.classList.add('hidden');
+                if (recordingTimer) {
+                    clearInterval(recordingTimer);
+                    recordingTimer = null;
+                }
+            }
+        });
+
+        if (started) {
+            isRecording = true;
+            recordingStartTime = Date.now();
+
+            // Update UI
+            recordBtn.classList.add('recording');
+            recordBtn.querySelector('i').className = 'fas fa-stop';
+            recordBtn.title = 'Stop recording';
+            recordingTimerUI.classList.remove('hidden');
+
+            // Disable message input during recording
+            messageInput.disabled = true;
+            messageInput.placeholder = 'Recording audio...';
+
+            // Suppress typing indicator
+            if (isTyping) {
+                socket.emit('typing:stop', { roomKey, userId: socket.id });
+                isTyping = false;
+                if (typingTimeout) clearTimeout(typingTimeout);
+            }
+
+            // Emit recording start to server
+            socket.emit('recording:start', { roomKey, userId: socket.id, username });
+
+            // Start timer UI
+            recordingTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                recordingTimerUI.querySelector('.recording-time').textContent = formatRecordingTime(elapsed);
+            }, 1000);
+        }
+    }
+
+    // Stop audio recording
+    function stopAudioRecording() {
+        if (audioRecorder && isRecording) {
+            audioRecorder.stopRecording();
+            // onStop callback will handle the rest
+        }
+    }
+
+    // Format seconds as MM:SS
+    function formatRecordingTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // Add audio preview to media strip
+    function addAudioPreview(blob, duration) {
+        // Add to media previews container
+        const previewsContainer = document.getElementById('mediaPreviews');
+
+        // Show container
+        previewsContainer.classList.remove('hidden');
+
+        // Create audio preview card
+        const audioPreview = document.createElement('div');
+        audioPreview.className = 'audio-preview-item';
+        audioPreview.id = 'audioPreview';
+
+        const audioUrl = URL.createObjectURL(blob);
+
+        audioPreview.innerHTML = `
+            <div class="audio-preview-info">
+                <i class="fas fa-microphone text-red-400"></i>
+                <span>Audio Message</span>
+                <span class="audio-preview-duration">${formatRecordingTime(duration)}</span>
+            </div>
+            <audio controls class="w-full mt-2" style="height: 32px;">
+                <source src="${audioUrl}" type="${blob.type}">
+            </audio>
+            <button class="media-remove-btn" style="opacity: 1;" onclick="removeAudioPreview()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        previewsContainer.appendChild(audioPreview);
+
+        // Re-enable message input
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Type a message...';
+        messageInput.focus();
+    }
+
+    // Remove audio preview
+    window.removeAudioPreview = function () {
+        const audioPreview = document.getElementById('audioPreview');
+        if (audioPreview) {
+            // Revoke object URL
+            const audioElement = audioPreview.querySelector('audio source');
+            if (audioElement) {
+                URL.revokeObjectURL(audioElement.src);
+            }
+
+            audioPreview.remove();
+            audioPreviewBlob = null;
+            audioDuration = 0;
+
+            // Hide previews container if empty
+            const previewsContainer = document.getElementById('mediaPreviews');
+            if (previewsContainer.children.length === 0) {
+                previewsContainer.classList.add('hidden');
+            }
+        }
+    };
+
+    // Update recording indicator display
+    function updateRecordingIndicator() {
+        const count = recordingUsers.size;
+
+        if (count === 0) {
+            recordingIndicator.classList.add('hidden');
+            recordingIndicatorActive = false;
+            // Resume typing indicator if hidden
+            if (typingUsers.size > 0) {
+                updateTypingIndicator();
+            }
+            return;
+        }
+
+        recordingIndicatorActive = true;
+
+        // Hide typing indicator (recording takes priority)
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.classList.add('hidden');
+        }
+
+        recordingIndicator.classList.remove('hidden');
+        const recordingText = recordingIndicator.querySelector('.recording-text');
+        if (!recordingText) return;
+
+        const users = Array.from(recordingUsers.values());
+
+        if (count === 1) {
+            recordingText.textContent = `${users[0]} is recording an audio...`;
+        } else if (count === 2) {
+            recordingText.textContent = `${users[0]} and ${users[1]} are recording audio...`;
+        } else {
+            recordingText.textContent = 'Several people are recording audio...';
+        }
     }
 
     function createProgressCircle(progress, messageId) {
@@ -1186,10 +1415,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return Promise.allSettled(results);
         };
 
-        // Upload all media files if any
+        // Upload all media files (images/videos from paste + audio if recorded)
         let uploadedMedia = [];
-        if (hasMedia) {
-            const uploadResults = await uploadWithConcurrency(pastedMedia, 3);
+
+        // Prepare all media items for upload
+        const allMediaToUpload = [...pastedMedia];
+
+        // Add audio if present
+        if (audioPreviewBlob) {
+            allMediaToUpload.push({
+                file: new File([audioPreviewBlob], `audio-${Date.now()}.webm`, { type: audioPreviewBlob.type }),
+                objectUrl: null // Audio doesn't need preview URL
+            });
+        }
+
+        if (allMediaToUpload.length > 0) {
+            const uploadResults = await uploadWithConcurrency(allMediaToUpload, 3);
 
             // Process results - only keep successful uploads
             uploadedMedia = uploadResults
@@ -1215,9 +1456,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Send media messages
+        // Send media messages (images, videos, audio)
         for (const media of uploadedMedia) {
-            const messageType = media.file.type.startsWith('image') ? 'image' : 'video';
+            let messageType = 'video'; // default
+
+            if (media.file.type.startsWith('image')) {
+                messageType = 'image';
+            } else if (media.file.type.startsWith('audio')) {
+                messageType = 'audio';
+            } else if (media.file.type.startsWith('video')) {
+                messageType = 'video';
+            }
+
             const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
             socket.emit("chat-message", {
@@ -1239,6 +1489,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Clear state
         pastedMedia.length = 0; // Clear array
+
+        // Clear audio preview if present
+        if (audioPreviewBlob) {
+            window.removeAudioPreview();
+        }
+
         messageInput.value = "";
         autoResizeTextarea(); // Reset height
         renderMediaPreviews(); // Hide preview strip
@@ -1289,6 +1545,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // File button triggers file input
     fileBtn.onclick = () => {
         fileInput.click();
+    };
+
+    // Record button toggles audio recording
+    recordBtn.onclick = () => {
+        if (isRecording) {
+            stopAudioRecording();
+        } else {
+            startAudioRecording();
+        }
     };
     approveJoinBtn.onclick = () => {
         if (pendingJoinRequest) {
@@ -1692,6 +1957,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const indicator = document.getElementById("typingIndicator");
         const count = typingUsers.size;
 
+        // Hide if recording indicator is active (recording takes priority)
+        if (recordingIndicatorActive) {
+            if (indicator) {
+                indicator.classList.add('hidden');
+            }
+            return;
+        }
+
         if (count === 0) {
             if (indicator) {
                 indicator.classList.add("hidden");
@@ -1716,6 +1989,21 @@ document.addEventListener('DOMContentLoaded', () => {
             typingText.textContent = "Several people are typing";
         }
     }
+
+    // Recording indicator socket handlers
+    socket.on("user-recording-start", ({ userId, username: recordingUsername }) => {
+        // Never show own recording indicator
+        if (userId === socket.id) return;
+
+        // Add user to recording Map
+        recordingUsers.set(userId, recordingUsername);
+        updateRecordingIndicator();
+    });
+
+    socket.on("user-recording-stop", ({ userId }) => {
+        recordingUsers.delete(userId);
+        updateRecordingIndicator();
+    });
 
     socket.on("message-seen-update", ({ messageId, seenBy }) => {
         const msgEnv = document.getElementById(messageId);
