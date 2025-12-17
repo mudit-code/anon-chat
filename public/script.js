@@ -1572,27 +1572,52 @@ document.addEventListener('DOMContentLoaded', () => {
         // Require either text or media
         if (message === "" && !hasMedia) return;
 
-        // Helper function to upload a single media file
-        const uploadMediaFile = async (mediaItem) => {
-            const formData = new FormData();
-            formData.append('file', mediaItem.file);
+        // Helper function to upload a single media file with progress tracking
+        const uploadMediaFile = async (mediaItem, index, onProgress) => {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                const formData = new FormData();
+                formData.append('file', mediaItem.file);
 
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+                const startTime = Date.now();
 
-                if (!response.ok) {
-                    throw new Error(`Upload failed with status ${response.status}`);
-                }
+                xhr.open('POST', '/upload', true);
 
-                const data = await response.json();
-                return { success: true, path: data.path, file: mediaItem.file };
-            } catch (error) {
-                console.error('Media upload failed:', error);
-                return { success: false, error: error.message };
-            }
+                // Track upload progress
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable && onProgress) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        const elapsed = (Date.now() - startTime) / 1000; // seconds
+                        const speed = elapsed > 0 ? e.loaded / elapsed : 0; // bytes per second
+
+                        onProgress(index, {
+                            loaded: e.loaded,
+                            total: e.total,
+                            percent: percent,
+                            speed: speed
+                        });
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            resolve({ success: true, path: data.path, file: mediaItem.file });
+                        } catch (error) {
+                            reject({ success: false, error: 'Failed to parse response' });
+                        }
+                    } else {
+                        reject({ success: false, error: `Upload failed with status ${xhr.status}` });
+                    }
+                };
+
+                xhr.onerror = () => {
+                    reject({ success: false, error: 'Network error during upload' });
+                };
+
+                xhr.send(formData);
+            });
         };
 
         // Upload media with concurrency limit (3 at a time)
@@ -1600,10 +1625,65 @@ document.addEventListener('DOMContentLoaded', () => {
             const results = [];
             const executing = [];
 
-            for (const item of items) {
-                const promise = uploadMediaFile(item).then(result => {
+            // Progress handler to update UI
+            const handleProgress = (index, progressData) => {
+                const mediaPreviewItems = document.querySelectorAll('#mediaPreviews .media-preview-item');
+                if (mediaPreviewItems[index]) {
+                    const item = mediaPreviewItems[index];
+
+                    // Check if progress overlay exists, if not create it
+                    let progressOverlay = item.querySelector('.upload-progress-overlay');
+                    if (!progressOverlay) {
+                        progressOverlay = document.createElement('div');
+                        progressOverlay.className = 'upload-progress-overlay';
+                        item.appendChild(progressOverlay);
+                    }
+
+                    // Calculate speed in KB/s or MB/s
+                    const speedKB = progressData.speed / 1024;
+                    const speedDisplay = speedKB > 1024
+                        ? `${(speedKB / 1024).toFixed(2)} MB/s`
+                        : `${speedKB.toFixed(2)} KB/s`;
+
+                    // Update progress overlay content
+                    progressOverlay.innerHTML = `
+                        <div class="progress-content">
+                            <div class="progress-circle-small">${progressData.percent}%</div>
+                            <div class="upload-stats">
+                                <div class="upload-size">${formatBytes(progressData.loaded)} / ${formatBytes(progressData.total)}</div>
+                                <div class="upload-speed">${speedDisplay}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            };
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const promise = uploadMediaFile(item, i, handleProgress).then(result => {
+                    // Remove progress overlay on completion
+                    const mediaPreviewItems = document.querySelectorAll('#mediaPreviews .media-preview-item');
+                    if (mediaPreviewItems[i]) {
+                        const progressOverlay = mediaPreviewItems[i].querySelector('.upload-progress-overlay');
+                        if (progressOverlay) {
+                            progressOverlay.remove();
+                        }
+                    }
+
                     executing.splice(executing.indexOf(promise), 1);
                     return result;
+                }).catch(error => {
+                    // Remove progress overlay on error
+                    const mediaPreviewItems = document.querySelectorAll('#mediaPreviews .media-preview-item');
+                    if (mediaPreviewItems[i]) {
+                        const progressOverlay = mediaPreviewItems[i].querySelector('.upload-progress-overlay');
+                        if (progressOverlay) {
+                            progressOverlay.remove();
+                        }
+                    }
+
+                    executing.splice(executing.indexOf(promise), 1);
+                    return error;
                 });
 
                 results.push(promise);

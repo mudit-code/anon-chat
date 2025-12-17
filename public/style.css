@@ -499,6 +499,61 @@
     }
   }
 
+  /* Upload progress overlay for media items */
+  .upload-progress-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(8px);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+
+  .progress-content {
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .progress-circle-small {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: conic-gradient(#9333ea 0%, #6b21a8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 auto 0.75rem;
+    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+  }
+
+  .upload-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .upload-size {
+    font-size: 0.75rem;
+    color: rgba(226, 232, 240, 0.9);
+    font-family: 'Courier New', monospace;
+  }
+
+  .upload-speed {
+    font-size: 0.7rem;
+    color: rgba(147, 51, 234, 1);
+    font-weight: 600;
+  }
+
+
   /* User list styling */
   #userList li {
     padding: 0.75rem 1rem;
