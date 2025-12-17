@@ -193,6 +193,26 @@ class AudioRecorder {
     }
 
     /**
+     * Pause recording
+     */
+    pauseRecording() {
+        if (this.mediaRecorder && this.isRecording && this.mediaRecorder.state === 'recording') {
+            this.mediaRecorder.pause();
+            console.log('Recording paused');
+        }
+    }
+
+    /**
+     * Resume recording
+     */
+    resumeRecording() {
+        if (this.mediaRecorder && this.isRecording && this.mediaRecorder.state === 'paused') {
+            this.mediaRecorder.resume();
+            console.log('Recording resumed');
+        }
+    }
+
+    /**
      * Handle tab visibility change - auto-stop recording
      */
     handleVisibilityChange() {

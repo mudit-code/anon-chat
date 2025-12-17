@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioDuration = 0;
     const recordingUsers = new Map(); // userId -> username (for recording indicator)
     let recordingIndicatorActive = false;
+    let shouldSendAudioAfterStop = false; // Flag to track if user wants to send immediately
 
     // Audio recording UI elements
     const recordBtn = document.getElementById("recordBtn");
@@ -520,11 +521,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const started = await audioRecorder.startRecording({
-            onStop: (blob, duration) => {
-                // Recording stopped - create preview
+            onStop: async (blob, duration) => {
+                // Recording stopped
                 audioPreviewBlob = blob;
                 audioDuration = duration;
-                addAudioPreview(blob, duration);
 
                 // Emit stop event to server
                 socket.emit('recording:stop', { roomKey, userId: socket.id });
@@ -539,6 +539,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (recordingTimer) {
                     clearInterval(recordingTimer);
                     recordingTimer = null;
+                }
+
+                // Check if user wants to send immediately
+                if (shouldSendAudioAfterStop) {
+                    shouldSendAudioAfterStop = false; // Reset flag
+                    hideRecordingUI();
+
+                    // Send audio immediately
+                    await window.sendAudioMessage();
+                } else {
+                    // Show preview
+                    addAudioPreview(blob, duration);
                 }
 
                 // Resume typing indicator if user is typing
@@ -587,7 +599,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Emit recording start to server
             socket.emit('recording:start', { roomKey, userId: socket.id, username });
 
-            // Start timer UI
+            // Show WhatsApp-style recording UI
+            showRecordingUI();
+
+            // Start timer UI (for the small timer in composer)
             recordingTimer = setInterval(() => {
                 const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
                 recordingTimerUI.querySelector('.recording-time').textContent = formatRecordingTime(elapsed);
@@ -610,65 +625,173 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
-    // Add WhatsApp-style audio preview compositor
-    function addAudioPreview(blob, duration) {
-        // Remove any existing audio preview
-        removeAudioPreview();
+    // Show recording UI (appears when recording starts, not after)
+    let recordingUIInterval = null;
+    let recordingPaused = false;
+    let pausedDuration = 0;
 
-        // Create compositor element
-        const compositor = document.createElement('div');
-        compositor.className = 'audio-preview-compositor';
-        compositor.id = 'audioPreviewCompositor';
+    function showRecordingUI() {
+        // Remove any existing UI
+        hideRecordingUI();
 
-        const audioUrl = URL.createObjectURL(blob);
+        // Create recording UI
+        const recordingUI = document.createElement('div');
+        recordingUI.className = 'audio-recording-ui';
+        recordingUI.id = 'audioRecordingUI';
 
-        // Create hidden audio element for playback
-        const audioElement = document.createElement('audio');
-        audioElement.id = 'audioPreviewPlayer';
-        audioElement.src = audioUrl;
-        audioElement.style.display = 'none';
+        recordingUI.innerHTML = `
+            <div class="audio-recording-container">
+                <!-- Timer (Top Left) -->
+                <div class="recording-timer-display" id="recordingTimerDisplay">00:00</div>
 
-        compositor.innerHTML = `
-            <div class="audio-preview-container">
-                <!-- Delete Button -->
-                <button class="audio-delete-btn" id="audioDeleteBtn" title="Delete recording">
+                <!-- Center Area (Waveform + Pause Button) -->
+                <div class="recording-center-area">
+                    <div class="recording-waveform" id="recordingWaveform"></div>
+                    <button class="recording-pause-btn" id="recordingPauseBtn" title="Pause">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                </div>
+
+                <!-- Delete Button (Below Timer) -->
+                <button class="recording-delete-btn" id="recordingDeleteBtn" title="Delete">
                     <i class="fas fa-trash"></i>
                 </button>
 
-                <!-- Playback Area with Waveform -->
-                <div class="audio-playback-area">
-                    <!-- Play/Pause Button -->
-                    <button class="audio-play-btn" id="audioPlayBtn" title="Play">
-                        <i class="fas fa-play"></i>
-                    </button>
-
-                    <!-- Waveform Visualization -->
-                    <div class="audio-waveform" id="audioWaveform"></div>
-
-                    <!-- Timer -->
-                    <div class="audio-timer" id="audioTimer">${formatRecordingTime(duration)}</div>
-                </div>
-
-                <!-- Send Button -->
-                <button class="audio-send-btn" id="audioSendBtn" title="Send audio message">
+                <!-- Send Button (Right) -->
+                <button class="recording-send-btn" id="recordingSendBtn" title="Send">
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
         `;
 
-        // Add to body
-        document.body.appendChild(compositor);
-        document.body.appendChild(audioElement);
+        // Append to chat input container instead of body
+        const chatInputContainer = document.getElementById('chat-input-container');
+        chatInputContainer.insertBefore(recordingUI, chatInputContainer.firstChild);
 
-        // Generate waveform bars
-        generateWaveform();
+        // Generate waveform
+        generateRecordingWaveform();
 
-        // Setup event listeners
-        setupAudioPreviewControls(audioElement, duration, audioUrl);
+        // Setup controls
+        setupRecordingControls();
 
-        // Re-enable message input (hide it visually in compositor mode)
-        messageInput.disabled = false;
-        messageInput.placeholder = 'Type a message...';
+        // Start timer
+        recordingStartTime = Date.now();
+        recordingPaused = false;
+        pausedDuration = 0;
+        updateRecordingTimer();
+    }
+
+    // Generate recording waveform
+    function generateRecordingWaveform() {
+        const waveform = document.getElementById('recordingWaveform');
+        if (!waveform) return;
+
+        waveform.innerHTML = '';
+        const barCount = 50; // More bars for ECG effect
+
+        for (let i = 0; i < barCount; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'recording-waveform-bar';
+
+            // Random heights for visual variety
+            const height = Math.random() * 80 + 20;
+            bar.style.height = `${height}%`;
+
+            // Animate bars with staggered timing (ECG effect)
+            bar.style.animation = `waveformPulseRecording ${0.8 + Math.random() * 0.6}s ease-in-out infinite`;
+            bar.style.animationDelay = `${Math.random() * 0.3}s`;
+
+            waveform.appendChild(bar);
+        }
+    }
+
+    // Update recording timer
+    function updateRecordingTimer() {
+        const timerDisplay = document.getElementById('recordingTimerDisplay');
+        if (!timerDisplay) return;
+
+        if (!recordingPaused && isRecording) {
+            const elapsed = Math.floor((Date.now() - recordingStartTime - pausedDuration) / 1000);
+            timerDisplay.textContent = formatRecordingTime(elapsed);
+            recordingUIInterval = setTimeout(updateRecordingTimer, 1000);
+        }
+    }
+
+    // Setup recording controls
+    function setupRecordingControls() {
+        const pauseBtn = document.getElementById('recordingPauseBtn');
+        const deleteBtn = document.getElementById('recordingDeleteBtn');
+        const sendBtn = document.getElementById('recordingSendBtn');
+        const waveform = document.getElementById('recordingWaveform');
+
+        // Pause/Resume button
+        pauseBtn.onclick = () => {
+            if (recordingPaused) {
+                // Resume
+                audioRecorder.resumeRecording();
+                pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                pauseBtn.classList.remove('paused');
+                pauseBtn.title = 'Pause';
+                recordingPaused = false;
+
+                // Resume animation
+                const bars = waveform.querySelectorAll('.recording-waveform-bar');
+                bars.forEach(bar => bar.classList.remove('paused'));
+
+                // Restart timer
+                recordingStartTime = Date.now() - pausedDuration;
+                updateRecordingTimer();
+            } else {
+                // Pause
+                audioRecorder.pauseRecording();
+                pauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                pauseBtn.classList.add('paused');
+                pauseBtn.title = 'Resume';
+                recordingPaused = true;
+                pausedDuration = Date.now() - recordingStartTime;
+
+                // Stop animation
+                const bars = waveform.querySelectorAll('.recording-waveform-bar');
+                bars.forEach(bar => bar.classList.add('paused'));
+
+                // Stop timer update
+                if (recordingUIInterval) {
+                    clearTimeout(recordingUIInterval);
+                    recordingUIInterval = null;
+                }
+            }
+        };
+
+        // Delete button
+        deleteBtn.onclick = () => {
+            if (confirm('Discard this recording?')) {
+                stopAudioRecording();
+                hideRecordingUI();
+            }
+        };
+
+        // Send button
+        sendBtn.onclick = async () => {
+            // Set flag to send immediately after recording stops
+            if (audioRecorder && isRecording) {
+                shouldSendAudioAfterStop = true;
+                audioRecorder.stopRecording();
+                // onStop callback will handle sending based on the flag
+            }
+        };
+    }
+
+    // Hide recording UI
+    function hideRecordingUI() {
+        const recordingUI = document.getElementById('audioRecordingUI');
+        if (recordingUI) {
+            recordingUI.remove();
+        }
+
+        if (recordingUIInterval) {
+            clearTimeout(recordingUIInterval);
+            recordingUIInterval = null;
+        }
     }
 
     // Generate animated waveform bars
@@ -770,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
             removeAudioPreview();
         };
 
-        // Send button
+        // Send button - use the global sendAudioMessage function at line 1742
         sendBtn.onclick = async () => {
             // Stop playback if active
             if (isPlaying) {
@@ -778,8 +901,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (playbackInterval) clearInterval(playbackInterval);
             }
 
-            // Trigger send
-            await sendAudioMessage();
+            // Call the existing sendAudioMessage function (defined later in the file)
+            // This function exists at line ~1742 and handles the upload and emit logic
+            if (typeof window.sendAudioMessage === 'function') {
+                await window.sendAudioMessage();
+            } else {
+                // Fallback: manually send the audio
+                console.log('Sending audio message...');
+                if (!audioPreviewBlob) return;
+
+                try {
+                    const formData = new FormData();
+                    const audioFile = new File([audioPreviewBlob], `audio-${Date.now()}.webm`, {
+                        type: audioPreviewBlob.type
+                    });
+                    formData.append('file', audioFile);
+
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error('Upload failed');
+
+                    const data = await response.json();
+                    const messageId = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+                    socket.emit("chat-message", {
+                        roomKey,
+                        username,
+                        id: messageId,
+                        message: {
+                            type: 'audio',
+                            content: data.path
+                        },
+                        seenBy: []
+                    });
+
+                    removeAudioPreview();
+                } catch (error) {
+                    console.error('Failed to send audio:', error);
+                    alert('Failed to send audio message. Please try again.');
+                }
+            }
         };
     }
 
@@ -809,7 +973,77 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear blob and duration
         audioPreviewBlob = null;
         audioDuration = 0;
+
+        // Re-enable message input
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Type a message...';
     };
+
+    // Add audio preview - create WhatsApp-style preview compositor
+    function addAudioPreview(blob, duration) {
+        // Hide recording UI
+        hideRecordingUI();
+
+        // Re-enable message input
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Type a message...';
+
+        // Remove any existing preview first
+        removeAudioPreview();
+
+        // Create object URL for playback
+        const audioUrl = URL.createObjectURL(blob);
+
+        // Create hidden audio element for playback
+        const audioElement = document.createElement('audio');
+        audioElement.id = 'audioPreviewPlayer';
+        audioElement.src = audioUrl;
+        audioElement.style.display = 'none';
+        document.body.appendChild(audioElement);
+
+        // Create audio preview compositor UI
+        const compositor = document.createElement('div');
+        compositor.id = 'audioPreviewCompositor';
+        compositor.className = 'audio-preview-compositor';
+
+        compositor.innerHTML = `
+            <div class="audio-preview-container">
+                <!-- Delete Button (Left) -->
+                <button class="audio-delete-btn" id="audioDeleteBtn" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+
+                <!-- Waveform & Playback Area -->
+                <div class="audio-playback-area">
+                    <!-- Play/Pause Button -->
+                    <button class="audio-play-btn" id="audioPlayBtn" title="Play">
+                        <i class="fas fa-play"></i>
+                    </button>
+
+                    <!-- Waveform -->
+                    <div class="audio-waveform" id="audioWaveform"></div>
+
+                    <!-- Timer -->
+                    <div class="audio-timer" id="audioTimer">${formatRecordingTime(duration)}</div>
+                </div>
+
+                <!-- Send Button (Right) -->
+                <button class="audio-send-btn" id="audioSendBtn" title="Send">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        `;
+
+        // Append to chat input container instead of body
+        const chatInputContainer = document.getElementById('chat-input-container');
+        chatInputContainer.insertBefore(compositor, chatInputContainer.firstChild);
+
+        // Generate waveform
+        generateWaveform();
+
+        // Setup controls
+        setupAudioPreviewControls(audioElement, duration, audioUrl);
+    }
 
     // Update recording indicator display
     function updateRecordingIndicator() {
@@ -1501,7 +1735,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, false);
 
     // Send audio message (called from audio preview send button)
-    async function sendAudioMessage() {
+    // Expose globally so it can be called from setupAudioPreviewControls
+    window.sendAudioMessage = async function sendAudioMessage() {
         if (!audioPreviewBlob) {
             console.error('No audio blob to send');
             return;
