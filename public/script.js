@@ -1365,9 +1365,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const message = messageInput.value.trim();
-        const hasMedia = pastedMedia.length > 0;
+        const hasMedia = pastedMedia.length > 0 || audioPreviewBlob !== null;
 
-        // Require either text or media
+        // Require either text or media (including audio)
         if (message === "" && !hasMedia) return;
 
         // Helper function to upload a single media file
