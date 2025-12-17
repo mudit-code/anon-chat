@@ -456,10 +456,12 @@
   /* Audio preview in media strip */
   .audio-preview-item {
     position: relative;
-    width: 280px;
+    width: 280px !important;
+    max-width: 280px;
+    height: auto !important;
     padding: 12px;
     border-radius: 0.75rem;
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(15, 23, 42, 0.6);
     border: 2px solid rgba(147, 51, 234, 0.3);
     display: flex;
     flex-direction: column;
@@ -470,23 +472,31 @@
     border-color: rgba(147, 51, 234, 0.6);
   }
 
-  .audio-preview-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .audio-preview-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: rgba(226, 232, 240, 0.8);
-    font-size: 0.875rem;
+  .audio-preview-player {
+    width: 100%;
+    height: 40px;
+    outline: none;
   }
 
   .audio-preview-duration {
-    color: rgba(148, 163, 184, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(226, 232, 240, 0.8);
     font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Mobile audio preview */
+  @media (max-width: 640px) {
+    .audio-preview-item {
+      width: 100% !important;
+      max-width: 100%;
+    }
+
+    .audio-preview-player {
+      width: 100%;
+    }
   }
 
   /* User list styling */
@@ -780,204 +790,7 @@
     padding: 0.25rem;
   }
 
-  /* WhatsApp-Style Audio Preview Compositor - Inline in composer */
-  .audio-preview-compositor {
-    width: 100%;
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(147, 51, 234, 0.3);
-    border-radius: 1rem;
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-    animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
 
-  @keyframes slideDown {
-    from {
-      transform: translateY(-10px);
-      opacity: 0;
-    }
-
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  .audio-preview-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  /* Delete Button (Left) */
-  .audio-delete-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: rgba(239, 68, 68, 0.15);
-    border: 2px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1.25rem;
-    flex-shrink: 0;
-  }
-
-  .audio-delete-btn:hover {
-    background: rgba(239, 68, 68, 0.25);
-    border-color: rgba(239, 68, 68, 0.5);
-    transform: scale(1.05);
-  }
-
-  .audio-delete-btn:active {
-    transform: scale(0.95);
-  }
-
-  /* Waveform & Playback Area */
-  .audio-playback-area {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: rgba(30, 41, 59, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 24px;
-    padding: 0.75rem 1rem;
-  }
-
-  /* Play/Pause Button */
-  .audio-play-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: rgba(147, 51, 234, 0.2);
-    border: 2px solid rgba(147, 51, 234, 0.4);
-    color: #a78bfa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-    flex-shrink: 0;
-  }
-
-  .audio-play-btn:hover {
-    background: rgba(147, 51, 234, 0.3);
-    border-color: rgba(147, 51, 234, 0.6);
-    transform: scale(1.05);
-  }
-
-  .audio-play-btn:active {
-    transform: scale(0.95);
-  }
-
-  /* Waveform Container */
-  .audio-waveform {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    height: 40px;
-    overflow: hidden;
-  }
-
-  .waveform-bar {
-    width: 3px;
-    background: linear-gradient(to top, #7c3aed, #a78bfa);
-    border-radius: 2px;
-    transition: all 0.1s ease;
-  }
-
-  .waveform-bar.playing {
-    background: linear-gradient(to top, #10b981, #34d399);
-  }
-
-  @keyframes waveformPulse {
-
-    0%,
-    100% {
-      height: 20%;
-    }
-
-    50% {
-      height: 100%;
-    }
-  }
-
-  /* Timer Display */
-  .audio-timer {
-    font-size: 0.875rem;
-    font-family: 'Courier New', monospace;
-    color: rgba(226, 232, 240, 0.8);
-    min-width: 45px;
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  /* Send Button (Right) */
-  .audio-send-btn {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    flex-shrink: 0;
-  }
-
-  .audio-send-btn:hover {
-    background: linear-gradient(135deg, #059669, #047857);
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
-  }
-
-  .audio-send-btn:active {
-    transform: scale(0.95);
-  }
-
-  /* Mobile responsive */
-  @media (max-width: 640px) {
-    .audio-preview-container {
-      gap: 0.5rem;
-    }
-
-    .audio-delete-btn,
-    .audio-send-btn {
-      width: 44px;
-      height: 44px;
-      font-size: 1.125rem;
-    }
-
-    .audio-playback-area {
-      gap: 0.5rem;
-      padding: 0.5rem 0.75rem;
-    }
-
-    .audio-play-btn {
-      width: 36px;
-      height: 36px;
-      font-size: 0.875rem;
-    }
-
-    .audio-timer {
-      font-size: 0.75rem;
-      min-width: 40px;
-    }
-  }
 
   /* WhatsApp-Style Audio Recording UI (During Recording) - Inline in composer */
   .audio-recording-ui {
@@ -1153,38 +966,38 @@
   /* Mobile responsive for recording UI */
   @media (max-width: 640px) {
     .audio-recording-ui {
-      padding: 1rem 0.75rem;
+      padding: 0.75rem 0.5rem;
     }
 
     .audio-recording-container {
-      grid-template-columns: 60px 1fr 60px;
-      gap: 0.75rem;
+      grid-template-columns: 50px 1fr 50px;
+      gap: 0.5rem;
     }
 
     .recording-timer-display {
-      font-size: 1rem;
+      font-size: 0.875rem;
     }
 
     .recording-delete-btn {
-      width: 40px;
-      height: 40px;
-      font-size: 1rem;
+      width: 36px;
+      height: 36px;
+      font-size: 0.875rem;
     }
 
     .recording-waveform {
-      height: 50px;
+      height: 45px;
     }
 
     .recording-pause-btn {
-      width: 56px;
-      height: 56px;
-      font-size: 1.5rem;
+      width: 50px;
+      height: 50px;
+      font-size: 1.25rem;
     }
 
     .recording-send-btn {
-      width: 56px;
-      height: 56px;
-      font-size: 1.5rem;
+      width: 50px;
+      height: 50px;
+      font-size: 1.25rem;
     }
   }
 }

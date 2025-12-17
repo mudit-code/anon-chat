@@ -93,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioDuration = 0;
     const recordingUsers = new Map(); // userId -> username (for recording indicator)
     let recordingIndicatorActive = false;
-    let shouldSendAudioAfterStop = false; // Flag to track if user wants to send immediately
 
     // Audio recording UI elements
     const recordBtn = document.getElementById("recordBtn");
@@ -435,17 +434,41 @@ document.addEventListener('DOMContentLoaded', () => {
         // Display each media item
         pastedMedia.forEach((mediaItem, index) => {
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'media-preview-item';
 
-            // Create thumbnail
-            const thumbnail = document.createElement(mediaItem.file.type.startsWith('video') ? 'video' : 'img');
-            thumbnail.src = mediaItem.objectUrl;
-            thumbnail.className = 'media-preview-thumbnail';
-            if (mediaItem.file.type.startsWith('video')) {
-                thumbnail.muted = true;
+            // Audio items get special styling
+            if (mediaItem.type === 'audio' || mediaItem.file.type.startsWith('audio')) {
+                itemDiv.className = 'media-preview-item audio-preview-item';
+
+                // Create audio element with native controls
+                const audioElement = document.createElement('audio');
+                audioElement.src = mediaItem.objectUrl;
+                audioElement.controls = true;
+                audioElement.className = 'audio-preview-player';
+
+                // Add duration display if available
+                if (mediaItem.duration) {
+                    const durationDiv = document.createElement('div');
+                    durationDiv.className = 'audio-preview-duration';
+                    durationDiv.innerHTML = `<i class="fas fa-microphone"></i> ${formatRecordingTime(Math.floor(mediaItem.duration))}`;
+                    itemDiv.appendChild(durationDiv);
+                }
+
+                itemDiv.appendChild(audioElement);
+            } else {
+                itemDiv.className = 'media-preview-item';
+
+                // Create thumbnail for images/videos
+                const thumbnail = document.createElement(mediaItem.file.type.startsWith('video') ? 'video' : 'img');
+                thumbnail.src = mediaItem.objectUrl;
+                thumbnail.className = 'media-preview-thumbnail';
+                if (mediaItem.file.type.startsWith('video')) {
+                    thumbnail.muted = true;
+                }
+
+                itemDiv.appendChild(thumbnail);
             }
 
-            // Create remove button
+            // Create remove button (works for all media types)
             const removeBtn = document.createElement('button');
             removeBtn.className = 'media-remove-btn';
             removeBtn.innerHTML = '<i class="fas fa-times"></i>';
@@ -454,7 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 removeMediaPreview(index);
             };
 
-            itemDiv.appendChild(thumbnail);
             itemDiv.appendChild(removeBtn);
             previewContainer.appendChild(itemDiv);
         });
@@ -522,7 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const started = await audioRecorder.startRecording({
             onStop: async (blob, duration) => {
-                // Recording stopped
+                // Recording stopped - add to media strip
                 audioPreviewBlob = blob;
                 audioDuration = duration;
 
@@ -541,22 +563,59 @@ document.addEventListener('DOMContentLoaded', () => {
                     recordingTimer = null;
                 }
 
-                // Check if user wants to send immediately
-                if (shouldSendAudioAfterStop) {
-                    shouldSendAudioAfterStop = false; // Reset flag
-                    hideRecordingUI();
+                // Hide recording UI
+                hideRecordingUI();
 
-                    // Send audio immediately
-                    await window.sendAudioMessage();
-                } else {
-                    // Show preview
-                    addAudioPreview(blob, duration);
+                // Add audio to media strip (check limit first)
+                const currentMediaCount = pastedMedia.length;
+                if (currentMediaCount >= MAX_MEDIA_ITEMS) {
+                    alert(`Media limit reached (${MAX_MEDIA_ITEMS}/${MAX_MEDIA_ITEMS}). Remove items to add audio.`);
+                    // Cleanup
+                    if (audioRecorder) {
+                        audioRecorder.cleanup();
+                    }
+                    audioPreviewBlob = null;
+                    audioDuration = 0;
+                    return;
                 }
+
+                // Create audio file from blob
+                const audioFile = new File([blob], `audio-${Date.now()}.webm`, {
+                    type: blob.type || 'audio/webm'
+                });
+
+                // Create object URL for preview
+                const objectUrl = URL.createObjectURL(blob);
+
+                // Add to media array with metadata
+                pastedMedia.push({
+                    file: audioFile,
+                    objectUrl: objectUrl,
+                    type: 'audio',
+                    duration: duration
+                });
+
+                // Render media previews
+                renderMediaPreviews();
+
+                // Re-enable message input
+                messageInput.disabled = false;
+                messageInput.placeholder = 'Type a message...';
+                messageInput.focus();
 
                 // Resume typing indicator if user is typing
                 if (messageInput.value.trim().length > 0 && !isTyping) {
                     socket.emit('typing:start', { roomKey, userId: socket.id, username });
                     isTyping = true;
+                }
+
+                // Reset audio state
+                audioPreviewBlob = null;
+                audioDuration = 0;
+
+                // Cleanup recorder to release microphone
+                if (audioRecorder) {
+                    audioRecorder.cleanup();
                 }
             },
             onMaxDuration: () => {
@@ -794,256 +853,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Generate animated waveform bars
-    function generateWaveform() {
-        const waveform = document.getElementById('audioWaveform');
-        if (!waveform) return;
 
-        waveform.innerHTML = '';
-        const barCount = 40; // Number of bars
 
-        for (let i = 0; i < barCount; i++) {
-            const bar = document.createElement('div');
-            bar.className = 'waveform-bar';
 
-            // Random heights for visual variety (20% to 100%)
-            const height = Math.random() * 80 + 20;
-            bar.style.height = `${height}%`;
-
-            // Animate bars with staggered timing
-            bar.style.animation = `waveformPulse ${1 + Math.random()}s ease-in-out infinite`;
-            bar.style.animationDelay = `${Math.random() * 0.5}s`;
-
-            waveform.appendChild(bar);
-        }
-    }
-
-    // Setup audio preview controls
-    function setupAudioPreviewControls(audioElement, totalDuration, audioUrl) {
-        const playBtn = document.getElementById('audioPlayBtn');
-        const deleteBtn = document.getElementById('audioDeleteBtn');
-        const sendBtn = document.getElementById('audioSendBtn');
-        const timer = document.getElementById('audioTimer');
-        const waveform = document.getElementById('audioWaveform');
-
-        let isPlaying = false;
-        let playbackInterval = null;
-
-        // Play/Pause functionality
-        playBtn.onclick = () => {
-            if (isPlaying) {
-                audioElement.pause();
-                playBtn.innerHTML = '<i class="fas fa-play"></i>';
-                playBtn.title = 'Play';
-                isPlaying = false;
-
-                // Stop waveform animation
-                const bars = waveform.querySelectorAll('.waveform-bar');
-                bars.forEach(bar => bar.classList.remove('playing'));
-
-                if (playbackInterval) {
-                    clearInterval(playbackInterval);
-                    playbackInterval = null;
-                }
-            } else {
-                audioElement.play();
-                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                playBtn.title = 'Pause';
-                isPlaying = true;
-
-                // Animate waveform bars
-                const bars = waveform.querySelectorAll('.waveform-bar');
-                bars.forEach(bar => bar.classList.add('playing'));
-
-                // Update timer during playback
-                playbackInterval = setInterval(() => {
-                    const currentTime = Math.floor(audioElement.currentTime);
-                    timer.textContent = formatRecordingTime(currentTime);
-                }, 100);
-            }
-        };
-
-        // When audio ends, reset
-        audioElement.onended = () => {
-            playBtn.innerHTML = '<i class="fas fa-play"></i>';
-            playBtn.title = 'Play';
-            isPlaying = false;
-            timer.textContent = formatRecordingTime(totalDuration);
-            audioElement.currentTime = 0;
-
-            // Stop waveform animation
-            const bars = waveform.querySelectorAll('.waveform-bar');
-            bars.forEach(bar => bar.classList.remove('playing'));
-
-            if (playbackInterval) {
-                clearInterval(playbackInterval);
-                playbackInterval = null;
-            }
-        };
-
-        // Delete button
-        deleteBtn.onclick = () => {
-            // Stop playback if active
-            if (isPlaying) {
-                audioElement.pause();
-                if (playbackInterval) clearInterval(playbackInterval);
-            }
-
-            // Remove preview
-            removeAudioPreview();
-        };
-
-        // Send button - use the global sendAudioMessage function at line 1742
-        sendBtn.onclick = async () => {
-            // Stop playback if active
-            if (isPlaying) {
-                audioElement.pause();
-                if (playbackInterval) clearInterval(playbackInterval);
-            }
-
-            // Call the existing sendAudioMessage function (defined later in the file)
-            // This function exists at line ~1742 and handles the upload and emit logic
-            if (typeof window.sendAudioMessage === 'function') {
-                await window.sendAudioMessage();
-            } else {
-                // Fallback: manually send the audio
-                console.log('Sending audio message...');
-                if (!audioPreviewBlob) return;
-
-                try {
-                    const formData = new FormData();
-                    const audioFile = new File([audioPreviewBlob], `audio-${Date.now()}.webm`, {
-                        type: audioPreviewBlob.type
-                    });
-                    formData.append('file', audioFile);
-
-                    const response = await fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (!response.ok) throw new Error('Upload failed');
-
-                    const data = await response.json();
-                    const messageId = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-
-                    socket.emit("chat-message", {
-                        roomKey,
-                        username,
-                        id: messageId,
-                        message: {
-                            type: 'audio',
-                            content: data.path
-                        },
-                        seenBy: []
-                    });
-
-                    removeAudioPreview();
-                } catch (error) {
-                    console.error('Failed to send audio:', error);
-                    alert('Failed to send audio message. Please try again.');
-                }
-            }
-        };
-    }
-
-    // Remove audio preview
-    window.removeAudioPreview = function () {
-        // Remove compositor UI
-        const compositor = document.getElementById('audioPreviewCompositor');
-        if (compositor) {
-            compositor.remove();
-        }
-
-        // Remove hidden audio player
-        const audioPlayer = document.getElementById('audioPreviewPlayer');
-        if (audioPlayer) {
-            // Revoke object URL
-            if (audioPlayer.src) {
-                URL.revokeObjectURL(audioPlayer.src);
-            }
-            audioPlayer.remove();
-        }
-
-        // CRITICAL: Cleanup audio recorder to release microphone
-        if (audioRecorder) {
-            audioRecorder.cleanup();
-        }
-
-        // Clear blob and duration
-        audioPreviewBlob = null;
-        audioDuration = 0;
-
-        // Re-enable message input
-        messageInput.disabled = false;
-        messageInput.placeholder = 'Type a message...';
-    };
-
-    // Add audio preview - create WhatsApp-style preview compositor
-    function addAudioPreview(blob, duration) {
-        // Hide recording UI
-        hideRecordingUI();
-
-        // Re-enable message input
-        messageInput.disabled = false;
-        messageInput.placeholder = 'Type a message...';
-
-        // Remove any existing preview first
-        removeAudioPreview();
-
-        // Create object URL for playback
-        const audioUrl = URL.createObjectURL(blob);
-
-        // Create hidden audio element for playback
-        const audioElement = document.createElement('audio');
-        audioElement.id = 'audioPreviewPlayer';
-        audioElement.src = audioUrl;
-        audioElement.style.display = 'none';
-        document.body.appendChild(audioElement);
-
-        // Create audio preview compositor UI
-        const compositor = document.createElement('div');
-        compositor.id = 'audioPreviewCompositor';
-        compositor.className = 'audio-preview-compositor';
-
-        compositor.innerHTML = `
-            <div class="audio-preview-container">
-                <!-- Delete Button (Left) -->
-                <button class="audio-delete-btn" id="audioDeleteBtn" title="Delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-
-                <!-- Waveform & Playback Area -->
-                <div class="audio-playback-area">
-                    <!-- Play/Pause Button -->
-                    <button class="audio-play-btn" id="audioPlayBtn" title="Play">
-                        <i class="fas fa-play"></i>
-                    </button>
-
-                    <!-- Waveform -->
-                    <div class="audio-waveform" id="audioWaveform"></div>
-
-                    <!-- Timer -->
-                    <div class="audio-timer" id="audioTimer">${formatRecordingTime(duration)}</div>
-                </div>
-
-                <!-- Send Button (Right) -->
-                <button class="audio-send-btn" id="audioSendBtn" title="Send">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-        `;
-
-        // Append to chat input container instead of body
-        const chatInputContainer = document.getElementById('chat-input-container');
-        chatInputContainer.insertBefore(compositor, chatInputContainer.firstChild);
-
-        // Generate waveform
-        generateWaveform();
-
-        // Setup controls
-        setupAudioPreviewControls(audioElement, duration, audioUrl);
-    }
 
     // Update recording indicator display
     function updateRecordingIndicator() {
@@ -1734,55 +1546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, false);
 
-    // Send audio message (called from audio preview send button)
-    // Expose globally so it can be called from setupAudioPreviewControls
-    window.sendAudioMessage = async function sendAudioMessage() {
-        if (!audioPreviewBlob) {
-            console.error('No audio blob to send');
-            return;
-        }
 
-        try {
-            // Create FormData with audio file
-            const formData = new FormData();
-            const audioFile = new File([audioPreviewBlob], `audio-${Date.now()}.webm`, {
-                type: audioPreviewBlob.type
-            });
-            formData.append('file', audioFile);
-
-            // Upload audio file
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Upload failed with status ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            // Send audio message via socket
-            const messageId = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            socket.emit("chat-message", {
-                roomKey,
-                username,
-                id: messageId,
-                message: {
-                    type: 'audio',
-                    content: data.path
-                },
-                seenBy: []
-            });
-
-            // Success! Remove preview and cleanup
-            removeAudioPreview();
-
-        } catch (error) {
-            console.error('Failed to send audio message:', error);
-            alert('Failed to send audio message. Please try again.');
-        }
-    }
 
     sendBtn.onclick = async () => {
         // Stop typing when sending message
@@ -1803,9 +1567,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const message = messageInput.value.trim();
-        const hasMedia = pastedMedia.length > 0 || audioPreviewBlob !== null;
+        const hasMedia = pastedMedia.length > 0;
 
-        // Require either text or media (including audio)
+        // Require either text or media
         if (message === "" && !hasMedia) return;
 
         // Helper function to upload a single media file
@@ -1853,22 +1617,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return Promise.allSettled(results);
         };
 
-        // Upload all media files (images/videos from paste + audio if recorded)
+        // Upload all media files (images/videos/audio from media strip)
         let uploadedMedia = [];
 
-        // Prepare all media items for upload
-        const allMediaToUpload = [...pastedMedia];
-
-        // Add audio if present
-        if (audioPreviewBlob) {
-            allMediaToUpload.push({
-                file: new File([audioPreviewBlob], `audio-${Date.now()}.webm`, { type: audioPreviewBlob.type }),
-                objectUrl: null // Audio doesn't need preview URL
-            });
-        }
-
-        if (allMediaToUpload.length > 0) {
-            const uploadResults = await uploadWithConcurrency(allMediaToUpload, 3);
+        if (pastedMedia.length > 0) {
+            const uploadResults = await uploadWithConcurrency(pastedMedia, 3);
 
             // Process results - only keep successful uploads
             uploadedMedia = uploadResults
@@ -1922,16 +1675,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Cleanup: revoke all object URLs
         pastedMedia.forEach(item => {
-            URL.revokeObjectURL(item.objectUrl);
+            if (item.objectUrl) {
+                URL.revokeObjectURL(item.objectUrl);
+            }
         });
 
         // Clear state
         pastedMedia.length = 0; // Clear array
-
-        // Clear audio preview if present
-        if (audioPreviewBlob) {
-            window.removeAudioPreview();
-        }
 
         messageInput.value = "";
         autoResizeTextarea(); // Reset height
