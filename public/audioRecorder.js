@@ -88,8 +88,9 @@ class AudioRecorder {
             return false;
         }
 
-        // Request permission if not already granted
-        if (!this.permissionGranted) {
+        // Always request new stream if we don't have an active one
+        // This handles cases where stream was released after previous recording
+        if (!this.stream || !this.stream.active) {
             const granted = await this.requestPermission();
             if (!granted) return false;
         }
@@ -130,6 +131,10 @@ class AudioRecorder {
                 }
 
                 this.isRecording = false;
+
+                // CRITICAL: Release microphone immediately after recording stops
+                // This prevents the browser from holding onto the microphone indefinitely
+                this.releaseMediaStream();
             };
 
             // Handle errors
@@ -206,6 +211,20 @@ class AudioRecorder {
     }
 
     /**
+     * Release media stream (stop microphone)
+     */
+    releaseMediaStream() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => {
+                track.stop();
+                console.log('Audio track stopped:', track.label);
+            });
+            this.stream = null;
+            this.permissionGranted = false;
+        }
+    }
+
+    /**
      * Cleanup resources
      */
     cleanup() {
@@ -214,17 +233,13 @@ class AudioRecorder {
             this.stopRecording();
         }
 
-        // Stop all media tracks
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-            this.stream = null;
-        }
+        // Release media stream
+        this.releaseMediaStream();
 
         // Clear recorder
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.startTime = null;
-        this.permissionGranted = false;
         this.isRecording = false;
 
         // Clear timeout

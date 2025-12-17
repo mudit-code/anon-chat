@@ -196,6 +196,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
+            } else if (message.type === 'audio') {
+                messageBubble.className = 'sent-message';
+                contentHtml = `
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-microphone text-lg"></i>
+                    <audio controls class="flex-1" style="height: 32px; max-width: 200px;">
+                        <source src="${message.content}" type="audio/webm">
+                    </audio>
+                    <a href="${message.content}" download="audio-${Date.now()}.webm" class="text-white hover:text-purple-200" title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>`;
             }
         }
         if (!isConsecutive) {
@@ -598,63 +610,205 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
-    // Add audio preview to media strip
+    // Add WhatsApp-style audio preview compositor
     function addAudioPreview(blob, duration) {
-        // Add to media previews container
-        const previewsContainer = document.getElementById('mediaPreviews');
+        // Remove any existing audio preview
+        removeAudioPreview();
 
-        // Show container
-        previewsContainer.classList.remove('hidden');
-
-        // Create audio preview card
-        const audioPreview = document.createElement('div');
-        audioPreview.className = 'audio-preview-item';
-        audioPreview.id = 'audioPreview';
+        // Create compositor element
+        const compositor = document.createElement('div');
+        compositor.className = 'audio-preview-compositor';
+        compositor.id = 'audioPreviewCompositor';
 
         const audioUrl = URL.createObjectURL(blob);
 
-        audioPreview.innerHTML = `
-            <div class="audio-preview-info">
-                <i class="fas fa-microphone text-red-400"></i>
-                <span>Audio Message</span>
-                <span class="audio-preview-duration">${formatRecordingTime(duration)}</span>
+        // Create hidden audio element for playback
+        const audioElement = document.createElement('audio');
+        audioElement.id = 'audioPreviewPlayer';
+        audioElement.src = audioUrl;
+        audioElement.style.display = 'none';
+
+        compositor.innerHTML = `
+            <div class="audio-preview-container">
+                <!-- Delete Button -->
+                <button class="audio-delete-btn" id="audioDeleteBtn" title="Delete recording">
+                    <i class="fas fa-trash"></i>
+                </button>
+
+                <!-- Playback Area with Waveform -->
+                <div class="audio-playback-area">
+                    <!-- Play/Pause Button -->
+                    <button class="audio-play-btn" id="audioPlayBtn" title="Play">
+                        <i class="fas fa-play"></i>
+                    </button>
+
+                    <!-- Waveform Visualization -->
+                    <div class="audio-waveform" id="audioWaveform"></div>
+
+                    <!-- Timer -->
+                    <div class="audio-timer" id="audioTimer">${formatRecordingTime(duration)}</div>
+                </div>
+
+                <!-- Send Button -->
+                <button class="audio-send-btn" id="audioSendBtn" title="Send audio message">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
             </div>
-            <audio controls class="w-full mt-2" style="height: 32px;">
-                <source src="${audioUrl}" type="${blob.type}">
-            </audio>
-            <button class="media-remove-btn" style="opacity: 1;" onclick="removeAudioPreview()">
-                <i class="fas fa-times"></i>
-            </button>
         `;
 
-        previewsContainer.appendChild(audioPreview);
+        // Add to body
+        document.body.appendChild(compositor);
+        document.body.appendChild(audioElement);
 
-        // Re-enable message input
+        // Generate waveform bars
+        generateWaveform();
+
+        // Setup event listeners
+        setupAudioPreviewControls(audioElement, duration, audioUrl);
+
+        // Re-enable message input (hide it visually in compositor mode)
         messageInput.disabled = false;
         messageInput.placeholder = 'Type a message...';
-        messageInput.focus();
+    }
+
+    // Generate animated waveform bars
+    function generateWaveform() {
+        const waveform = document.getElementById('audioWaveform');
+        if (!waveform) return;
+
+        waveform.innerHTML = '';
+        const barCount = 40; // Number of bars
+
+        for (let i = 0; i < barCount; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'waveform-bar';
+
+            // Random heights for visual variety (20% to 100%)
+            const height = Math.random() * 80 + 20;
+            bar.style.height = `${height}%`;
+
+            // Animate bars with staggered timing
+            bar.style.animation = `waveformPulse ${1 + Math.random()}s ease-in-out infinite`;
+            bar.style.animationDelay = `${Math.random() * 0.5}s`;
+
+            waveform.appendChild(bar);
+        }
+    }
+
+    // Setup audio preview controls
+    function setupAudioPreviewControls(audioElement, totalDuration, audioUrl) {
+        const playBtn = document.getElementById('audioPlayBtn');
+        const deleteBtn = document.getElementById('audioDeleteBtn');
+        const sendBtn = document.getElementById('audioSendBtn');
+        const timer = document.getElementById('audioTimer');
+        const waveform = document.getElementById('audioWaveform');
+
+        let isPlaying = false;
+        let playbackInterval = null;
+
+        // Play/Pause functionality
+        playBtn.onclick = () => {
+            if (isPlaying) {
+                audioElement.pause();
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                playBtn.title = 'Play';
+                isPlaying = false;
+
+                // Stop waveform animation
+                const bars = waveform.querySelectorAll('.waveform-bar');
+                bars.forEach(bar => bar.classList.remove('playing'));
+
+                if (playbackInterval) {
+                    clearInterval(playbackInterval);
+                    playbackInterval = null;
+                }
+            } else {
+                audioElement.play();
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                playBtn.title = 'Pause';
+                isPlaying = true;
+
+                // Animate waveform bars
+                const bars = waveform.querySelectorAll('.waveform-bar');
+                bars.forEach(bar => bar.classList.add('playing'));
+
+                // Update timer during playback
+                playbackInterval = setInterval(() => {
+                    const currentTime = Math.floor(audioElement.currentTime);
+                    timer.textContent = formatRecordingTime(currentTime);
+                }, 100);
+            }
+        };
+
+        // When audio ends, reset
+        audioElement.onended = () => {
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            playBtn.title = 'Play';
+            isPlaying = false;
+            timer.textContent = formatRecordingTime(totalDuration);
+            audioElement.currentTime = 0;
+
+            // Stop waveform animation
+            const bars = waveform.querySelectorAll('.waveform-bar');
+            bars.forEach(bar => bar.classList.remove('playing'));
+
+            if (playbackInterval) {
+                clearInterval(playbackInterval);
+                playbackInterval = null;
+            }
+        };
+
+        // Delete button
+        deleteBtn.onclick = () => {
+            // Stop playback if active
+            if (isPlaying) {
+                audioElement.pause();
+                if (playbackInterval) clearInterval(playbackInterval);
+            }
+
+            // Remove preview
+            removeAudioPreview();
+        };
+
+        // Send button
+        sendBtn.onclick = async () => {
+            // Stop playback if active
+            if (isPlaying) {
+                audioElement.pause();
+                if (playbackInterval) clearInterval(playbackInterval);
+            }
+
+            // Trigger send
+            await sendAudioMessage();
+        };
     }
 
     // Remove audio preview
     window.removeAudioPreview = function () {
-        const audioPreview = document.getElementById('audioPreview');
-        if (audioPreview) {
-            // Revoke object URL
-            const audioElement = audioPreview.querySelector('audio source');
-            if (audioElement) {
-                URL.revokeObjectURL(audioElement.src);
-            }
-
-            audioPreview.remove();
-            audioPreviewBlob = null;
-            audioDuration = 0;
-
-            // Hide previews container if empty
-            const previewsContainer = document.getElementById('mediaPreviews');
-            if (previewsContainer.children.length === 0) {
-                previewsContainer.classList.add('hidden');
-            }
+        // Remove compositor UI
+        const compositor = document.getElementById('audioPreviewCompositor');
+        if (compositor) {
+            compositor.remove();
         }
+
+        // Remove hidden audio player
+        const audioPlayer = document.getElementById('audioPreviewPlayer');
+        if (audioPlayer) {
+            // Revoke object URL
+            if (audioPlayer.src) {
+                URL.revokeObjectURL(audioPlayer.src);
+            }
+            audioPlayer.remove();
+        }
+
+        // CRITICAL: Cleanup audio recorder to release microphone
+        if (audioRecorder) {
+            audioRecorder.cleanup();
+        }
+
+        // Clear blob and duration
+        audioPreviewBlob = null;
+        audioDuration = 0;
     };
 
     // Update recording indicator display
@@ -1345,6 +1499,55 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }, false);
+
+    // Send audio message (called from audio preview send button)
+    async function sendAudioMessage() {
+        if (!audioPreviewBlob) {
+            console.error('No audio blob to send');
+            return;
+        }
+
+        try {
+            // Create FormData with audio file
+            const formData = new FormData();
+            const audioFile = new File([audioPreviewBlob], `audio-${Date.now()}.webm`, {
+                type: audioPreviewBlob.type
+            });
+            formData.append('file', audioFile);
+
+            // Upload audio file
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Send audio message via socket
+            const messageId = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            socket.emit("chat-message", {
+                roomKey,
+                username,
+                id: messageId,
+                message: {
+                    type: 'audio',
+                    content: data.path
+                },
+                seenBy: []
+            });
+
+            // Success! Remove preview and cleanup
+            removeAudioPreview();
+
+        } catch (error) {
+            console.error('Failed to send audio message:', error);
+            alert('Failed to send audio message. Please try again.');
+        }
+    }
 
     sendBtn.onclick = async () => {
         // Stop typing when sending message
