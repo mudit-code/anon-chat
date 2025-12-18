@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </a>
                 </div>`;
             } else if (message.type === 'audio') {
-                messageBubble.className = 'sent-message';
+                // Don't override bubbleClass for audio - let it stay as sender/receiver class
                 contentHtml = `
                 <div class="flex items-center gap-3">
                     <i class="fas fa-microphone text-lg"></i>
@@ -711,6 +711,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove any existing UI
         hideRecordingUI();
 
+        // Hide main send button to prevent duplicates
+        const mainSendBtn = document.getElementById('sendBtn');
+        if (mainSendBtn) {
+            mainSendBtn.style.display = 'none';
+        }
+
         // Create recording UI
         const recordingUI = document.createElement('div');
         recordingUI.className = 'audio-recording-ui';
@@ -863,6 +869,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const recordingUI = document.getElementById('audioRecordingUI');
         if (recordingUI) {
             recordingUI.remove();
+        }
+
+        // Show main send button again
+        const mainSendBtn = document.getElementById('sendBtn');
+        if (mainSendBtn) {
+            mainSendBtn.style.display = '';
         }
 
         if (recordingUIInterval) {
