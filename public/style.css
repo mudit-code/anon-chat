@@ -12,6 +12,9 @@
     height: 100vh;
     /* Fallback */
     height: 100dvh;
+    /* Prevent overscroll bounce (purple background) */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -45,25 +48,36 @@
   #chatScreen {
     display: flex;
     flex-direction: column;
-    /* Use CSS variable set by JS, fallback to dvh */
+    /* Use CSS variable set by JS, fallback to dvh for mobile keyboard */
     height: var(--vvh, 100dvh);
     width: 100%;
     background: linear-gradient(to bottom, #0f172a, #1e1b4b, #0f172a);
     overflow: hidden;
+    /* Prevent any scrolling on main container */
+    overscroll-behavior: none;
+    position: relative;
   }
 
   #chat-header {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
     flex-shrink: 0;
+    /* Never allow header to scroll */
+    flex-grow: 0;
   }
 
   #messages {
-    flex-grow: 1;
+    flex: 1 1 auto;
+    /* Only the messages area should scroll */
     overflow-y: auto;
+    overflow-x: hidden;
     background: transparent;
     padding-bottom: 20px;
+    /* Smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent overscroll bounce */
+    overscroll-behavior: contain;
   }
 
   .message {
@@ -84,9 +98,15 @@
 
   #chat-input-container {
     flex-shrink: 0;
+    flex-grow: 0;
     padding-bottom: env(safe-area-inset-bottom, 1rem);
     position: relative;
     z-index: 5;
+    /* Prevent dragging/scrolling of input container */
+    touch-action: none;
+    overscroll-behavior: none;
+    /* No overflow allowed */
+    overflow: visible;
   }
 
   #chat-input-container>div:first-of-type {
