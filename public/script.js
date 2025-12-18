@@ -123,8 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayMessage(user, message, id, seenBy = [], replyTo = null) {
+        console.log('displayMessage called:', { user, messageType: message.type, id, hasReplyTo: !!replyTo });
+
         // If message already exists (e.g. from file upload flow), don't duplicate, just update if needed
         if (id && document.getElementById(id)) {
+            console.log('Message already exists, updating seen status only:', id);
             const existingMsg = document.getElementById(id);
             // Update seen status if needed
             const seenStatus = existingMsg.querySelector('.seen-status');
@@ -137,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
+        console.log('Rendering new message:', id);
 
         const isConsecutive = lastMessageUser === user;
 
