@@ -1901,6 +1901,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
 
+            // Display immediately for sender to ensure correct alignment
+            displayMessage(username, {
+                type: messageType,
+                content: media.path
+            }, messageId, [], replyContext ? messagePayload.replyTo : null);
+
+            // Also emit to server to broadcast to other users
             socket.emit("chat-message", messagePayload);
         }
 
