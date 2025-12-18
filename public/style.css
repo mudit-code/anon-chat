@@ -1215,7 +1215,18 @@
     }
 
     .quoted-reply {
-      padding: 0.375rem 0.625rem;
+      padding: 0.3rem 0.4rem;
+      margin-bottom: 0.4rem;
+      display: block !important;
+      visibility: visible !important;
+    }
+
+    .quoted-sender {
+      font-size: 0.625rem;
+    }
+
+    .quoted-preview {
+      font-size: 0.75rem;
     }
   }
 }

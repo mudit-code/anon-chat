@@ -2208,11 +2208,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Touch start - for swipe and long-press detection
         messagesDiv.addEventListener('touchstart', (e) => {
             const messageBubble = e.target.closest('.sent-message, .received-message');
-            if (!messageBubble) return;
+            if (!messageBubble) {
+                console.log('Touch start: No message bubble found');
+                return;
+            }
 
             const messageWrapper = messageBubble.closest('.message');
-            if (!messageWrapper || !messageWrapper.id) return;
+            if (!messageWrapper || !messageWrapper.id) {
+                console.log('Touch start: No message wrapper or ID');
+                return;
+            }
 
+            console.log('Touch start detected on message:', messageWrapper.id);
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
@@ -2221,6 +2228,7 @@ document.addEventListener('DOMContentLoaded', () => {
             longPressTimeout = setTimeout(() => {
                 // Long-press detected - trigger reply
                 if (!isSwiping) {
+                    console.log('Long-press detected');
                     const messageData = extractMessageData(messageWrapper);
                     if (messageData) {
                         setReplyContext(messageData);
@@ -2228,10 +2236,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (navigator.vibrate) {
                             navigator.vibrate(50);
                         }
+                    } else {
+                        console.log('Failed to extract message data');
                     }
                 }
             }, 400);
-        });
+        }, { passive: true });
 
         // Touch move - for swipe detection
         messagesDiv.addEventListener('touchmove', (e) => {
@@ -2257,12 +2267,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Swipe left detected (≥30px)
             if (deltaX >= 30) {
                 isSwiping = true;
+                console.log('Swipe detected, deltaX:', deltaX);
                 const messageWrapper = messageBubble.closest('.message');
                 if (messageWrapper && !messageWrapper.classList.contains('message-swipe-active')) {
                     messageWrapper.classList.add('message-swipe-active');
                 }
             }
-        });
+        }, { passive: true });
 
         // Touch end - finalize swipe or cancel long-press
         messagesDiv.addEventListener('touchend', (e) => {
@@ -2279,6 +2290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // If swipe was active, trigger reply
             if (isSwiping && messageWrapper.classList.contains('message-swipe-active')) {
+                console.log('Swipe completed, triggering reply');
                 const messageData = extractMessageData(messageWrapper);
                 if (messageData) {
                     setReplyContext(messageData);
@@ -2292,7 +2304,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Remove swipe animation
             messageWrapper.classList.remove('message-swipe-active');
             isSwiping = false;
-        });
+        }, { passive: true });
 
         // Double-click handler for desktop
         messagesDiv.addEventListener('click', (e) => {
