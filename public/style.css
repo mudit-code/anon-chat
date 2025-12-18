@@ -127,11 +127,7 @@
     padding-bottom: env(safe-area-inset-bottom, 1rem);
     position: relative;
     z-index: 5;
-    /* Prevent dragging/scrolling of input container */
-    touch-action: none;
-    overscroll-behavior: none;
-    /* No overflow allowed */
-    overflow: visible;
+    background: transparent;
   }
 
   #chat-input-container>div:first-of-type {

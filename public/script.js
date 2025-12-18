@@ -123,11 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayMessage(user, message, id, seenBy = [], replyTo = null) {
-        console.log('displayMessage called:', { user, messageType: message.type, id, hasReplyTo: !!replyTo });
-
         // If message already exists (e.g. from file upload flow), don't duplicate, just update if needed
         if (id && document.getElementById(id)) {
-            console.log('Message already exists, updating seen status only:', id);
             const existingMsg = document.getElementById(id);
             // Update seen status if needed
             const seenStatus = existingMsg.querySelector('.seen-status');
@@ -140,8 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-
-        console.log('Rendering new message:', id);
 
         const isConsecutive = lastMessageUser === user;
 
@@ -1404,6 +1399,13 @@ document.addEventListener('DOMContentLoaded', () => {
             username = savedUsername;
             isAdmin = savedIsAdmin === 'true';
 
+            // Show/hide End Room button based on admin status
+            if (isAdmin) {
+                killRoomBtn.classList.remove("hidden");
+            } else {
+                killRoomBtn.classList.add("hidden");
+            }
+
             socket.emit("rejoin-room", { roomKey, username, isAdmin });
         }
     }
@@ -2213,36 +2215,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Touch start - for swipe and long-press detection
         messagesDiv.addEventListener('touchstart', (e) => {
             const messageBubble = e.target.closest('.sent-message, .received-message');
-            if (!messageBubble) {
-                console.log('Touch start: No message bubble found');
-                return;
-            }
+            if (!messageBubble) return;
 
             const messageWrapper = messageBubble.closest('.message');
-            if (!messageWrapper || !messageWrapper.id) {
-                console.log('Touch start: No message wrapper or ID');
-                return;
-            }
+            if (!messageWrapper || !messageWrapper.id) return;
 
-            console.log('Touch start detected on message:', messageWrapper.id);
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isSwiping = false;
 
-            // Start long-press timer
             longPressTimeout = setTimeout(() => {
-                // Long-press detected - trigger reply
                 if (!isSwiping) {
-                    console.log('Long-press detected');
                     const messageData = extractMessageData(messageWrapper);
                     if (messageData) {
                         setReplyContext(messageData);
-                        // Vibrate if supported
                         if (navigator.vibrate) {
                             navigator.vibrate(50);
                         }
-                    } else {
-                        console.log('Failed to extract message data');
                     }
                 }
             }, 400);
@@ -2269,11 +2258,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Swipe left detected (≥30px)
             if (deltaX >= 30) {
-                e.preventDefault(); // Prevent scroll when swiping
+                e.preventDefault();
                 isSwiping = true;
-                console.log('Swipe detected, deltaX:', deltaX);
                 const messageWrapper = messageBubble.closest('.message');
                 if (messageWrapper && !messageWrapper.classList.contains('message-swipe-active')) {
                     messageWrapper.classList.add('message-swipe-active');
@@ -2294,9 +2281,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const messageWrapper = messageBubble.closest('.message');
             if (!messageWrapper || !messageWrapper.id) return;
 
-            // If swipe was active, trigger reply
             if (isSwiping && messageWrapper.classList.contains('message-swipe-active')) {
-                console.log('Swipe completed, triggering reply');
                 const messageData = extractMessageData(messageWrapper);
                 if (messageData) {
                     setReplyContext(messageData);
