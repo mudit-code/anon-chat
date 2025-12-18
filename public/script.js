@@ -1347,7 +1347,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (messageToRemove) {
                                 messageToRemove.remove();
                             }
-                            // Send as chat message - server will broadcast to all users including sender
+                            // Display immediately for sender to ensure correct alignment
+                            displayMessage(username, {
+                                type: messageType,
+                                content: path
+                            }, messageId, [], null);
+
+                            // Also emit to server to broadcast to other users
                             if (roomKey && username) {
                                 socket.emit("chat-message", {
                                     roomKey,
