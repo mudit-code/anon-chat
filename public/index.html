@@ -103,6 +103,19 @@
         </div>
         <div class="flex-1 px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 overflow-y-auto custom-scrollbar" id="messages"></div>
         <div id="chat-input-container" class="px-3 md:px-6 pb-3 md:pb-4 pt-2 bg-slate-900/30 backdrop-blur-xl">
+          <!-- Reply Preview Bar -->
+          <div id="replyPreviewBar" class="hidden reply-preview-bar">
+            <div class="reply-preview-content">
+              <i class="fas fa-reply reply-icon"></i>
+              <div class="reply-text-container">
+                <div class="reply-sender"></div>
+                <div class="reply-preview"></div>
+              </div>
+            </div>
+            <button class="reply-cancel-btn" id="replyCancelBtn" title="Cancel reply">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
           <!-- Production-grade Typing Indicator -->
           <div id="typingIndicator" class="hidden typing-indicator mb-3 ml-2">
             <span class="typing-text"></span>

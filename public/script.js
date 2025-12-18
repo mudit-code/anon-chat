@@ -94,10 +94,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const recordingUsers = new Map(); // userId -> username (for recording indicator)
     let recordingIndicatorActive = false;
 
+    // Reply to message state
+    let replyContext = null; // { messageId, sender, previewText, previewType, originalMessage }
+
     // Audio recording UI elements
     const recordBtn = document.getElementById("recordBtn");
     const recordingTimerUI = document.getElementById("recordingTimer");
     const recordingIndicator = document.getElementById("recordingIndicator");
+
+    // Reply preview bar elements
+    const replyPreviewBar = document.getElementById("replyPreviewBar");
+    const replyCancelBtn = document.getElementById("replyCancelBtn");
 
     // Functions
     function showChatScreen() {
@@ -115,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastMessageUser = null;
     }
 
-    function displayMessage(user, message, id, seenBy = []) {
+    function displayMessage(user, message, id, seenBy = [], replyTo = null) {
         // If message already exists (e.g. from file upload flow), don't duplicate, just update if needed
         if (id && document.getElementById(id)) {
             const existingMsg = document.getElementById(id);
@@ -146,9 +153,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const messageRow = document.createElement("div");
         // Keep row alignment across full width for left/right alignment
-        messageRow.className = `flex items-end w-full ${alignmentClass} message-row`;
+        messageRow.className = `flex flex-col w-full ${alignmentClass} message-row`;
 
         const messageBubble = document.createElement("div");
+
+        // Build quoted reply HTML if present
+        let quotedReplyHtml = '';
+        if (replyTo) {
+            quotedReplyHtml = `
+                <div class="quoted-reply" onclick="scrollToMessage('${replyTo.messageId}')">
+                    <div class="quoted-sender">~${replyTo.sender}</div>
+                    <div class="quoted-preview">${replyTo.previewText || 'Message'}</div>
+                </div>
+            `;
+        }
 
         let contentHtml = '';
         if (message.type === 'text') {
@@ -214,9 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (user === username) {
                 // Sender side - No "You" label, just content
                 if (message.type === 'text') {
-                    messageBubble.innerHTML = `<span class="text-sm leading-relaxed">${contentHtml}</span>`;
+                    messageBubble.innerHTML = quotedReplyHtml + `<span class="text-sm leading-relaxed">${contentHtml}</span>`;
                 } else {
-                    messageBubble.innerHTML = contentHtml;
+                    messageBubble.innerHTML = quotedReplyHtml + contentHtml;
                 }
 
                 messageRow.appendChild(messageBubble);
@@ -224,15 +242,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Receiver side - Show username only (no icon)
                 const displayName = `~${user}`;
                 if (message.type === 'text') {
-                    messageBubble.innerHTML = `<span class="font-semibold text-xs mb-1 block opacity-90">${displayName}</span><span class="text-sm leading-relaxed">${contentHtml}</span>`;
+                    messageBubble.innerHTML = `<span class="font-semibold text-xs mb-1 block opacity-90">${displayName}</span>` + quotedReplyHtml + `<span class="text-sm leading-relaxed">${contentHtml}</span>`;
                 } else {
-                    messageBubble.innerHTML = contentHtml;
+                    messageBubble.innerHTML = quotedReplyHtml + contentHtml;
                 }
 
                 messageRow.appendChild(messageBubble);
             }
         } else {
-            messageBubble.innerHTML = message.type === 'text' ? `<span class="text-sm leading-relaxed">${contentHtml}</span>` : contentHtml;
+            messageBubble.innerHTML = quotedReplyHtml + (message.type === 'text' ? `<span class="text-sm leading-relaxed">${contentHtml}</span>` : contentHtml);
             messageRow.appendChild(messageBubble);
         }
 
@@ -891,6 +909,92 @@ document.addEventListener('DOMContentLoaded', () => {
             recordingText.textContent = `${users[0]} and ${users[1]} are recording audio...`;
         } else {
             recordingText.textContent = 'Several people are recording audio...';
+        }
+    }
+
+    // ======== REPLY TO MESSAGE FUNCTIONS ========
+
+    // Set reply context (prevents nested replies by pointing to original)
+    function setReplyContext(messageData) {
+        // If replying to a reply, point to the original message instead
+        const targetMessageId = messageData.replyTo?.messageId || messageData.id;
+        const targetSender = messageData.replyTo?.sender || messageData.username;
+        const targetMessage = messageData.replyTo?.originalMessage || messageData.message;
+
+        replyContext = {
+            messageId: targetMessageId,
+            sender: targetSender,
+            previewText: getReplyPreview(targetMessage),
+            previewType: targetMessage.type || 'text',
+            originalMessage: targetMessage
+        };
+
+        showReplyPreview();
+    }
+
+    // Clear reply context
+    function clearReplyContext() {
+        replyContext = null;
+        hideReplyPreview();
+    }
+
+    // Get preview text from message object
+    function getReplyPreview(message) {
+        if (!message) return 'Message';
+
+        if (message.type === 'text') {
+            // Truncate long text
+            const text = message.content || '';
+            return text.length > 50 ? text.substring(0, 50) + '...' : text;
+        } else if (message.type === 'image') {
+            return '📷 Photo';
+        } else if (message.type === 'video') {
+            return '🎥 Video';
+        } else if (message.type === 'audio') {
+            return '🎙️ Audio';
+        } else if (message.type === 'gif') {
+            return '📺 GIF';
+        } else if (message.type === 'sticker') {
+            return '🎨 Sticker';
+        } else {
+            return '📎 File';
+        }
+    }
+
+    // Show reply preview bar
+    function showReplyPreview() {
+        if (!replyContext || !replyPreviewBar) return;
+
+        const senderEl = replyPreviewBar.querySelector('.reply-sender');
+        const previewEl = replyPreviewBar.querySelector('.reply-preview');
+
+        if (senderEl) senderEl.textContent = `Replying to ~${replyContext.sender}`;
+        if (previewEl) previewEl.textContent = replyContext.previewText;
+
+        replyPreviewBar.classList.remove('hidden');
+    }
+
+    // Hide reply preview bar
+    function hideReplyPreview() {
+        if (replyPreviewBar) {
+            replyPreviewBar.classList.add('hidden');
+        }
+    }
+
+    // Scroll to original message (for clicking quoted replies)
+    function scrollToMessage(messageId) {
+        const messageElement = document.getElementById(messageId);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Highlight briefly
+            messageElement.classList.add('message-highlight');
+            setTimeout(() => {
+                messageElement.classList.remove('message-highlight');
+            }, 2000);
+        } else {
+            // Message not found (deleted or not loaded)
+            displaySystemMessage('⚠️ Original message unavailable');
         }
     }
 
@@ -1718,13 +1822,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // Send text message if present
         if (message !== "") {
             const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            socket.emit("chat-message", {
+            const messagePayload = {
                 roomKey,
                 username,
                 id: messageId,
                 message: { type: 'text', content: message },
                 seenBy: []
-            });
+            };
+
+            // Add reply context if present
+            if (replyContext) {
+                messagePayload.replyTo = {
+                    messageId: replyContext.messageId,
+                    sender: replyContext.sender,
+                    previewText: replyContext.previewText
+                };
+            }
+
+            socket.emit("chat-message", messagePayload);
         }
 
         // Send media messages (images, videos, audio)
@@ -1741,7 +1856,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
-            socket.emit("chat-message", {
+            const messagePayload = {
                 roomKey,
                 username,
                 id: messageId,
@@ -1750,7 +1865,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     content: media.path
                 },
                 seenBy: []
-            });
+            };
+
+            // Add reply context if present (only to first media item)
+            if (replyContext) {
+                messagePayload.replyTo = {
+                    messageId: replyContext.messageId,
+                    sender: replyContext.sender,
+                    previewText: replyContext.previewText
+                };
+            }
+
+            socket.emit("chat-message", messagePayload);
         }
 
         // Cleanup: revoke all object URLs
@@ -1762,6 +1888,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Clear state
         pastedMedia.length = 0; // Clear array
+        clearReplyContext(); // Clear reply mode
 
         messageInput.value = "";
         autoResizeTextarea(); // Reset height
@@ -2059,7 +2186,188 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    handleMobileKeyboard();
+    // ======== REPLY GESTURE HANDLERS ========
+
+    // Reply cancel button handler
+    if (replyCancelBtn) {
+        replyCancelBtn.onclick = () => {
+            clearReplyContext();
+        };
+    }
+
+    // Gesture state
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
+    let longPressTimeout = null;
+    let lastClickTime = 0;
+    let lastClickedMessage = null;
+
+    // Event delegation for message gestures
+    if (messagesDiv) {
+        // Touch start - for swipe and long-press detection
+        messagesDiv.addEventListener('touchstart', (e) => {
+            const messageBubble = e.target.closest('.sent-message, .received-message');
+            if (!messageBubble) return;
+
+            const messageWrapper = messageBubble.closest('.message');
+            if (!messageWrapper || !messageWrapper.id) return;
+
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isSwiping = false;
+
+            // Start long-press timer
+            longPressTimeout = setTimeout(() => {
+                // Long-press detected - trigger reply
+                if (!isSwiping) {
+                    const messageData = extractMessageData(messageWrapper);
+                    if (messageData) {
+                        setReplyContext(messageData);
+                        // Vibrate if supported
+                        if (navigator.vibrate) {
+                            navigator.vibrate(50);
+                        }
+                    }
+                }
+            }, 400);
+        });
+
+        // Touch move - for swipe detection
+        messagesDiv.addEventListener('touchmove', (e) => {
+            if (longPressTimeout) {
+                clearTimeout(longPressTimeout);
+                longPressTimeout = null;
+            }
+
+            const messageBubble = e.target.closest('.sent-message, .received-message');
+            if (!messageBubble) return;
+
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const deltaX = touchStartX - touchX;
+            const deltaY = Math.abs(touchStartY - touchY);
+
+            // If vertical scroll is dominant, don't swipe
+            if (deltaY > 10 && deltaY > Math.abs(deltaX)) {
+                isSwiping = false;
+                return;
+            }
+
+            // Swipe left detected (≥30px)
+            if (deltaX >= 30) {
+                isSwiping = true;
+                const messageWrapper = messageBubble.closest('.message');
+                if (messageWrapper && !messageWrapper.classList.contains('message-swipe-active')) {
+                    messageWrapper.classList.add('message-swipe-active');
+                }
+            }
+        });
+
+        // Touch end - finalize swipe or cancel long-press
+        messagesDiv.addEventListener('touchend', (e) => {
+            if (longPressTimeout) {
+                clearTimeout(longPressTimeout);
+                longPressTimeout = null;
+            }
+
+            const messageBubble = e.target.closest('.sent-message, .received-message');
+            if (!messageBubble) return;
+
+            const messageWrapper = messageBubble.closest('.message');
+            if (!messageWrapper || !messageWrapper.id) return;
+
+            // If swipe was active, trigger reply
+            if (isSwiping && messageWrapper.classList.contains('message-swipe-active')) {
+                const messageData = extractMessageData(messageWrapper);
+                if (messageData) {
+                    setReplyContext(messageData);
+                    // Vibrate if supported
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+                }
+            }
+
+            // Remove swipe animation
+            messageWrapper.classList.remove('message-swipe-active');
+            isSwiping = false;
+        });
+
+        // Double-click handler for desktop
+        messagesDiv.addEventListener('click', (e) => {
+            const messageBubble = e.target.closest('.sent-message, .received-message');
+            if (!messageBubble) return;
+
+            const messageWrapper = messageBubble.closest('.message');
+            if (!messageWrapper || !messageWrapper.id) return;
+
+            const now = Date.now();
+            const timeSinceLastClick = now - lastClickTime;
+
+            // Double-click detected (within 300ms)
+            if (timeSinceLastClick < 300 && lastClickedMessage === messageWrapper.id) {
+                const messageData = extractMessageData(messageWrapper);
+                if (messageData) {
+                    setReplyContext(messageData);
+                }
+                lastClickTime = 0;
+                lastClickedMessage = null;
+            } else {
+                lastClickTime = now;
+                lastClickedMessage = messageWrapper.id;
+            }
+        });
+    }
+
+    // Extract message data from DOM element
+    function extractMessageData(messageWrapper) {
+        const messageId = messageWrapper.id;
+        const seenStatus = messageWrapper.querySelector('.seen-status');
+        const sender = seenStatus ? seenStatus.getAttribute('data-msg-user') : username;
+
+        // Find message bubble to check quotedReply
+        const quotedReply = messageWrapper.querySelector('.quoted-reply');
+        const messageBubble = messageWrapper.querySelector('.sent-message, .received-message');
+
+        if (!messageBubble) return null;
+
+        // Extract text content or determine media type
+        let message = { type: 'text', content: '' };
+
+        if (messageBubble.querySelector('.sticker-message')) {
+            message = { type: 'sticker', content: '' };
+        } else if (messageBubble.querySelector('img')) {
+            message = { type: 'image', content: '' };
+        } else if (messageBubble.querySelector('video')) {
+            message = { type: 'video', content: '' };
+        } else if (messageBubble.querySelector('audio')) {
+            message = { type: 'audio', content: '' };
+        } else {
+            // Extract text
+            const textSpan = messageBubble.querySelector('.text-sm');
+            message.content = textSpan ? textSpan.textContent : messageBubble.textContent;
+        }
+
+        const result = {
+            id: messageId,
+            username: sender,
+            message: message
+        };
+
+        // If this message has a quoted reply, extract replyTo data
+        if (quotedReply) {
+            const quotedSender = quotedReply.querySelector('.quoted-sender');
+            const quotedPreview = quotedReply.querySelector('.quoted-preview');
+            result.replyTo = {
+                sender: quotedSender ? quotedSender.textContent.replace('~', '') : '',
+                previewText: quotedPreview ? quotedPreview.textContent : '',
+                messageId: messageId // This would need proper tracking
+            };
+        }
+
+        return result;
+    }
 
     restoreSession();
 
@@ -2184,11 +2492,11 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("chat-history", ({ messages, files }) => {
         messagesDiv.innerHTML = "";
         lastMessageUser = null;
-        messages.forEach((msg) => displayMessage(msg.username, msg.message, msg.id || msg.messageId, msg.seenBy || []));
+        messages.forEach((msg) => displayMessage(msg.username, msg.message, msg.id || msg.messageId, msg.seenBy || [], msg.replyTo || null));
         files.forEach((file) => displayFile(file.username, file.file, file.id || file.messageId, file.seenBy || []));
     });
 
-    socket.on("chat-message", (msg) => displayMessage(msg.username, msg.message, msg.id, msg.seenBy || []));
+    socket.on("chat-message", (msg) => displayMessage(msg.username, msg.message, msg.id, msg.seenBy || [], msg.replyTo || null));
 
     // Production-grade typing indicator handlers
     socket.on("user-typing-start", ({ userId, username: typingUsername }) => {

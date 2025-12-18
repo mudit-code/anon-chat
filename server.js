@@ -203,7 +203,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("chat-message", ({ roomKey, username, message, id }) => {
+  socket.on("chat-message", ({ roomKey, username, message, id, replyTo }) => {
     if (rooms[roomKey]) {
       const msgId = id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const entry = {
@@ -211,7 +211,8 @@ io.on("connection", (socket) => {
         username,
         message,
         timestamp: Date.now(),
-        seenBy: []
+        seenBy: [],
+        ...(replyTo && { replyTo }) // Only add replyTo if present
       };
       rooms[roomKey].messages.push(entry);
       rooms[roomKey].lastActivity = Date.now();
