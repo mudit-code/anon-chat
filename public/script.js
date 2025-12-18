@@ -2271,6 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Swipe left detected (≥30px)
             if (deltaX >= 30) {
+                e.preventDefault(); // Prevent scroll when swiping
                 isSwiping = true;
                 console.log('Swipe detected, deltaX:', deltaX);
                 const messageWrapper = messageBubble.closest('.message');
@@ -2278,7 +2279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageWrapper.classList.add('message-swipe-active');
                 }
             }
-        }, { passive: true });
+        });
 
         // Touch end - finalize swipe or cancel long-press
         messagesDiv.addEventListener('touchend', (e) => {
