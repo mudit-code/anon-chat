@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </a>
                 </div>`;
         } else {
-            messageBubble.className = `message-bubble-media`;
+            messageBubble.className = `${bubbleClass} message-bubble-media`;
             if (message.type === 'gif') {
                 contentHtml = `
                 <div class="relative group">
