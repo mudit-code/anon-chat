@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anon-Chat - Anonymous Chat Rooms</title>
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="stylesheet" href="output.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+</head>
+
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white font-sans antialiased">
+
+  <div id="joinScreen" class="flex flex-col md:flex-row h-screen overflow-y-auto md:overflow-hidden">
+    <div class="md:w-1/2 flex items-center justify-center text-center md:text-left p-8 md:p-16 relative">
+      <div class="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent"></div>
+      <div class="relative z-10 animate-fade-in">
+        <div
+          class="inline-block mb-6 px-4 py-2 bg-purple-500/20 backdrop-blur-sm rounded-full border border-purple-400/30">
+          <span class="text-sm font-medium text-purple-300">Anonymous • Secure • Private</span>
+        </div>
+        <h1
+          class="text-5xl md:text-7xl font-extrabold leading-tight bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent mb-6">
+          Instant<br>Connection.<br><span class="text-purple-300">Zero Identity.</span>
+        </h1>
+        <p class="text-lg text-slate-300 mt-4 max-w-md">Connect instantly with complete anonymity. Your conversations
+          stay private and secure.</p>
+      </div>
+    </div>
+    <div class="md:w-1/2 flex items-center justify-center p-8 relative">
+      <div class="absolute inset-0 bg-gradient-to-l from-purple-500/5 to-transparent"></div>
+      <div class="w-full max-w-md p-10 space-y-8 text-center glass-card-modern relative z-10 animate-slide-up">
+        <div class="flex justify-center mb-2">
+          <div class="relative">
+            <div class="absolute inset-0 bg-purple-500 rounded-full blur-xl opacity-50"></div>
+            <img src="logo.png" alt="Anon-Chat Logo" class="relative w-20 h-20">
+          </div>
+        </div>
+        <h2 class="text-3xl font-bold text-white mb-2">Welcome to Anon Chat</h2>
+        <p class="text-slate-400 text-sm mb-6">Create or join a private room</p>
+        <div class="space-y-4">
+          <div class="relative">
+            <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="username" placeholder="Enter a cool codename"
+              class="w-full pl-12 pr-4 py-3.5 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 text-white placeholder-slate-500 transition-all">
+          </div>
+          <div class="relative">
+            <i class="fas fa-key absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="roomKey" placeholder="Enter a secret room key"
+              class="w-full pl-12 pr-4 py-3.5 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 text-white placeholder-slate-500 transition-all">
+          </div>
+        </div>
+        <div class="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3 pt-2">
+          <button id="createRoomBtn"
+            class="flex-1 py-3.5 font-semibold rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-500/25 focus:outline-none focus:ring-2 focus:ring-purple-500/50">
+            <i class="fas fa-plus-circle mr-2"></i>Create Room
+          </button>
+          <button id="joinRoomBtn"
+            class="flex-1 py-3.5 font-semibold rounded-xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50 transition-all transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-purple-500/50">
+            <i class="fas fa-sign-in-alt mr-2"></i>Join Room
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chatScreen" style="display: none;" class="h-screen flex flex-col">
+    <div class="flex h-full w-full max-w-7xl mx-auto">
+      <div id="chat-main" class="flex flex-col h-full w-full md:w-2/3 relative">
+        <div id="chat-header"
+          class="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-20 shadow-lg">
+          <div class="flex items-center space-x-3">
+            <div class="relative">
+              <div class="absolute inset-0 bg-purple-500 rounded-full blur-md opacity-30"></div>
+              <img src="logo.png" alt="Anon-Chat Logo" class="relative w-10 h-10 chat-title-logo">
+            </div>
+            <h2
+              class="text-xl font-bold text-white chat-title-text hidden md:block bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+              Anon-Chat</h2>
+          </div>
+          </div>
+          <div class="flex items-center space-x-3">
+             <button id="joinVoiceBtn" title="Join Voice Chat"
+              class="hidden md:flex px-4 py-2 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl hover:bg-slate-700/50 transition-all transform hover:scale-105 active:scale-95 font-semibold text-white text-sm items-center">
+              <i class="fas fa-headset mr-2"></i><span class="full-text">Join Voice</span>
+            </button>
+            <button id="leaveVoiceBtn" title="Leave Voice Chat"
+              class="hidden px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 rounded-xl hover:from-green-500 hover:to-green-600 transition-all transform hover:scale-105 active:scale-95 font-semibold text-white text-sm flex items-center shadow-lg shadow-green-500/25">
+              <i class="fas fa-phone-slash mr-2"></i><span class="full-text">Voice Active</span>
+            </button>
+
+            <button id="mobileUsersBtn" title="View users"
+              class="md:hidden w-10 h-10 flex items-center justify-center bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl hover:bg-slate-700/50 transition-all transform hover:scale-105 active:scale-95 text-white relative">
+              <i class="fas fa-users text-sm"></i>
+              <span id="mobileUserCount"
+                class="absolute -top-1 -right-1 bg-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+            </button>
+            <button id="killRoomBtn" title="Delete the chat room"
+              class="hidden px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 rounded-xl hover:from-red-500 hover:to-red-600 transition-all transform hover:scale-105 active:scale-95 font-semibold text-white shadow-lg shadow-red-500/25 text-sm">
+              <i class="fas fa-trash-alt mr-2"></i><span class="full-text">End Room</span><span
+                class="short-text">End</span>
+            </button>
+            <button id="leaveBtn" title="Leave the chat room"
+              class="px-4 py-2 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl hover:bg-slate-700/50 transition-all transform hover:scale-105 active:scale-95 font-semibold text-white text-sm">
+              <i class="fas fa-sign-out-alt mr-2"></i><span class="full-text">Leave Chat</span><span
+                class="short-text">Leave</span>
+            </button>
+          </div>
+            </button>
+          </div>
+        </div>
+        <div id="voice-container" class="hidden"></div>
+        <div class="flex-1 px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 overflow-y-auto custom-scrollbar" id="messages"></div>
+        <div id="chat-input-container" class="px-3 md:px-6 pb-3 md:pb-4 pt-2 bg-slate-900/30 backdrop-blur-xl">
+          <!-- Reply Preview Bar -->
+          <div id="replyPreviewBar" class="hidden reply-preview-bar">
+            <div class="reply-preview-content">
+              <i class="fas fa-reply reply-icon"></i>
+              <div class="reply-text-container">
+                <div class="reply-sender"></div>
+                <div class="reply-preview"></div>
+              </div>
+            </div>
+            <button class="reply-cancel-btn" id="replyCancelBtn" title="Cancel reply">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <!-- Production-grade Typing Indicator -->
+          <div id="typingIndicator" class="hidden typing-indicator mb-3 ml-2">
+            <span class="typing-text"></span>
+            <span class="typing-dots inline-flex gap-1 ml-2">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </span>
+          </div>
+
+          <!-- Recording Indicator (takes priority over typing) -->
+          <div id="recordingIndicator" class="hidden recording-indicator mb-3 ml-2">
+            <span class="recording-icon">🎙️</span>
+            <span class="recording-text"></span>
+            <span class="recording-pulse inline-flex items-center ml-2">
+              <span class="recording-dot"></span>
+            </span>
+          </div>
+
+          <!-- Media Preview Strip -->
+          <div id="mediaPreviews" class="hidden mb-3"></div>
+
+          <div id="media-picker"
+            class="hidden h-64 overflow-y-auto bg-slate-800/90 backdrop-blur-xl p-4 rounded-2xl mb-3 border border-slate-700/50 custom-scrollbar">
+          </div>
+
+          <!-- Modern Composer Wrapper -->
+          <div
+            class="composer-wrapper w-full bg-slate-800/40 backdrop-blur-md border border-slate-700/30 rounded-2xl shadow-lg shadow-black/20">
+            <div class="flex items-center px-3 py-2.5 space-x-2">
+              <button id="emojiBtn" title="Emoji & GIF"
+                class="w-10 h-10 flex items-center justify-center text-lg text-slate-300 hover:text-purple-400 hover:bg-purple-500/10 rounded-xl transition-all active:scale-95"><i
+                  class="far fa-smile"></i></button>
+              <button id="recordBtn" title="Record audio"
+                class="w-10 h-10 flex items-center justify-center text-lg text-slate-300 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all active:scale-95">
+                <i class="fas fa-microphone"></i>
+              </button>
+              <button id="fileBtn" title="Attach file"
+                class="w-10 h-10 flex items-center justify-center text-lg text-slate-300 hover:text-purple-400 hover:bg-purple-500/10 rounded-xl transition-all active:scale-95"><i
+                  class="fas fa-paperclip"></i></button>
+              <input type="file" id="fileInput" class="hidden" multiple>
+              <!-- Recording timer (hidden by default) -->
+              <div id="recordingTimer" class="hidden text-red-400 text-sm font-mono flex items-center gap-2">
+                <span class="recording-time">00:00</span>
+              </div>
+              <div class="flex-1 relative min-w-0">
+                <textarea id="messageInput" placeholder="Type a message..."
+                  class="w-full px-3 py-2.5 text-white placeholder-slate-400 resize-none text-sm"
+                  style="height: 40px; min-height: 40px; max-height: 150px; line-height: 1.5; background: transparent; border: none; outline: none; box-shadow: none; overflow-y: auto;"
+                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" rows="1"></textarea>
+              </div>
+              <button id="sendBtn" title="Send message"
+                class="w-10 h-10 flex items-center justify-center bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-md shadow-purple-500/30"><i
+                  class="fas fa-paper-plane text-white text-sm"></i></button>
+            </div>
+          </div>
+
+          <div class="w-full bg-slate-800/50 rounded-full mt-3 mb-2 hidden" id="progress-container">
+            <div class="bg-gradient-to-r from-purple-600 to-purple-700 h-2.5 rounded-full transition-all duration-300"
+              id="progress-bar" style="width: 0%"></div>
+            <p id="progress-text" class="text-xs text-slate-400 text-center mt-1"></p>
+          </div>
+        </div>
+        <div id="previewModal"
+          class="hidden absolute inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <span id="closePreview"
+            class="absolute top-6 right-6 text-white text-4xl cursor-pointer hover:text-purple-400 transition-colors z-10 bg-slate-900/50 rounded-full w-12 h-12 flex items-center justify-center backdrop-blur-sm"><i
+              class="fas fa-times"></i></span>
+          <div id="previewContent" class="max-w-full max-h-full rounded-2xl overflow-hidden shadow-2xl">
+          </div>
+        </div>
+      </div>
+      <!-- Mobile User Sidebar Overlay -->
+      <div id="mobileUserSidebar"
+        class="md:hidden fixed inset-y-0 right-0 w-80 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/50 transform translate-x-full transition-transform duration-300 z-30 overflow-y-auto custom-scrollbar">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-white flex items-center">
+              <i class="fas fa-users mr-2 text-purple-400"></i>Online
+            </h3>
+            <div class="flex items-center space-x-3">
+              <span id="mobileUserCountText"
+                class="text-sm text-slate-400 bg-slate-800/50 px-3 py-1 rounded-full">0</span>
+              <button id="closeMobileSidebar"
+                class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                <i class="fas fa-times text-lg"></i>
+              </button>
+            </div>
+          </div>
+          <ul id="mobileUserList" class="space-y-2"></ul>
+        </div>
+      </div>
+
+      <!-- Overlay backdrop for mobile sidebar -->
+      <div id="mobileUserBackdrop" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-20 md:hidden"></div>
+
+      <!-- Drag and Drop Overlay -->
+      <div id="dragDropOverlay"
+        class="hidden fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+        <div class="text-center">
+          <div class="mb-6">
+            <i class="fas fa-cloud-upload-alt text-8xl text-purple-400"></i>
+          </div>
+          <h2 class="text-3xl font-bold text-white mb-3">Drop files to upload</h2>
+          <p class="text-slate-400 text-lg">Release to add files to the conversation</p>
+        </div>
+      </div>
+
+      <div
+        class="w-1/3 bg-slate-900/80 backdrop-blur-xl border-l border-slate-700/50 p-6 overflow-y-auto hidden md:block custom-scrollbar">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-bold text-white flex items-center">
+            <i class="fas fa-users mr-2 text-purple-400"></i>Online
+          </h3>
+          <span id="userCount" class="text-sm text-slate-400 bg-slate-800/50 px-3 py-1 rounded-full">0</span>
+        </div>
+        <ul id="userList" class="space-y-2"></ul>
+      </div>
+    </div>
+    <div id="joinRequestModal"
+      class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div
+        class="bg-slate-800/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-slate-700/50 max-w-md w-full animate-modal-in">
+        <div class="flex items-center mb-4">
+          <div class="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mr-4">
+            <i class="fas fa-user-plus text-purple-400 text-xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-white">Join Request</h3>
+        </div>
+        <p id="joinRequestUser" class="mb-6 text-slate-300"></p>
+        <div class="flex justify-end space-x-3">
+          <button id="approveJoinBtn"
+            class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 rounded-xl hover:from-green-500 hover:to-green-600 transition-all font-semibold text-white shadow-lg shadow-green-500/25">
+            <i class="fas fa-check mr-2"></i>Approve
+          </button>
+          <button id="denyJoinBtn"
+            class="px-6 py-3 bg-slate-700/50 rounded-xl hover:bg-slate-600/50 transition-all font-semibold text-white border border-slate-600/50">
+            <i class="fas fa-times mr-2"></i>Deny
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leave Chat Warning Modal -->
+    <div id="leaveChatModal"
+      class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div
+        class="bg-slate-800/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-slate-700/50 max-w-md w-full animate-modal-in">
+        <div class="flex items-center mb-4">
+          <div class="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center mr-4">
+            <i class="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-white">Leave Chat?</h3>
+        </div>
+        <p class="mb-6 text-slate-300">Are you sure you want to leave this chat room? You will need the room key to
+          rejoin.</p>
+        <div class="flex justify-end space-x-3">
+          <button id="cancelLeaveBtn"
+            class="px-6 py-3 bg-slate-700/50 rounded-xl hover:bg-slate-600/50 transition-all font-semibold text-white border border-slate-600/50">
+            <i class="fas fa-times mr-2"></i>Cancel
+          </button>
+          <button id="confirmLeaveBtn"
+            class="px-6 py-3 bg-gradient-to-r from-yellow-600 to-yellow-700 rounded-xl hover:from-yellow-500 hover:to-yellow-600 transition-all font-semibold text-white shadow-lg shadow-yellow-500/25">
+            <i class="fas fa-check mr-2"></i>Leave
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- End Room Warning Modal -->
+    <div id="endRoomModal"
+      class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div
+        class="bg-slate-800/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-slate-700/50 max-w-md w-full animate-modal-in">
+        <div class="flex items-center mb-4">
+          <div class="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mr-4">
+            <i class="fas fa-exclamation-circle text-red-400 text-xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-white">End Room?</h3>
+        </div>
+        <p class="mb-6 text-slate-300">Are you sure you want to END this room? This will disconnect all users and delete
+          the room permanently.</p>
+        <div class="flex justify-end space-x-3">
+          <button id="cancelEndRoomBtn"
+            class="px-6 py-3 bg-slate-700/50 rounded-xl hover:bg-slate-600/50 transition-all font-semibold text-white border border-slate-600/50">
+            <i class="fas fa-times mr-2"></i>Cancel
+          </button>
+          <button id="confirmEndRoomBtn"
+            class="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 rounded-xl hover:from-red-500 hover:to-red-600 transition-all font-semibold text-white shadow-lg shadow-red-500/25">
+            <i class="fas fa-check mr-2"></i>End Room
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remove User Warning Modal -->
+    <div id="removeUserModal"
+      class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div
+        class="bg-slate-800/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-slate-700/50 max-w-md w-full animate-modal-in">
+        <div class="flex items-center mb-4">
+          <div class="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mr-4">
+            <i class="fas fa-user-minus text-red-400 text-xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-white">Remove User?</h3>
+        </div>
+        <p id="removeUserText" class="mb-6 text-slate-300"></p>
+        <div class="flex justify-end space-x-3">
+          <button id="cancelRemoveUserBtn"
+            class="px-6 py-3 bg-slate-700/50 rounded-xl hover:bg-slate-600/50 transition-all font-semibold text-white border border-slate-600/50">
+            <i class="fas fa-times mr-2"></i>Cancel
+          </button>
+          <button id="confirmRemoveUserBtn"
+            class="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 rounded-xl hover:from-red-500 hover:to-red-600 transition-all font-semibold text-white shadow-lg shadow-red-500/25">
+            <i class="fas fa-check mr-2"></i>Remove
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cancelUploadModal"
+      class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div
+        class="bg-slate-800/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-slate-700/50 max-w-md w-full animate-modal-in">
+        <div class="flex items-center mb-4">
+          <div class="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mr-4">
+            <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-white">Cancel Upload</h3>
+        </div>
+        <p class="mb-6 text-slate-300">Do you want to cancel the upload?</p>
+        <div class="flex justify-end space-x-3">
+          <button id="confirmCancelBtn"
+            class="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 rounded-xl hover:from-red-500 hover:to-red-600 transition-all font-semibold text-white shadow-lg shadow-red-500/25">
+            <i class="fas fa-check mr-2"></i>Yes
+          </button>
+          <button id="denyCancelBtn"
+            class="px-6 py-3 bg-slate-700/50 rounded-xl hover:bg-slate-600/50 transition-all font-semibold text-white border border-slate-600/50">
+            <i class="fas fa-times mr-2"></i>No
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="audioRecorder.js"></script>
+  <script src="script.js"></script>
+</body>
+
+</html>
