@@ -333,11 +333,11 @@ io.on("connection", (socket) => {
     const room = rooms[roomKey];
     socket.leave(roomKey);
     room.users = room.users.filter(u => u.id !== socket.id);
-    
+
     // Also remove from voice if they were in it
-    if (room.voiceUsers.has(socket.id)) {
-        room.voiceUsers.delete(socket.id);
-        socket.to(roomKey).emit("user-left-voice", socket.id);
+    if (room.voiceUsers && room.voiceUsers.has(socket.id)) {
+      room.voiceUsers.delete(socket.id);
+      socket.to(roomKey).emit("user-left-voice", socket.id);
     }
 
     if (room.users.length === 0) {
