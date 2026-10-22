@@ -6,12 +6,19 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "build": "tailwindcss -i ./public/style.css -o ./public/output.css"
+    "build": "tailwindcss -i ./public/style.css -o ./public/output.css",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:open": "npx cap open android"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/keyboard": "^8.0.6",
+    "@capacitor/status-bar": "^8.0.4",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",
@@ -20,8 +27,10 @@
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3"
+    "tailwindcss": "^3.4.3",
+    "typescript": "^7.0.2"
   }
 }

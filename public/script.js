@@ -1,8 +1,23 @@
 // This script handles the real-time chat functionality using Socket.io.
 // The message scrolling is handled by the browser's default behavior with the new flexbox layout.
 
+// Backend URL configuration
+const API_BASE = window.Capacitor?.isNativePlatform?.() ? 'https://anon-chat-jtef.onrender.com' : '';
+const PUBLIC_WEB_URL = 'https://anon-chat-jtef.onrender.com';
+
+function absUrl(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:') || path.startsWith('data:')) {
+        return path;
+    }
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return API_BASE ? `${API_BASE}${cleanPath}` : cleanPath;
+}
+
+const resolveMediaUrl = absUrl;
+
 document.addEventListener('DOMContentLoaded', () => {
-    const socket = io();
+    const socket = io(API_BASE || undefined, { transports: ['websocket', 'polling'] });
 
     // DOM Elements
     const createRoomBtn = document.getElementById("createRoomBtn");
@@ -131,19 +146,44 @@ document.addEventListener('DOMContentLoaded', () => {
         return colors[Math.abs(hash) % colors.length];
     }
 
+    // Native and web theme sync helper
+    async function applyNativeTheme(isDark) {
+        const themeColor = isDark ? '#000000' : '#fbfbf9';
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+            metaThemeColor.setAttribute('content', themeColor);
+        }
+        if (window.Capacitor?.isNativePlatform?.()) {
+            try {
+                const statusBar = window.Capacitor.Plugins?.StatusBar;
+                if (statusBar) {
+                    await statusBar.setStyle({ style: isDark ? 'DARK' : 'LIGHT' });
+                    await statusBar.setBackgroundColor({ color: themeColor });
+                    await statusBar.setOverlaysWebView({ overlay: true });
+                }
+            } catch (err) {
+                console.warn('Native status bar styling error:', err);
+            }
+        }
+    }
+
     // Theme application and toggle logic
     function applyTheme(theme) {
-        if (theme === 'light') {
+        const isDark = (theme !== 'light');
+        if (!isDark) {
+            document.documentElement.classList.add('light-mode');
             document.body.classList.add('light-mode');
             if (themeToggleIcon) themeToggleIcon.className = "fas fa-moon text-xs";
             if (themeToggleText) themeToggleText.textContent = "Dark";
             if (themeToggleBtn) themeToggleBtn.title = "Switch to dark mode";
         } else {
+            document.documentElement.classList.remove('light-mode');
             document.body.classList.remove('light-mode');
             if (themeToggleIcon) themeToggleIcon.className = "fas fa-sun text-xs";
             if (themeToggleText) themeToggleText.textContent = "Light";
             if (themeToggleBtn) themeToggleBtn.title = "Switch to light mode";
         }
+        applyNativeTheme(isDark);
     }
 
     // Initialize theme: Landing hero is strictly dark mode
@@ -153,7 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isInsideRoom) {
         applyTheme(savedTheme);
     } else {
+        document.documentElement.classList.remove('light-mode');
         document.body.classList.remove('light-mode');
+        applyNativeTheme(true);
     }
 
     if (themeToggleBtn) {
@@ -333,37 +375,39 @@ document.addEventListener('DOMContentLoaded', () => {
             contentHtml = escapedContent;
         } else if (message.type === 'sticker') {
             // Stickers have no bubble - just the image
+            const mediaSrc = resolveMediaUrl(message.content);
             messageBubble.className = 'sticker-bubble';
             contentHtml = `
                 <div class="relative group">
-                    <img src="${message.content}" class="sticker-message" loading="lazy">
-                    <a href="${message.content}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                    <img src="${mediaSrc}" class="sticker-message" loading="lazy">
+                    <a href="${mediaSrc}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
         } else {
             messageBubble.className = `${bubbleClass} message-bubble-media`;
+            const mediaSrc = resolveMediaUrl(message.content);
             if (message.type === 'gif') {
                 contentHtml = `
                 <div class="relative group">
-                    <img src="${message.content}" class="message-file-preview" loading="lazy">
-                    <a href="${message.content}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                    <img src="${mediaSrc}" class="message-file-preview" loading="lazy">
+                    <a href="${mediaSrc}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'image') {
                 contentHtml = `
                 <div class="relative group">
-                    <img src="${message.content}" class="message-file-preview" loading="lazy">
-                    <a href="${message.content}" download="image-${Date.now()}.jpg" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                    <img src="${mediaSrc}" class="message-file-preview" loading="lazy">
+                    <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'video') {
                 contentHtml = `
                 <div class="relative group">
-                    <video src="${message.content}" class="message-file-preview" controls></video>
-                    <a href="${message.content}" download="video-${Date.now()}.mp4" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                    <video src="${mediaSrc}" class="message-file-preview" controls></video>
+                    <a href="${mediaSrc}" download="video-${Date.now()}.mp4" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
@@ -373,9 +417,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex items-center gap-3 py-0.5">
                     <i class="fas fa-microphone text-base ${user === username ? 'text-black' : 'text-[#ffb682]'}"></i>
                     <audio controls class="flex-1" style="height: 32px; max-width: 200px;">
-                        <source src="${message.content}" type="audio/webm">
+                        <source src="${mediaSrc}" type="audio/webm">
                     </audio>
-                    <a href="${message.content}" download="audio-${Date.now()}.webm" class="${user === username ? 'text-black hover:opacity-75' : 'text-white hover:text-[#ffb682]'}" title="Download">
+                    <a href="${mediaSrc}" download="audio-${Date.now()}.webm" class="${user === username ? 'text-black hover:opacity-75' : 'text-white hover:text-[#ffb682]'}" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
@@ -1204,19 +1248,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (fileType.startsWith('image') || fileType.startsWith('video')) {
             bubbleExtraClass = "message-bubble-media";
+            const resolvedFilePath = resolveMediaUrl(file.path);
             if (fileType.startsWith('image')) {
                 fileHtml = `
                     <div class="relative group">
-                        <img src="${file.path}" class="message-file-preview" loading="lazy">
-                        <a href="${file.path}" download="${file.name}" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <img src="${resolvedFilePath}" class="message-file-preview" loading="lazy">
+                        <a href="${resolvedFilePath}" download="${file.name}" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                             <i class="fas fa-download"></i>
                         </a>
                     </div>`;
             } else {
                 fileHtml = `
                     <div class="relative group">
-                        <video src="${file.path}" class="message-file-preview" controls></video>
-                        <a href="${file.path}" download="${file.name}" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <video src="${resolvedFilePath}" class="message-file-preview" controls></video>
+                        <a href="${resolvedFilePath}" download="${file.name}" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                             <i class="fas fa-download"></i>
                         </a>
                     </div>`;
@@ -1227,6 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const truncatedName = file.name.length > 20 ? file.name.substring(0, 15) + "..." + file.name.substring(file.name.length - 5) : file.name;
             const friendlyType = getFriendlyFileType(fileType, file.name);
             const subTextColor = user === username ? 'text-black/70' : 'text-[#9a9a9a]';
+            const resolvedDocPath = resolveMediaUrl(file.path);
 
             // Create tooltip with full file information
             const fullFileInfo = `${file.name} (${formatBytes(file.size)})`;
@@ -1242,10 +1288,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             <div class="flex gap-2 mt-2 pt-1">
-                <a href="${file.path}" target="_blank" class="file-action-btn file-btn-open flex-1 text-center py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
+                <a href="${resolvedDocPath}" target="_blank" class="file-action-btn file-btn-open flex-1 text-center py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
                     <i class="fas fa-external-link-alt mr-1.5"></i>Open
                 </a>
-                <a href="${file.path}" download="${file.name}" class="file-action-btn file-btn-save flex-1 text-center py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
+                <a href="${resolvedDocPath}" download="${file.name}" class="file-action-btn file-btn-save flex-1 text-center py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
                     <i class="fas fa-download mr-1.5"></i>Save
                 </a>
             </div>
@@ -1489,7 +1535,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fileUploads[messageId] = xhr;
 
-        xhr.open("POST", "/upload", true);
+        xhr.open("POST", `${API_BASE}/upload`, true);
 
         xhr.upload.onprogress = (e) => {
             const percent = Math.round((e.loaded / e.total) * 100);
@@ -1936,7 +1982,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const startTime = Date.now();
 
-                xhr.open('POST', '/upload', true);
+                xhr.open('POST', `${API_BASE}/upload`, true);
 
                 // Track upload progress
                 xhr.upload.onprogress = (e) => {
@@ -2318,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             contentArea.appendChild(resultsDiv);
 
             function searchGifs(query) {
-                fetch(`/api/gifs?query=${query || "trending"}`)
+                fetch(`${API_BASE}/api/gifs?query=${query || "trending"}`)
                     .then(res => res.json())
                     .then(data => {
                         const gifResults = document.getElementById("gif-results");
@@ -2383,10 +2429,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openPreview(src, type) {
         previewModal.classList.remove('hidden');
+        const resolvedSrc = absUrl(src);
         if (type.startsWith('image') || type === 'gif') {
-            previewContent.innerHTML = `<img src="${src}" class="max-w-full max-h-[90vh] object-contain">`;
+            previewContent.innerHTML = `<img src="${resolvedSrc}" class="max-w-full max-h-[90vh] object-contain">`;
         } else if (type.startsWith('video')) {
-            previewContent.innerHTML = `<video src="${src}" controls autoplay class="max-w-full max-h-[90vh]"></video>`;
+            previewContent.innerHTML = `<video src="${resolvedSrc}" controls autoplay class="max-w-full max-h-[90vh]"></video>`;
         }
     }
 
@@ -2439,6 +2486,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateViewportHeight() {
+            if (window.Capacitor?.isNativePlatform?.()) {
+                // When running natively on Android, @capacitor/keyboard with resize: 'body'
+                // manages viewport resizing natively without fighting layout.
+                return;
+            }
             if (!chatScreen || chatScreen.style.display === "none") return;
 
             let viewportHeight = window.innerHeight;
@@ -2531,6 +2583,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (chatHeader) {
             chatHeader.addEventListener('touchmove', preventTouchHeader, { passive: false });
+        }
+
+        // On native Android, ensure latest messages remain visible when keyboard appears
+        if (window.Capacitor?.isNativePlatform?.()) {
+            const Keyboard = window.Capacitor.Plugins?.Keyboard;
+            if (Keyboard) {
+                Keyboard.addListener('keyboardDidShow', () => {
+                    if (messagesDiv) {
+                        requestAnimationFrame(() => {
+                            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                        });
+                    }
+                });
+            }
         }
 
         // Initial call
@@ -3396,7 +3462,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (landingProgressText) landingProgressText.textContent = `Uploading ${files.length} file(s)...`;
 
             const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/api/file-rooms/create-and-upload", true);
+            xhr.open("POST", `${API_BASE}/api/file-rooms/create-and-upload`, true);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
@@ -3472,7 +3538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (progressFileName) progressFileName.textContent = `Uploading ${files.length} file(s)...`;
 
             const xhr = new XMLHttpRequest();
-            xhr.open("POST", `/api/file-rooms/${activeFileRoom.roomId}/upload`, true);
+            xhr.open("POST", `${API_BASE}/api/file-rooms/${activeFileRoom.roomId}/upload`, true);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
@@ -3627,7 +3693,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const dlBtn = document.createElement("a");
                 dlBtn.className = "btn-file-dl";
-                dlBtn.href = `/api/file-rooms/${activeFileRoom.roomId}/files/${file.id}/download`;
+                dlBtn.href = `${API_BASE}/api/file-rooms/${activeFileRoom.roomId}/files/${file.id}/download`;
                 dlBtn.setAttribute("download", file.name);
                 dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i><span>Download</span>';
                 dlBtn.onclick = () => {
@@ -3701,7 +3767,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fileId = fileIdToDelete;
                 if (deleteFileModal) deleteFileModal.classList.add("hidden");
 
-                fetch(`/api/file-rooms/${activeFileRoom.roomId}/files/${fileId}`, {
+                fetch(`${API_BASE}/api/file-rooms/${activeFileRoom.roomId}/files/${fileId}`, {
                     method: "DELETE"
                 })
                 .then(r => r.json())
@@ -3734,7 +3800,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            fetch(`/api/file-rooms/${encodeURIComponent(identifier.trim())}`)
+            fetch(`${API_BASE}/api/file-rooms/${encodeURIComponent(identifier.trim())}`)
                 .then(r => r.json())
                 .then(data => {
                     document.documentElement.classList.remove("loading-file-room");
@@ -3910,7 +3976,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!activeFileRoom) return;
                 touchInactivity();
 
-                const roomUrl = `${window.location.origin}/share/${activeFileRoom.roomId}`;
+                const roomUrl = `${PUBLIC_WEB_URL}/share/${activeFileRoom.roomId}`;
                 const sharePayload = {
                     title: "Anon File Vault",
                     text: `Access files in room: ${activeFileRoom.roomKey}`,
@@ -3937,7 +4003,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnCopyFileRoomLink.addEventListener("click", () => {
                 if (!activeFileRoom) return;
                 touchInactivity();
-                const roomUrl = `${window.location.origin}/share/${activeFileRoom.roomId}`;
+                const roomUrl = `${PUBLIC_WEB_URL}/share/${activeFileRoom.roomId}`;
                 copyText(roomUrl, "Room link copied to clipboard!");
             });
         }
@@ -3974,7 +4040,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnRefreshFiles.addEventListener("click", () => {
                 if (!activeFileRoom) return;
                 touchInactivity();
-                fetch(`/api/file-rooms/${activeFileRoom.roomId}`)
+                fetch(`${API_BASE}/api/file-rooms/${activeFileRoom.roomId}`)
                     .then(r => r.json())
                     .then(data => {
                         if (data.success && data.room) {
@@ -4035,7 +4101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (isCreator) {
                     // Creator ends the vault: delete completely and broadcast
-                    fetch(`/api/file-rooms/${roomId}`, {
+                    fetch(`${API_BASE}/api/file-rooms/${roomId}`, {
                         method: "DELETE"
                     })
                     .finally(() => {
@@ -4186,4 +4252,131 @@ document.addEventListener('DOMContentLoaded', () => {
 
         checkDirectShareUrl();
     })();
+
+    // ============================================================
+    // CAPACITOR NATIVE & COLD-START HANDLING
+    // ============================================================
+
+    // 1. Socket Reconnecting UI indicator
+    const socketReconnectBanner = document.getElementById("socketReconnectingBanner");
+    socket.on("disconnect", (reason) => {
+        console.warn("Socket disconnected:", reason);
+        if (socketReconnectBanner) socketReconnectBanner.classList.remove("hidden");
+    });
+    socket.on("connect", () => {
+        console.log("Socket connected:", socket.id);
+        if (socketReconnectBanner) socketReconnectBanner.classList.add("hidden");
+    });
+
+    // 2. Cold-start backend health check
+    function initServerHealthCheck() {
+        const statusEl = document.getElementById("serverConnectionStatus");
+        const startHealthCheckTime = Date.now();
+        let isConnected = false;
+
+        // Initially disable Create and Join buttons until backend is verified
+        if (createRoomBtn) createRoomBtn.disabled = true;
+        if (joinRoomBtn) joinRoomBtn.disabled = true;
+        if (statusEl) {
+            statusEl.classList.remove("hidden");
+            statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-[#ff7320]/15 text-[#ff7320]";
+            statusEl.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1.5"></i>Connecting to server…';
+        }
+
+        async function checkHealth() {
+            if (isConnected) return;
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+                const res = await fetch(`${API_BASE}/health`, { signal: controller.signal, cache: 'no-store' });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    isConnected = true;
+                    if (createRoomBtn) createRoomBtn.disabled = false;
+                    if (joinRoomBtn) joinRoomBtn.disabled = false;
+                    if (statusEl) {
+                        statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-emerald-500/15 text-emerald-400";
+                        statusEl.innerHTML = '<i class="fas fa-check mr-1.5"></i>Connected to server';
+                        setTimeout(() => {
+                            statusEl.classList.add("hidden");
+                        }, 1500);
+                    }
+                    return;
+                }
+            } catch (e) {
+                // Backend cold-starting or not reachable yet
+            }
+
+            const elapsed = Date.now() - startHealthCheckTime;
+            if (elapsed >= 90000) {
+                if (statusEl) {
+                    statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-red-500/15 text-red-400";
+                    statusEl.innerHTML = '<i class="fas fa-triangle-exclamation mr-1.5"></i>Unable to connect to server. Please check your network connection.';
+                }
+            } else {
+                setTimeout(checkHealth, 3000);
+            }
+        }
+
+        checkHealth();
+    }
+
+    initServerHealthCheck();
+
+    // 3. Android Native Hardware Back Button
+    if (window.Capacitor?.isNativePlatform?.()) {
+        const App = window.Capacitor.Plugins?.App;
+        if (App) {
+            App.addListener('backButton', () => {
+                // Close preview modal if open
+                if (previewModal && !previewModal.classList.contains("hidden")) {
+                    closePreview?.click?.();
+                    return;
+                }
+                // Close user sidebar if open
+                if (mobileUserSidebar && !mobileUserSidebar.classList.contains("translate-x-full")) {
+                    closeMobileSidebar?.click?.();
+                    return;
+                }
+                // Close media picker if open
+                if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
+                    mediaPicker.classList.add("hidden");
+                    return;
+                }
+                // Close warning modals
+                if (leaveChatModal && !leaveChatModal.classList.contains("hidden")) {
+                    cancelLeaveBtn?.click?.();
+                    return;
+                }
+                if (endRoomModal && !endRoomModal.classList.contains("hidden")) {
+                    cancelEndRoomBtn?.click?.();
+                    return;
+                }
+                if (cancelUploadModal && !cancelUploadModal.classList.contains("hidden")) {
+                    denyCancelBtn?.click?.();
+                    return;
+                }
+                // If in chat room, trigger leave
+                if (chatScreen && chatScreen.style.display !== "none" && chatScreen.style.display !== "") {
+                    leaveBtn?.click?.();
+                    return;
+                }
+                // If in file room, trigger leave
+                if (fileRoomScreen && fileRoomScreen.style.display !== "none" && fileRoomScreen.style.display !== "") {
+                    const fileLeaveBtn = document.getElementById("fileLeaveRoomBtn") || document.getElementById("leaveFileBtn");
+                    if (fileLeaveBtn) {
+                        fileLeaveBtn.click();
+                        return;
+                    }
+                }
+                // If on join screen, exit native app
+                App.exitApp();
+            });
+        }
+    }
+
+    // 4. Service Worker (skip in native Capacitor environment)
+    if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
+        // Web PWA service worker registration preserved for web browsers
+    }
 });

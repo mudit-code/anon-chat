@@ -2,6 +2,7 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const cors = require("cors");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
@@ -10,8 +11,62 @@ const crypto = require("crypto");
 const QRCode = require("qrcode");
 
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Allowlist for Capacitor native origins, production domain, and local development
+const defaultAllowedOrigins = [
+  "https://localhost",
+  "capacitor://localhost",
+  "https://anon-chat-jtef.onrender.com",
+  "http://localhost:3000"
+];
+
+const envAllowedOrigins = process.env.ALLOWED_ORIGIN
+  ? process.env.ALLOWED_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
+
+function isOriginAllowed(origin) {
+  // Allow requests with no Origin header (same-origin, mobile webviews, server-to-server)
+  if (!origin) return true;
+  return allowedOrigins.has(origin);
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(cors(corsOptions));
+
+const io = new Server(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Cold-start health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: Date.now() });
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

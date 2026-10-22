@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 :root {
+  --app-bg: #000000;
+  --app-bg-light: #fbfbf9;
   --o: #ff7320;
   --o-hi: #ff9150;
   --o-light: #ffb682;
@@ -38,12 +40,17 @@
     overflow: hidden;
     height: 100%;
     height: 100dvh;
-    background: #000000;
-    background-color: #000000;
+    background-color: var(--app-bg);
     color: #ffffff;
     overscroll-behavior: none;
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+  }
+
+  html.light-mode,
+  body.light-mode {
+    background-color: var(--app-bg-light);
+    color: #1c1917;
   }
 
   /* Keyboard focus states */
