@@ -446,7 +446,7 @@
 }
 
 @media (max-width: 859px) {
-  html {
+  html:not(.chat-active) {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     height: auto !important;
@@ -454,7 +454,7 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
-  body {
+  body:not(.chat-active) {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     height: auto !important;
@@ -464,11 +464,16 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
+  html.chat-active,
   body.chat-active {
     overflow: hidden !important;
-    height: 100vh !important;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     height: 100dvh !important;
     overscroll-behavior-y: none !important;
+    -webkit-overflow-scrolling: auto !important;
   }
 
   #joinScreen {
@@ -821,13 +826,19 @@
 #chatScreen {
   display: flex;
   flex-direction: column;
+  position: fixed;
+  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 100vh;
   height: 100dvh;
+  height: var(--vvh, 100dvh);
   width: 100%;
   background: #000000;
   overflow: hidden;
   overscroll-behavior: none;
-  position: relative;
 }
 
 #chat-header {
@@ -835,7 +846,13 @@
   border-bottom: 1px solid #262626;
   padding: 10px 20px;
   flex-shrink: 0;
-  z-index: 20;
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 30;
+  touch-action: none;
 }
 
 .header-logo {
@@ -881,6 +898,30 @@
 @media (max-width: 639px) {
   .header-btn .header-btn-text {
     display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  #chat-header {
+    padding: 10px 14px;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    flex-shrink: 0;
+    z-index: 30;
+  }
+
+  /* In mobile version only, remove the anon chat text and subtitle, keeping only the logo */
+  #chat-header .header-brand-info,
+  #chat-header .header-title,
+  #chat-header .header-subtitle {
+    display: none !important;
+  }
+
+  .composer-outer {
+    padding: 8px 12px 10px 12px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 }
 

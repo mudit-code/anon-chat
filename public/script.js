@@ -204,9 +204,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Unified Exit button state (End group for admin, Leave for member)
+    function updateExitButton() {
+        if (!leaveBtn) return;
+        const btnText = leaveBtn.querySelector(".header-btn-text");
+        const btnIcon = leaveBtn.querySelector("i");
+        if (isAdmin) {
+            leaveBtn.title = "End group";
+            leaveBtn.classList.add("header-btn-danger");
+            if (btnText) btnText.textContent = "End group";
+            if (btnIcon) btnIcon.className = "fas fa-trash-alt text-xs";
+        } else {
+            leaveBtn.title = "Leave chat";
+            leaveBtn.classList.remove("header-btn-danger");
+            if (btnText) btnText.textContent = "Leave";
+            if (btnIcon) btnIcon.className = "fas fa-sign-out-alt text-xs";
+        }
+        if (killRoomBtn) {
+            killRoomBtn.classList.add("hidden");
+        }
+    }
+
     // Functions
     function showLandingScreen() {
         document.documentElement.classList.remove("loading-file-room");
+        document.documentElement.classList.remove("chat-active");
         chatScreen.style.display = "none";
         if (fileRoomScreen) fileRoomScreen.style.display = "none";
         joinScreen.style.display = "";
@@ -220,7 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
         joinScreen.style.display = "none";
         if (fileRoomScreen) fileRoomScreen.style.display = "none";
         chatScreen.style.display = "flex";
+        document.documentElement.classList.add("chat-active");
         document.body.classList.add("chat-active");
+        updateExitButton();
+        handleMobileKeyboard();
         ensureDayChip();
         const maskedKeyEl = document.getElementById("maskedRoomKey");
         if (maskedKeyEl && roomKey) {
@@ -232,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showFileRoomScreen() {
         document.documentElement.classList.remove("loading-file-room");
+        document.documentElement.classList.remove("chat-active");
         joinScreen.style.display = "none";
         chatScreen.style.display = "none";
         if (fileRoomScreen) fileRoomScreen.style.display = "flex";
@@ -1577,12 +1603,7 @@ document.addEventListener('DOMContentLoaded', () => {
             username = savedUsername;
             isAdmin = savedIsAdmin === 'true';
 
-            // Show/hide End Room button based on admin status
-            if (isAdmin) {
-                killRoomBtn.classList.remove("hidden");
-            } else {
-                killRoomBtn.classList.add("hidden");
-            }
+            updateExitButton();
 
             socket.emit("rejoin-room", { roomKey, username, isAdmin });
         }
@@ -1640,13 +1661,19 @@ document.addEventListener('DOMContentLoaded', () => {
         clearMessages();
         roomKeyInput.value = "";
         isAdmin = false;
-        killRoomBtn.classList.add("hidden");
+        updateExitButton();
+        if (killRoomBtn) killRoomBtn.classList.add("hidden");
         lastMessageUser = null;
     }
 
     leaveBtn.onclick = () => {
-        // Show custom modal instead of confirm dialog
-        leaveChatModal.classList.remove("hidden");
+        if (isAdmin) {
+            // Admin clicking single exit button triggers End group
+            if (endRoomModal) endRoomModal.classList.remove("hidden");
+        } else {
+            // Member clicking single exit button triggers Leave
+            if (leaveChatModal) leaveChatModal.classList.remove("hidden");
+        }
     };
 
     // Confirm leave chat
@@ -1659,12 +1686,13 @@ document.addEventListener('DOMContentLoaded', () => {
         leaveChatModal.classList.add("hidden");
     };
 
-    killRoomBtn.onclick = () => {
-        if (isAdmin) {
-            // Show custom modal
-            endRoomModal.classList.remove("hidden");
-        }
-    };
+    if (killRoomBtn) {
+        killRoomBtn.onclick = () => {
+            if (isAdmin && endRoomModal) {
+                endRoomModal.classList.remove("hidden");
+            }
+        };
+    }
 
     // Confirm end room - single confirmation, redirects directly to landing page
     confirmEndRoomBtn.onclick = () => {
@@ -2380,25 +2408,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function handleMobileKeyboard() {
-        // Check for visualViewport support
-        if (!window.visualViewport) {
-            console.warn('visualViewport not supported, keyboard handling may be limited');
-            return;
+        if (window.cleanupMobileKeyboard) {
+            window.cleanupMobileKeyboard();
         }
 
         const chatScreen = document.getElementById('chatScreen');
         const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const chatHeader = document.getElementById('chat-header');
 
         if (!chatScreen) return;
 
         let isAtBottom = true;
 
-        function updateViewportHeight() {
-            // Get the visual viewport height (excludes keyboard)
-            const viewportHeight = window.visualViewport.height;
+        function checkScrollPosition() {
+            if (!messagesDiv) return;
+            const threshold = 100;
+            isAtBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < threshold;
+        }
 
-            // Set CSS variable for dynamic height
+        function scrollMessagesToBottom(instant = false) {
+            if (!messagesDiv) return;
+            requestAnimationFrame(() => {
+                if (instant) {
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                } else {
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            });
+        }
+
+        function updateViewportHeight() {
+            if (!chatScreen || chatScreen.style.display === "none") return;
+
+            let viewportHeight = window.innerHeight;
+            let offsetTop = 0;
+
+            if (window.visualViewport) {
+                viewportHeight = window.visualViewport.height;
+                offsetTop = window.visualViewport.offsetTop || 0;
+            }
+
             document.documentElement.style.setProperty('--vvh', `${viewportHeight}px`);
+            chatScreen.style.height = `${viewportHeight}px`;
+            chatScreen.style.top = `${offsetTop}px`;
+
+            // Enforce window scroll position at (0, 0)
+            if (window.scrollY !== 0 || window.scrollX !== 0) {
+                window.scrollTo(0, 0);
+            }
 
             // If user was at bottom before keyboard opened, keep them at bottom
             if (messagesDiv && isAtBottom) {
@@ -2408,21 +2466,60 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        function checkScrollPosition() {
-            if (!messagesDiv) return;
-            // Check if user is at bottom (within 100px threshold)
-            const threshold = 100;
-            isAtBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < threshold;
+        function onInputFocus() {
+            window.scrollTo(0, 0);
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                updateViewportHeight();
+                scrollMessagesToBottom(true);
+            }, 50);
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                updateViewportHeight();
+                scrollMessagesToBottom(true);
+            }, 250);
+        }
+
+        function onInputBlur() {
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                updateViewportHeight();
+            }, 100);
+        }
+
+        function preventTouchHeader(e) {
+            e.preventDefault();
+        }
+
+        function preventWindowScroll() {
+            if (document.documentElement.classList.contains("chat-active") || document.body.classList.contains("chat-active")) {
+                if (window.scrollY !== 0 || window.scrollX !== 0) {
+                    window.scrollTo(0, 0);
+                }
+            }
         }
 
         // Listen to scroll to track if user is at bottom
         if (messagesDiv) {
-            messagesDiv.addEventListener('scroll', checkScrollPosition);
+            messagesDiv.addEventListener('scroll', checkScrollPosition, { passive: true });
         }
 
-        // Listen to resize events (keyboard open/close)
-        window.visualViewport.addEventListener('resize', updateViewportHeight);
-        window.visualViewport.addEventListener('scroll', updateViewportHeight);
+        // Listen to resize and scroll events (keyboard open/close)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', updateViewportHeight);
+            window.visualViewport.addEventListener('scroll', updateViewportHeight);
+        }
+        window.addEventListener('resize', updateViewportHeight);
+        window.addEventListener('scroll', preventWindowScroll, { passive: true });
+
+        if (messageInput) {
+            messageInput.addEventListener('focus', onInputFocus);
+            messageInput.addEventListener('blur', onInputBlur);
+        }
+
+        if (chatHeader) {
+            chatHeader.addEventListener('touchmove', preventTouchHeader, { passive: false });
+        }
 
         // Initial call
         updateViewportHeight();
@@ -2433,10 +2530,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.visualViewport.removeEventListener('resize', updateViewportHeight);
                 window.visualViewport.removeEventListener('scroll', updateViewportHeight);
             }
+            window.removeEventListener('resize', updateViewportHeight);
+            window.removeEventListener('scroll', preventWindowScroll);
             if (messagesDiv) {
                 messagesDiv.removeEventListener('scroll', checkScrollPosition);
             }
+            if (messageInput) {
+                messageInput.removeEventListener('focus', onInputFocus);
+                messageInput.removeEventListener('blur', onInputBlur);
+            }
+            if (chatHeader) {
+                chatHeader.removeEventListener('touchmove', preventTouchHeader);
+            }
             document.documentElement.style.removeProperty('--vvh');
+            if (chatScreen) {
+                chatScreen.style.height = '';
+                chatScreen.style.top = '';
+            }
         };
     }
 
@@ -2637,7 +2747,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Socket.io Handlers
     socket.on("room-created", (data) => {
         isAdmin = data.isAdmin;
-        if (isAdmin) killRoomBtn.classList.remove("hidden");
+        updateExitButton();
+        if (killRoomBtn) killRoomBtn.classList.add("hidden");
         saveSession();
         showChatScreen();
         displaySystemMessage("You created the room and are now the admin.");
@@ -2662,6 +2773,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        updateExitButton();
         saveSession();
         showChatScreen();
         displaySystemMessage("Your request was approved. Welcome to the room!");
@@ -2669,7 +2781,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on("promoted-to-admin", () => {
         isAdmin = true;
-        killRoomBtn.classList.remove("hidden");
+        updateExitButton();
+        if (killRoomBtn) killRoomBtn.classList.add("hidden");
         saveSession();
         displaySystemMessage("The previous admin left. You are the new admin!");
     });

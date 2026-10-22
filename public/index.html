@@ -4,7 +4,7 @@
 <head>
   <base href="/">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content, viewport-fit=cover">
   <title>Anon-Chat - Anonymous Chat Rooms</title>
   <link rel="icon" href="/favicon.png?v=3.6" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -189,7 +189,7 @@
     <div id="chat-header" class="flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <img src="/logo.png" alt="Anon Chat" class="header-logo">
-        <div class="flex flex-col">
+        <div class="flex flex-col header-brand-info">
           <span class="font-heading font-bold text-[17px] text-white leading-tight header-title">Anon Chat</span>
           <div class="header-subtitle text-[12px] text-[#9a9a9a] flex items-center gap-1.5 mt-0.5">
             <span class="header-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block"></span>
@@ -206,10 +206,6 @@
           <i class="fas fa-users text-sm"></i>
           <span id="mobileUserCount"
             class="absolute -top-1 -right-1 bg-[#ffb682] text-black text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">0</span>
-        </button>
-        <button id="killRoomBtn" title="End room" class="hidden header-btn header-btn-danger">
-          <i class="fas fa-trash-alt text-xs"></i>
-          <span class="header-btn-text">End room</span>
         </button>
         <button id="leaveBtn" title="Leave chat" class="header-btn">
           <i class="fas fa-sign-out-alt text-xs"></i>
@@ -396,11 +392,11 @@
     <!-- End Room Modal -->
     <div id="endRoomModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
       <div class="modal-panel animate-modal-in">
-        <h3 class="modal-title">End room?</h3>
+        <h3 class="modal-title">End group?</h3>
         <p class="modal-body">Are you sure you want to end this room? This will disconnect all users and delete the room permanently.</p>
         <div class="flex justify-end gap-3">
           <button id="cancelEndRoomBtn" class="modal-btn-secondary">Cancel</button>
-          <button id="confirmEndRoomBtn" class="modal-btn-danger">End room</button>
+          <button id="confirmEndRoomBtn" class="modal-btn-danger">End group</button>
         </div>
       </div>
     </div>
