@@ -1,1 +1,5 @@
 node_modules
+uploads/
+*.log
+new_design*.png
+/doodle-tile.svg

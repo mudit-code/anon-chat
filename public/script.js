@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const usernameInput = document.getElementById("username");
     const chatScreen = document.getElementById("chatScreen");
     const joinScreen = document.getElementById("joinScreen");
+    const fileRoomScreen = document.getElementById("fileRoomScreen");
     const messageInput = document.getElementById("messageInput");
     const sendBtn = document.getElementById("sendBtn");
     const messagesDiv = document.getElementById("messages");
@@ -54,6 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmRemoveUserBtn = document.getElementById("confirmRemoveUserBtn");
     const cancelRemoveUserBtn = document.getElementById("cancelRemoveUserBtn");
     const removeUserText = document.getElementById("removeUserText");
+
+    // Theme toggle elements
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const themeToggleIcon = document.getElementById("themeToggleIcon");
+    const themeToggleText = document.getElementById("themeToggleText");
 
 
     // State
@@ -106,18 +112,139 @@ document.addEventListener('DOMContentLoaded', () => {
     const replyPreviewBar = document.getElementById("replyPreviewBar");
     const replyCancelBtn = document.getElementById("replyCancelBtn");
 
+    // Stable hash helper for sender name color
+    function getSenderColor(name) {
+        const isLight = document.body.classList.contains('light-mode');
+        if (isLight) {
+            const lightColors = ['#d95305', '#b43b02', '#c2410c', '#9a3412', '#a16207'];
+            let hash = 0;
+            for (let i = 0; i < (name || '').length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return lightColors[Math.abs(hash) % lightColors.length];
+        }
+        const colors = ['#ffb682', '#ffd9bd', '#ffffff', '#ff9150'];
+        let hash = 0;
+        for (let i = 0; i < (name || '').length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
+    }
+
+    // Theme application and toggle logic
+    function applyTheme(theme) {
+        if (theme === 'light') {
+            document.body.classList.add('light-mode');
+            if (themeToggleIcon) themeToggleIcon.className = "fas fa-moon text-xs";
+            if (themeToggleText) themeToggleText.textContent = "Dark";
+            if (themeToggleBtn) themeToggleBtn.title = "Switch to dark mode";
+        } else {
+            document.body.classList.remove('light-mode');
+            if (themeToggleIcon) themeToggleIcon.className = "fas fa-sun text-xs";
+            if (themeToggleText) themeToggleText.textContent = "Light";
+            if (themeToggleBtn) themeToggleBtn.title = "Switch to light mode";
+        }
+    }
+
+    // Initialize theme: Landing hero is strictly dark mode
+    const savedTheme = localStorage.getItem('anon_chat_theme') || 'dark';
+    const isInsideRoom = (chatScreen && chatScreen.style.display !== 'none' && chatScreen.style.display !== '') || 
+                         (fileRoomScreen && fileRoomScreen.style.display !== 'none' && fileRoomScreen.style.display !== '');
+    if (isInsideRoom) {
+        applyTheme(savedTheme);
+    } else {
+        document.body.classList.remove('light-mode');
+    }
+
+    if (themeToggleBtn) {
+        themeToggleBtn.onclick = () => {
+            const isLight = document.body.classList.contains('light-mode');
+            const newTheme = isLight ? 'dark' : 'light';
+            localStorage.setItem('anon_chat_theme', newTheme);
+            applyTheme(newTheme);
+        };
+    }
+
+    // Time formatting helper (e.g. "10:45 am")
+    function formatMsgTime(timestamp) {
+        const d = timestamp ? new Date(timestamp) : new Date();
+        let hours = d.getHours();
+        let minutes = d.getMinutes();
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        return `${hours}:${minutes} ${ampm}`;
+    }
+
+    // Helper to get message container target (inner centered container)
+    function getMessagesTarget() {
+        return document.getElementById("messagesInner") || messagesDiv;
+    }
+
+    // Helper to clear messages container while preserving day chip
+    function clearMessages() {
+        const inner = document.getElementById("messagesInner");
+        if (inner) {
+            inner.innerHTML = '<div class="day-chip-wrapper" id="dayChip"><span class="day-chip">Today</span></div>';
+        } else {
+            messagesDiv.innerHTML = "";
+        }
+    }
+
+    // Helper to ensure day chip exists in messages container
+    function ensureDayChip() {
+        const target = getMessagesTarget();
+        if (!target.querySelector('.day-chip-wrapper')) {
+            const dayWrapper = document.createElement('div');
+            dayWrapper.className = 'day-chip-wrapper';
+            dayWrapper.id = 'dayChip';
+            dayWrapper.innerHTML = '<span class="day-chip">Today</span>';
+            target.prepend(dayWrapper);
+        }
+    }
+
     // Functions
+    function showLandingScreen() {
+        document.documentElement.classList.remove("loading-file-room");
+        chatScreen.style.display = "none";
+        if (fileRoomScreen) fileRoomScreen.style.display = "none";
+        joinScreen.style.display = "";
+        document.body.classList.remove("chat-active");
+        document.body.classList.remove("light-mode");
+    }
+
     function showChatScreen() {
+        document.documentElement.classList.remove("loading-file-room");
+        try { localStorage.removeItem("anon_file_room_id"); } catch (e) {}
         joinScreen.style.display = "none";
+        if (fileRoomScreen) fileRoomScreen.style.display = "none";
         chatScreen.style.display = "flex";
         document.body.classList.add("chat-active");
+        ensureDayChip();
+        const maskedKeyEl = document.getElementById("maskedRoomKey");
+        if (maskedKeyEl && roomKey) {
+            maskedKeyEl.textContent = "•".repeat(Math.min(Math.max(roomKey.length, 6), 10));
+        }
+        const savedTheme = localStorage.getItem('anon_chat_theme') || 'dark';
+        applyTheme(savedTheme);
+    }
+
+    function showFileRoomScreen() {
+        document.documentElement.classList.remove("loading-file-room");
+        joinScreen.style.display = "none";
+        chatScreen.style.display = "none";
+        if (fileRoomScreen) fileRoomScreen.style.display = "flex";
+        document.body.classList.remove("chat-active");
+        const savedTheme = localStorage.getItem('anon_chat_theme') || 'dark';
+        applyTheme(savedTheme);
     }
 
     function displaySystemMessage(message) {
         const div = document.createElement("div");
         div.className = "system-message";
         div.innerText = message;
-        messagesDiv.appendChild(div);
+        getMessagesTarget().appendChild(div);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
         lastMessageUser = null;
     }
@@ -217,42 +344,30 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (message.type === 'audio') {
                 // Don't override bubbleClass for audio - let it stay as sender/receiver class
                 contentHtml = `
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-microphone text-lg"></i>
+                <div class="flex items-center gap-3 py-0.5">
+                    <i class="fas fa-microphone text-base ${user === username ? 'text-black' : 'text-[#ffb682]'}"></i>
                     <audio controls class="flex-1" style="height: 32px; max-width: 200px;">
                         <source src="${message.content}" type="audio/webm">
                     </audio>
-                    <a href="${message.content}" download="audio-${Date.now()}.webm" class="text-white hover:text-purple-200" title="Download">
+                    <a href="${message.content}" download="audio-${Date.now()}.webm" class="${user === username ? 'text-black hover:opacity-75' : 'text-white hover:text-[#ffb682]'}" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
             }
         }
-        if (!isConsecutive) {
-            if (user === username) {
-                // Sender side - No "You" label, just content
-                if (message.type === 'text') {
-                    messageBubble.innerHTML = quotedReplyHtml + `<span class="text-sm leading-relaxed">${contentHtml}</span>`;
-                } else {
-                    messageBubble.innerHTML = quotedReplyHtml + contentHtml;
-                }
 
-                messageRow.appendChild(messageBubble);
-            } else {
-                // Receiver side - Show username only (no icon)
-                const displayName = `~${user}`;
-                if (message.type === 'text') {
-                    messageBubble.innerHTML = `<span class="font-semibold text-xs mb-1 block opacity-90">${displayName}</span>` + quotedReplyHtml + `<span class="text-sm leading-relaxed">${contentHtml}</span>`;
-                } else {
-                    messageBubble.innerHTML = quotedReplyHtml + contentHtml;
-                }
-
-                messageRow.appendChild(messageBubble);
-            }
-        } else {
-            messageBubble.innerHTML = quotedReplyHtml + (message.type === 'text' ? `<span class="text-sm leading-relaxed">${contentHtml}</span>` : contentHtml);
-            messageRow.appendChild(messageBubble);
+        const msgTimeHtml = `<span class="msg-time">${formatMsgTime(message.timestamp || Date.now())}</span>`;
+        let senderHtml = '';
+        if (!isConsecutive && user !== username) {
+            senderHtml = `<div class="msg-sender" style="color: ${getSenderColor(user)};">${user}</div>`;
         }
+
+        if (message.type === 'text') {
+            messageBubble.innerHTML = senderHtml + quotedReplyHtml + `<span class="msg-text">${contentHtml}</span>` + msgTimeHtml;
+        } else {
+            messageBubble.innerHTML = senderHtml + quotedReplyHtml + contentHtml + msgTimeHtml;
+        }
+        messageRow.appendChild(messageBubble);
 
         wrapper.appendChild(messageRow);
 
@@ -275,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        messagesDiv.appendChild(wrapper);
+        getMessagesTarget().appendChild(wrapper);
 
         // Update seen status display - only show on last message from sender
         if (user === username && seenBy && seenBy.length > 0) {
@@ -294,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper function to update seen status - only show on last message from a user
     function updateSeenStatusDisplay(user, seenBy) {
         // Find all messages from this user
-        const allMessages = messagesDiv.querySelectorAll('.message');
+        const allMessages = getMessagesTarget().querySelectorAll('.message');
         let lastMessageFromUser = null;
 
         // Find the last message from this specific user
@@ -508,6 +623,10 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaPasteEnabled = false;
         } else {
             mediaPasteEnabled = true;
+        }
+
+        if (typeof updateSendButtonState === 'function') {
+            updateSendButtonState();
         }
     }
 
@@ -1081,37 +1200,43 @@ document.addEventListener('DOMContentLoaded', () => {
             bubbleExtraClass = "file-document-bubble";
             const truncatedName = file.name.length > 20 ? file.name.substring(0, 15) + "..." + file.name.substring(file.name.length - 5) : file.name;
             const friendlyType = getFriendlyFileType(fileType, file.name);
-            const subTextColor = user === username ? 'text-purple-100/70' : 'text-slate-400';
+            const subTextColor = user === username ? 'text-black/70' : 'text-[#9a9a9a]';
 
             // Create tooltip with full file information
             const fullFileInfo = `${file.name} (${formatBytes(file.size)})`;
 
             fileHtml = `
-            <div class="flex items-center p-2" title="${fullFileInfo}">
-                <div class="w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl bg-slate-700/50 mr-4 border border-slate-600/50">
+            <div class="file-card-content flex items-center p-1" title="${fullFileInfo}">
+                <div class="file-icon-box w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg mr-3">
                     ${getFileIcon(file)}
                 </div>
                 <div class="overflow-hidden flex-1">
-                    <div class="font-semibold text-sm truncate ${user === username ? 'text-white' : 'text-slate-200'}" title="${file.name}">${truncatedName}</div>
-                    <div class="text-xs ${subTextColor} mt-1">${formatBytes(file.size)} • ${friendlyType}</div>
+                    <div class="file-title font-semibold text-sm truncate" title="${file.name}">${truncatedName}</div>
+                    <div class="file-subtitle text-xs mt-0.5">${formatBytes(file.size)} • ${friendlyType}</div>
                 </div>
             </div>
-            <div class="flex gap-2 mt-3 px-2 pb-2">
-                <a href="${file.path}" target="_blank" class="flex-1 text-center bg-slate-700/50 hover:bg-slate-600/50 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-all border border-slate-600/50">
-                    <i class="fas fa-external-link-alt mr-2"></i>Open
+            <div class="flex gap-2 mt-2 pt-1">
+                <a href="${file.path}" target="_blank" class="file-action-btn file-btn-open flex-1 text-center py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
+                    <i class="fas fa-external-link-alt mr-1.5"></i>Open
                 </a>
-                <a href="${file.path}" download="${file.name}" class="flex-1 text-center bg-purple-600/50 hover:bg-purple-600/70 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-all border border-purple-500/30">
-                    <i class="fas fa-download mr-2"></i>Save
+                <a href="${file.path}" download="${file.name}" class="file-action-btn file-btn-save flex-1 text-center py-2 px-3 rounded-lg text-xs font-semibold transition-colors">
+                    <i class="fas fa-download mr-1.5"></i>Save
                 </a>
             </div>
         `;
+        }
+
+        const msgTimeHtml = `<span class="msg-time">${formatMsgTime(Date.now())}</span>`;
+        let senderHtml = '';
+        if (lastMessageUser !== user && user !== username) {
+            senderHtml = `<div class="msg-sender" style="color: ${getSenderColor(user)};">${user}</div>`;
         }
 
         if (messageDiv) {
             // Message already exists (from upload progress), just update content
             const bubble = messageDiv.querySelector(".sent-message") || messageDiv.querySelector(".received-message");
             if (bubble) {
-                bubble.innerHTML = fileHtml;
+                bubble.innerHTML = senderHtml + fileHtml + msgTimeHtml;
                 if (bubbleExtraClass) {
                     bubble.classList.add(bubbleExtraClass);
                 }
@@ -1129,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const messageBubble = document.createElement("div");
             messageBubble.className = `${bubbleClass} ${bubbleExtraClass || ''}`;
-            messageBubble.innerHTML = fileHtml;
+            messageBubble.innerHTML = senderHtml + fileHtml + msgTimeHtml;
             messageRow.appendChild(messageBubble);
 
             wrapper.appendChild(messageRow);
@@ -1149,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            messagesDiv.appendChild(wrapper);
+            getMessagesTarget().appendChild(wrapper);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
             // Update seen status display - only show on last message from sender
@@ -1166,6 +1291,10 @@ document.addEventListener('DOMContentLoaded', () => {
         userList.innerHTML = "";
         userCount.textContent = users.length;
 
+        // Wire header online user count
+        const headerOnlineCount = document.getElementById("headerOnlineCount");
+        if (headerOnlineCount) headerOnlineCount.textContent = users.length;
+
         // Update mobile user counts
         if (mobileUserCount) mobileUserCount.textContent = users.length;
         if (mobileUserCountText) mobileUserCountText.textContent = users.length;
@@ -1174,24 +1303,39 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRoomUsers.clear();
         users.forEach(user => {
             currentRoomUsers.add(user.username);
+            const isSelf = user.id === socket.id;
 
             const li = document.createElement("li");
-            li.className = "flex items-center justify-between p-3 bg-slate-800/30 rounded-xl hover:bg-slate-800/50 transition-all";
+            li.className = "user-row";
 
             const userInfo = document.createElement("div");
-            userInfo.className = "flex items-center space-x-3";
+            userInfo.className = "flex items-center gap-2.5 min-w-0";
+
+            const avatar = document.createElement("div");
+            avatar.className = `user-avatar ${isSelf ? 'is-self' : ''}`;
+            avatar.textContent = (user.username || '?').charAt(0).toUpperCase();
 
             const userName = document.createElement("span");
-            userName.className = "font-medium";
-            userName.textContent = user.username + (user.id === socket.id ? " (You)" : "");
+            userName.className = "text-[14px] font-medium text-white truncate";
+            userName.textContent = user.username + (isSelf ? " (You)" : "");
 
+            userInfo.appendChild(avatar);
             userInfo.appendChild(userName);
+
+            if (user.isAdmin) {
+                const adminTag = document.createElement("span");
+                adminTag.className = "admin-tag";
+                adminTag.textContent = "Admin";
+                userInfo.appendChild(adminTag);
+            }
+
             li.appendChild(userInfo);
 
-            if (isAdmin && user.id !== socket.id) {
+            if (isAdmin && !isSelf) {
                 const removeBtn = document.createElement("button");
+                removeBtn.type = "button";
                 removeBtn.innerHTML = '<i class="fas fa-user-minus"></i>';
-                removeBtn.className = "text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded-lg transition-all";
+                removeBtn.className = "user-remove-btn";
                 removeBtn.title = "Remove user";
                 removeBtn.onclick = () => {
                     // Show custom modal with user info
@@ -1208,23 +1352,39 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mobileUserList) {
             mobileUserList.innerHTML = "";
             users.forEach(user => {
+                const isSelf = user.id === socket.id;
+
                 const li = document.createElement("li");
-                li.className = "flex items-center justify-between p-3 bg-slate-800/30 rounded-xl hover:bg-slate-800/50 transition-all";
+                li.className = "user-row";
 
                 const userInfo = document.createElement("div");
-                userInfo.className = "flex items-center space-x-3";
+                userInfo.className = "flex items-center gap-2.5 min-w-0";
+
+                const avatar = document.createElement("div");
+                avatar.className = `user-avatar ${isSelf ? 'is-self' : ''}`;
+                avatar.textContent = (user.username || '?').charAt(0).toUpperCase();
 
                 const userName = document.createElement("span");
-                userName.className = "font-medium";
-                userName.textContent = user.username + (user.id === socket.id ? " (You)" : "");
+                userName.className = "text-[14px] font-medium text-white truncate";
+                userName.textContent = user.username + (isSelf ? " (You)" : "");
 
+                userInfo.appendChild(avatar);
                 userInfo.appendChild(userName);
+
+                if (user.isAdmin) {
+                    const adminTag = document.createElement("span");
+                    adminTag.className = "admin-tag";
+                    adminTag.textContent = "Admin";
+                    userInfo.appendChild(adminTag);
+                }
+
                 li.appendChild(userInfo);
 
-                if (isAdmin && user.id !== socket.id) {
+                if (isAdmin && !isSelf) {
                     const removeBtn = document.createElement("button");
+                    removeBtn.type = "button";
                     removeBtn.innerHTML = '<i class="fas fa-user-minus"></i>';
-                    removeBtn.className = "text-red-400 hover:text-red-300 hover:bg-red-500/20 p-2 rounded-lg transition-all";
+                    removeBtn.className = "user-remove-btn";
                     removeBtn.title = "Remove user";
                     removeBtn.onclick = () => {
                         // Show custom modal with user info
@@ -1276,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messageRow.className = "flex items-end w-full justify-end";
 
         const messageBubble = document.createElement("div");
-        messageBubble.className = "sent-message text-white file-document-bubble";
+        messageBubble.className = "sent-message file-document-bubble";
 
         const truncatedName = file.name.length > 15 ? file.name.substring(0, 10) + "..." + file.name.substring(file.name.length - 5) : file.name;
 
@@ -1287,15 +1447,15 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="flex items-center gap-4 p-2">
         <div class="progress-circle relative w-14 h-14 flex-shrink-0 flex items-center justify-center">${createProgressCircle(0, messageId)}</div>
         <div class="overflow-hidden flex-1">
-            <div class="font-semibold text-sm truncate text-white">${truncatedName}</div>
-            <div class="text-xs text-purple-200/70 upload-status mt-1">0 Bytes / ${formatBytes(file.size)}</div>
+            <div class="font-semibold text-sm truncate text-black">${truncatedName}</div>
+            <div class="text-xs text-black/70 upload-status mt-1">0 Bytes / ${formatBytes(file.size)}</div>
         </div>
     </div>`;
 
         messageBubble.innerHTML = initialContent;
         messageRow.appendChild(messageBubble);
         wrapper.appendChild(messageRow);
-        messagesDiv.appendChild(wrapper);
+        getMessagesTarget().appendChild(wrapper);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
         const formData = new FormData();
@@ -1449,14 +1609,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    leaveBtn.onclick = () => {
-        // Show custom modal instead of confirm dialog
-        leaveChatModal.classList.remove("hidden");
-    };
-
-    // Confirm leave chat
-    confirmLeaveBtn.onclick = () => {
-        leaveChatModal.classList.add("hidden");
+    function performLeaveRoom(emitLeave = true) {
+        if (leaveChatModal) leaveChatModal.classList.add("hidden");
+        if (endRoomModal) endRoomModal.classList.add("hidden");
 
         // Clear typing state on leave
         if (isTyping) {
@@ -1473,18 +1628,30 @@ document.addEventListener('DOMContentLoaded', () => {
             window.cleanupMobileKeyboard();
         }
 
-        socket.emit("leave-room", { roomKey, username });
+        if (emitLeave && roomKey && username) {
+            socket.emit("leave-room", { roomKey, username });
+        }
+
         localStorage.removeItem("roomKey");
         localStorage.removeItem("username");
         localStorage.removeItem("isAdmin");
 
-        chatScreen.style.display = "none";
-        joinScreen.style.display = "flex";
-        messagesDiv.innerHTML = "";
+        showLandingScreen();
+        clearMessages();
         roomKeyInput.value = "";
         isAdmin = false;
-        document.body.classList.remove("chat-active");
+        killRoomBtn.classList.add("hidden");
         lastMessageUser = null;
+    }
+
+    leaveBtn.onclick = () => {
+        // Show custom modal instead of confirm dialog
+        leaveChatModal.classList.remove("hidden");
+    };
+
+    // Confirm leave chat
+    confirmLeaveBtn.onclick = () => {
+        performLeaveRoom(true);
     };
 
     // Cancel leave chat
@@ -1499,10 +1666,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Confirm end room
+    // Confirm end room - single confirmation, redirects directly to landing page
     confirmEndRoomBtn.onclick = () => {
-        endRoomModal.classList.add("hidden");
-        socket.emit("kill-room", { roomKey });
+        const currentKey = roomKey;
+        socket.emit("kill-room", { roomKey: currentKey });
+        performLeaveRoom(false);
     };
 
     // Cancel end room
@@ -1532,6 +1700,35 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // Copy room key handler for invite card
+    const copyRoomKeyBtn = document.getElementById("copyRoomKeyBtn");
+    if (copyRoomKeyBtn) {
+        copyRoomKeyBtn.onclick = () => {
+            if (!roomKey) return;
+            navigator.clipboard.writeText(roomKey).then(() => {
+                const originalText = copyRoomKeyBtn.textContent;
+                copyRoomKeyBtn.textContent = "Copied!";
+                setTimeout(() => {
+                    copyRoomKeyBtn.textContent = originalText;
+                }, 1500);
+            }).catch(err => {
+                console.error("Failed to copy room key:", err);
+            });
+        };
+    }
+
+    // Send button disabled state helper
+    function updateSendButtonState() {
+        const hasText = messageInput && messageInput.value.trim().length > 0;
+        const hasMedia = (typeof pastedMedia !== 'undefined' && pastedMedia.length > 0) || fileToSend !== null;
+        if (sendBtn) {
+            sendBtn.disabled = !hasText && !hasMedia;
+        }
+    }
+
+    // Initialize send button state
+    updateSendButtonState();
+
     messageInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -1542,6 +1739,7 @@ document.addEventListener('DOMContentLoaded', () => {
     messageInput.addEventListener("input", () => {
         // Auto-resize textarea
         autoResizeTextarea();
+        updateSendButtonState();
 
         // Only emit if there's content and we're in a room
         if (!roomKey || !username) return;
@@ -1926,6 +2124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         autoResizeTextarea(); // Reset height
         renderMediaPreviews(); // Hide preview strip
         messageInput.focus();
+        updateSendButtonState();
     };
 
 
@@ -2011,27 +2210,32 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelUploadModal.classList.add("hidden");
     };
 
-    emojiBtn.onclick = () => toggleMediaPicker();
+    emojiBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleMediaPicker();
+    };
 
     function toggleMediaPicker() {
-        if (mediaPicker.style.display === "block") {
-            mediaPicker.style.display = "none";
+        const isHidden = mediaPicker.classList.contains("hidden");
+        if (!isHidden) {
+            mediaPicker.classList.add("hidden");
             return;
         }
-        mediaPicker.style.display = "block";
+        mediaPicker.classList.remove("hidden");
+        mediaPicker.style.display = "";
         mediaPicker.innerHTML = "";
 
         // Create tabs container
         const tabsContainer = document.createElement("div");
-        tabsContainer.className = "flex border-b border-slate-700/50 mb-4";
+        tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4";
 
         const emojiTab = document.createElement("button");
-        emojiTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-slate-300 hover:text-purple-400 border-b-2 border-transparent hover:border-purple-500/50 transition-colors";
+        emojiTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
         emojiTab.textContent = "Emoji";
         emojiTab.onclick = () => showEmojiPicker();
 
         const gifTab = document.createElement("button");
-        gifTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-slate-300 hover:text-purple-400 border-b-2 border-transparent hover:border-purple-500/50 transition-colors";
+        gifTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
         gifTab.textContent = "GIF";
         gifTab.onclick = () => showGifPicker();
 
@@ -2048,10 +2252,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showEmojiPicker();
 
         function showEmojiPicker() {
-            emojiTab.classList.add("border-purple-500", "text-purple-400");
-            emojiTab.classList.remove("border-transparent", "text-slate-300");
-            gifTab.classList.remove("border-purple-500", "text-purple-400");
-            gifTab.classList.add("border-transparent", "text-slate-300");
+            emojiTab.classList.add("border-[#ff7320]", "text-[#ff7320]");
+            emojiTab.classList.remove("border-transparent", "text-[#9a9a9a]");
+            gifTab.classList.remove("border-[#ff7320]", "text-[#ff7320]");
+            gifTab.classList.add("border-transparent", "text-[#9a9a9a]");
 
             contentArea.innerHTML = "";
             if (emojis.length === 0) {
@@ -2065,16 +2269,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function showGifPicker() {
-            gifTab.classList.add("border-purple-500", "text-purple-400");
-            gifTab.classList.remove("border-transparent", "text-slate-300");
-            emojiTab.classList.remove("border-purple-500", "text-purple-400");
-            emojiTab.classList.add("border-transparent", "text-slate-300");
+            gifTab.classList.add("border-[#ff7320]", "text-[#ff7320]");
+            gifTab.classList.remove("border-transparent", "text-[#9a9a9a]");
+            emojiTab.classList.remove("border-[#ff7320]", "text-[#ff7320]");
+            emojiTab.classList.add("border-transparent", "text-[#9a9a9a]");
 
             contentArea.innerHTML = "";
             const searchInput = document.createElement("input");
             searchInput.type = "text";
             searchInput.placeholder = "Search for GIFs...";
-            searchInput.className = "w-full p-3 rounded-xl bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 mb-3";
+            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] mb-3 text-sm";
             searchInput.oninput = () => {
                 searchGifs(searchInput.value);
             };
@@ -2099,7 +2303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 img.loading = "lazy";
                                 img.onclick = () => {
                                     socket.emit("chat-message", { roomKey, username, message: { type: 'gif', content: img.src } });
-                                    mediaPicker.style.display = "none";
+                                    mediaPicker.classList.add("hidden");
                                 };
                                 gifResults.appendChild(img);
                             });
@@ -2111,6 +2315,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Dismiss media picker when clicking outside or pressing Escape
+    document.addEventListener("click", (e) => {
+        if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
+            if (!mediaPicker.contains(e.target) && !emojiBtn.contains(e.target)) {
+                mediaPicker.classList.add("hidden");
+            }
+        }
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
+                mediaPicker.classList.add("hidden");
+            }
+        }
+    });
+
     function renderEmojis() {
         const contentArea = document.getElementById("media-picker-content");
         if (!contentArea) return;
@@ -2121,10 +2342,11 @@ document.addEventListener('DOMContentLoaded', () => {
         emojis.forEach(emoji => {
             const btn = document.createElement("button");
             btn.innerHTML = emoji;
-            btn.className = "text-2xl hover:scale-125 transition-transform p-2 rounded-lg hover:bg-slate-700/50 active:scale-100";
+            btn.className = "text-2xl p-2 rounded-lg hover:bg-[#2c2c2c] transition-colors cursor-pointer";
             btn.onclick = () => {
                 messageInput.value += emoji;
                 messageInput.focus();
+                updateSendButtonState();
             };
             emojiGrid.appendChild(btn);
         });
@@ -2422,7 +2644,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on("join-approved", (data) => {
-        messagesDiv.innerHTML = "";
+        clearMessages();
         lastMessageUser = null;
 
         // Sort messages by timestamp to maintain chronological order
@@ -2452,55 +2674,71 @@ document.addEventListener('DOMContentLoaded', () => {
         displaySystemMessage("The previous admin left. You are the new admin!");
     });
 
-    // Handle forced disconnections without leave prompt
+    const roomInactiveModal = document.getElementById("roomInactiveModal");
+    const roomInactiveText = document.getElementById("roomInactiveText");
+    const roomInactiveOkBtn = document.getElementById("roomInactiveOkBtn");
+
+    const roomEndedNoticeModal = document.getElementById("roomEndedNoticeModal");
+    const roomEndedNoticeOkBtn = document.getElementById("roomEndedNoticeOkBtn");
+    const userRemovedNoticeModal = document.getElementById("userRemovedNoticeModal");
+    const userRemovedNoticeOkBtn = document.getElementById("userRemovedNoticeOkBtn");
+
+    if (roomEndedNoticeOkBtn) {
+        roomEndedNoticeOkBtn.addEventListener("click", () => {
+            if (roomEndedNoticeModal) roomEndedNoticeModal.classList.add("hidden");
+            performLeaveRoom(false);
+        });
+    }
+
+    if (userRemovedNoticeOkBtn) {
+        userRemovedNoticeOkBtn.addEventListener("click", () => {
+            if (userRemovedNoticeModal) userRemovedNoticeModal.classList.add("hidden");
+            performLeaveRoom(false);
+        });
+    }
+
+    if (roomInactiveOkBtn) {
+        roomInactiveOkBtn.addEventListener("click", () => {
+            if (roomInactiveModal) roomInactiveModal.classList.add("hidden");
+            performLeaveRoom(false);
+        });
+    }
+
+    // Handle room closed due to inactivity (30 minutes) using in-UI modal
     socket.on("room-inactive", (message) => {
-        // Room closed due to inactivity - skip leave prompt
-        if (window.cleanupMobileKeyboard) {
-            window.cleanupMobileKeyboard();
+        if (chatScreen.style.display === "none") return;
+
+        const text = typeof message === "string" ? message : (message?.message || "Room has been closed due to 30 minutes of inactivity.");
+        if (roomInactiveText) roomInactiveText.textContent = text;
+        if (roomInactiveModal) {
+            roomInactiveModal.classList.remove("hidden");
+        } else {
+            performLeaveRoom(false);
         }
-        localStorage.removeItem("roomKey");
-        localStorage.removeItem("username");
-        localStorage.removeItem("isAdmin");
-        chatScreen.style.display = "none";
-        joinScreen.style.display = "flex";
-        messagesDiv.innerHTML = "";
-        isAdmin = false;
-        killRoomBtn.classList.add("hidden");
-        document.body.classList.remove("chat-active");
-        alert(message);
     });
 
     socket.on("user-removed", () => {
-        // Removed by admin - skip leave prompt
-        if (window.cleanupMobileKeyboard) {
-            window.cleanupMobileKeyboard();
+        if (chatScreen.style.display === "none") return;
+
+        if (userRemovedNoticeModal) {
+            userRemovedNoticeModal.classList.remove("hidden");
+        } else {
+            performLeaveRoom(false);
         }
-        localStorage.removeItem("roomKey");
-        localStorage.removeItem("username"); localStorage.removeItem("isAdmin");
-        chatScreen.style.display = "none";
-        joinScreen.style.display = "flex";
-        messagesDiv.innerHTML = "";
-        isAdmin = false;
-        killRoomBtn.classList.add("hidden");
-        document.body.classList.remove("chat-active");
-        alert("You have been removed from the room by the admin.");
     });
 
     socket.on("update-user-list", (users) => updateUserList(users));
 
     socket.on("room-killed", () => {
-        alert("The admin has ended the room.");
-        leaveBtn.click();
-    });
+        // If already left or on landing page, do nothing
+        if (chatScreen.style.display === "none") return;
 
-    socket.on("user-removed", () => {
-        alert("You have been removed from the room by the admin.");
-        leaveBtn.click();
-    });
-
-    socket.on("room-inactive", (message) => {
-        alert(message || "Room has been closed due to inactivity.");
-        leaveBtn.click();
+        // Show the in-UI modal card to the member
+        if (roomEndedNoticeModal) {
+            roomEndedNoticeModal.classList.remove("hidden");
+        } else {
+            performLeaveRoom(false);
+        }
     });
 
     socket.on("room-exists", (m) => alert(m));
@@ -2518,7 +2756,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on("chat-history", ({ messages, files }) => {
-        messagesDiv.innerHTML = "";
+        clearMessages();
         lastMessageUser = null;
         messages.forEach((msg) => displayMessage(msg.username, msg.message, msg.id || msg.messageId, msg.seenBy || [], msg.replyTo || null));
         files.forEach((file) => displayFile(file.username, file.file, file.id || file.messageId, file.seenBy || []));
@@ -2633,4 +2871,1194 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on("user-joined", (username) => displaySystemMessage(`${username} joined the room`));
     socket.on("user-left", (username) => displaySystemMessage(`${username} left the room`));
+
+    // ============================================================
+    // ANIMATED LIVE CHAT IN LANDING SAMPLE PREVIEW
+    // ============================================================
+    function initLandingChatAnimation() {
+        const demoList = document.getElementById("demoBubblesList");
+        if (!demoList) return;
+
+        // Rich pool of realistic, anonymous chat messages
+        const conversationPool = [
+            { sender: "cosmic_owl", text: "Joined! Loving this secret room.", isSelf: false },
+            { sender: "quiet_otter", text: "Ready to share the file? 📂", isSelf: false },
+            { sender: "you as nightjar", text: "Uploading the zip archive now.", isSelf: true },
+            { sender: "paper_fox", text: "Download finished. Zero server logs?", isSelf: false },
+            { sender: "quiet_otter", text: "None. End-to-end and ephemeral ✨", isSelf: false },
+            { sender: "neon_ghost", text: "Hey folks, just dropped in.", isSelf: false },
+            { sender: "you as nightjar", text: "Welcome neon_ghost!", isSelf: true },
+            { sender: "neon_ghost", text: "Room self-destructs after we leave, right?", isSelf: false },
+            { sender: "paper_fox", text: "Yep, wiped completely in 30 mins.", isSelf: false },
+            { sender: "cosmic_owl", text: "Clean and private. Just how it should be 🔒", isSelf: false },
+            { sender: "you as nightjar", text: "No accounts, no email, just pure chat.", isSelf: true },
+            { sender: "quiet_otter", text: "Anyone tested the voice notes yet? 🎙️", isSelf: false },
+            { sender: "paper_fox", text: "Working crisp on mobile and desktop.", isSelf: false },
+            { sender: "silver_badger", text: "Got the key from team. All clear here?", isSelf: false },
+            { sender: "you as nightjar", text: "All clear! Everything deletes on close.", isSelf: true },
+            { sender: "quiet_otter", text: "Got the key. Is everyone in?", isSelf: false },
+            { sender: "paper_fox", text: "Two more coming. Give it a minute.", isSelf: false },
+            { sender: "you as nightjar", text: "Fine by me. I'll wait.", isSelf: true }
+        ];
+
+        let currentIndex = 3;
+        const MAX_ITEMS = 3;
+
+        function addNextDemoMessage() {
+            // Only animate if user is on the landing page and window tab is visible
+            if (chatScreen && chatScreen.style.display !== "none") return;
+            if (document.hidden) return;
+
+            const msgData = conversationPool[currentIndex % conversationPool.length];
+            currentIndex++;
+
+            const item = document.createElement("div");
+            item.className = `demo-bubble-item animate-enter ${msgData.isSelf ? "text-right" : ""}`;
+
+            const sender = document.createElement("div");
+            sender.className = "demo-sender-label";
+            sender.textContent = msgData.sender;
+
+            const bubble = document.createElement("div");
+            bubble.className = msgData.isSelf ? "demo-bubble-orange" : "demo-bubble-dark";
+            bubble.textContent = msgData.text;
+
+            item.appendChild(sender);
+            item.appendChild(bubble);
+
+            // Smoothly collapse and slide out oldest item if max items reached
+            const activeItems = demoList.querySelectorAll(".demo-bubble-item:not(.demo-exiting)");
+            if (activeItems.length >= MAX_ITEMS) {
+                const oldest = activeItems[0];
+                oldest.classList.add("demo-exiting");
+
+                // Get exact computed height before initiating smooth collapse
+                const currentHeight = oldest.offsetHeight;
+                oldest.style.maxHeight = currentHeight + "px";
+                oldest.style.overflow = "hidden";
+                oldest.style.transition = "max-height 0.58s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.58s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease, transform 0.58s cubic-bezier(0.16, 1, 0.3, 1)";
+
+                // Force reflow so transition begins from current rendered height
+                oldest.offsetHeight;
+
+                // Seamlessly collapse height and margins to 0 with deceleration curve
+                oldest.style.opacity = "0";
+                oldest.style.transform = "translateY(-14px) scale(0.93)";
+                oldest.style.maxHeight = "0px";
+                oldest.style.marginBottom = "0px";
+                oldest.style.paddingTop = "0px";
+                oldest.style.paddingBottom = "0px";
+
+                setTimeout(() => {
+                    if (oldest.parentNode) {
+                        oldest.parentNode.removeChild(oldest);
+                    }
+                }, 600);
+            }
+
+            demoList.appendChild(item);
+        }
+
+        // Random pacing between 2.6s and 4.2s for authentic conversation feel
+        function scheduleNextMessage() {
+            const delay = Math.floor(Math.random() * 1600) + 2600;
+            setTimeout(() => {
+                addNextDemoMessage();
+                scheduleNextMessage();
+            }, delay);
+        }
+
+        scheduleNextMessage();
+    }
+
+    initLandingChatAnimation();
+
+    // ============================================================
+    // ANONYMOUS FILE SHARING ROOMS & DUAL TILE CAROUSEL CONTROLLER
+    // ============================================================
+    (function initAnonymousFileSharing() {
+        const MAX_BYTES = 500 * 1024 * 1024; // 500 MB total limit
+
+        // Toast notification helper
+        function showToast(message, duration = 3000) {
+            const toast = document.getElementById("toastNotification");
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.add("show");
+            if (toast._timeout) clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => {
+                toast.classList.remove("show");
+            }, duration);
+        }
+
+        // Copy text helper
+        function copyText(text, successMsg = "Copied to clipboard!") {
+            if (!text) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(successMsg);
+                }).catch(() => {
+                    fallbackCopy(text, successMsg);
+                });
+            } else {
+                fallbackCopy(text, successMsg);
+            }
+        }
+
+        function fallbackCopy(text, successMsg) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand("copy");
+                showToast(successMsg);
+            } catch (err) {
+                showToast("Failed to copy");
+            }
+            document.body.removeChild(ta);
+        }
+
+        // Format bytes helper
+        function formatBytes(bytes, decimals = 1) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // File icon helper
+        function getFileIconClass(name = "", mime = "") {
+            const ext = name.split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext) || mime.startsWith('image/')) {
+                return 'fas fa-file-image';
+            }
+            if (['mp4', 'mov', 'webm', 'mkv', 'avi'].includes(ext) || mime.startsWith('video/')) {
+                return 'fas fa-file-video';
+            }
+            if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext) || mime.startsWith('audio/')) {
+                return 'fas fa-file-audio';
+            }
+            if (ext === 'pdf' || mime === 'application/pdf') {
+                return 'fas fa-file-pdf';
+            }
+            if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+                return 'fas fa-file-zipper';
+            }
+            if (['js', 'ts', 'html', 'css', 'json', 'py', 'java', 'cpp', 'c', 'php'].includes(ext)) {
+                return 'fas fa-file-code';
+            }
+            if (['doc', 'docx'].includes(ext)) {
+                return 'fas fa-file-word';
+            }
+            if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                return 'fas fa-file-excel';
+            }
+            return 'fas fa-file-lines';
+        }
+
+        // ------------------------------------------------------------
+        // 1. DUAL TILE CAROUSEL CONTROLLER (Switches every 30 seconds)
+        // ------------------------------------------------------------
+        const pillFileSharing = document.getElementById("pillFileSharing");
+        const pillSampleChat = document.getElementById("pillSampleChat");
+        const carouselTrack = document.getElementById("carouselTrack");
+        const carouselTimerProgress = document.getElementById("carouselTimerProgress");
+        const carouselViewport = document.getElementById("carouselViewport");
+
+        let activeSlide = 0; // 0 = Sample Chat (First), 1 = File Sharing (Second)
+        const CYCLE_TIME_MS = 30 * 1000; // 30 seconds
+        let cycleStartTime = Date.now();
+        let carouselInterval = null;
+        let isCarouselPaused = false;
+
+        function goToSlide(index, resetTimer = true) {
+            activeSlide = index === 0 ? 0 : 1;
+            if (carouselTrack) {
+                carouselTrack.style.transform = activeSlide === 0 ? "translateX(0%)" : "translateX(-50%)";
+            }
+            if (pillSampleChat) {
+                pillSampleChat.classList.toggle("active", activeSlide === 0);
+                pillSampleChat.setAttribute("aria-selected", activeSlide === 0);
+            }
+            if (pillFileSharing) {
+                pillFileSharing.classList.toggle("active", activeSlide === 1);
+                pillFileSharing.setAttribute("aria-selected", activeSlide === 1);
+            }
+
+            if (resetTimer) {
+                cycleStartTime = Date.now();
+                if (carouselTimerProgress) carouselTimerProgress.style.width = "0%";
+            }
+        }
+
+        if (pillSampleChat) {
+            pillSampleChat.addEventListener("click", () => goToSlide(0, true));
+        }
+        if (pillFileSharing) {
+            pillFileSharing.addEventListener("click", () => goToSlide(1, true));
+        }
+
+        // Auto-switch carousel every 30 seconds with continuous progress bar
+        function startCarouselAutoTimer() {
+            cycleStartTime = Date.now();
+            if (carouselInterval) clearInterval(carouselInterval);
+
+            carouselInterval = setInterval(() => {
+                // Do not auto-cycle if user is inside a room, if tab is hidden, or if interacting with inputs
+                if (document.hidden) return;
+                if (chatScreen && chatScreen.style.display !== "none") return;
+                if (fileRoomScreen && fileRoomScreen.style.display !== "none") return;
+                if (isCarouselPaused) return;
+
+                const elapsed = Date.now() - cycleStartTime;
+                const percent = Math.min(100, (elapsed / CYCLE_TIME_MS) * 100);
+
+                if (carouselTimerProgress) {
+                    carouselTimerProgress.style.width = `${percent}%`;
+                }
+
+                if (elapsed >= CYCLE_TIME_MS) {
+                    // Switch to other slide smoothly
+                    const nextSlide = activeSlide === 0 ? 1 : 0;
+                    goToSlide(nextSlide, true);
+                }
+            }, 250);
+        }
+
+        startCarouselAutoTimer();
+
+        // Pause auto-cycle when hovering over carousel or typing in inputs
+        if (carouselViewport) {
+            carouselViewport.addEventListener("mouseenter", () => { isCarouselPaused = true; });
+            carouselViewport.addEventListener("mouseleave", () => { isCarouselPaused = false; });
+        }
+
+        const landingTileKeyInput = document.getElementById("landingTileKeyInput");
+        if (landingTileKeyInput) {
+            landingTileKeyInput.addEventListener("focus", () => { isCarouselPaused = true; });
+            landingTileKeyInput.addEventListener("blur", () => { isCarouselPaused = false; });
+        }
+
+        // Mobile touch swipe support for the carousel
+        if (carouselViewport) {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            carouselViewport.addEventListener("touchstart", (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            carouselViewport.addEventListener("touchend", (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                const diff = touchEndX - touchStartX;
+                if (diff < -50) {
+                    // Swipe left -> go to slide 1 (Chat)
+                    goToSlide(1, true);
+                } else if (diff > 50) {
+                    // Swipe right -> go to slide 0 (Files)
+                    goToSlide(0, true);
+                }
+            }, { passive: true });
+        }
+
+        // ------------------------------------------------------------
+        // 2. LANDING RIGHT PANEL MODE SELECTOR (Chat vs File Room)
+        // ------------------------------------------------------------
+        const tabChatRoomMode = document.getElementById("tabChatRoomMode");
+        const tabFileRoomMode = document.getElementById("tabFileRoomMode");
+        const panelChatRoom = document.getElementById("panelChatRoom");
+        const panelFileRoom = document.getElementById("panelFileRoom");
+
+        if (tabChatRoomMode && tabFileRoomMode) {
+            tabChatRoomMode.addEventListener("click", () => {
+                tabChatRoomMode.classList.add("active");
+                tabFileRoomMode.classList.remove("active");
+                if (panelChatRoom) panelChatRoom.classList.remove("hidden");
+                if (panelFileRoom) panelFileRoom.classList.add("hidden");
+            });
+
+            tabFileRoomMode.addEventListener("click", () => {
+                tabFileRoomMode.classList.add("active");
+                tabChatRoomMode.classList.remove("active");
+                if (panelFileRoom) panelFileRoom.classList.remove("hidden");
+                if (panelChatRoom) panelChatRoom.classList.add("hidden");
+            });
+        }
+
+        // ------------------------------------------------------------
+        // 3. FILE UPLOADS: CREATE ROOM & ADD TO EXISTING ROOM
+        // ------------------------------------------------------------
+        let activeFileRoom = null;
+        let inactivityInterval = null;
+        let inactivitySecondsRemaining = 30 * 60; // 30 minutes in seconds
+
+        function touchInactivity() {
+            inactivitySecondsRemaining = 30 * 60;
+            updateInactivityDisplay();
+            if (activeFileRoom) {
+                socket.emit("touch-file-room", { roomId: activeFileRoom.roomId });
+            }
+        }
+
+        function updateInactivityDisplay() {
+            const el = document.getElementById("fileRoomCountdown");
+            if (!el) return;
+            const mins = Math.floor(inactivitySecondsRemaining / 60);
+            const secs = inactivitySecondsRemaining % 60;
+            el.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function startInactivityCountdown() {
+            if (inactivityInterval) clearInterval(inactivityInterval);
+            inactivitySecondsRemaining = 30 * 60;
+            updateInactivityDisplay();
+
+            inactivityInterval = setInterval(() => {
+                inactivitySecondsRemaining--;
+                updateInactivityDisplay();
+
+                if (inactivitySecondsRemaining <= 0) {
+                    clearInterval(inactivityInterval);
+                    handleFileRoomExpired();
+                }
+            }, 1000);
+        }
+
+        function handleFileRoomExpired() {
+            const roomInactiveModal = document.getElementById("roomInactiveModal");
+            const roomInactiveText = document.getElementById("roomInactiveText");
+            if (roomInactiveText) {
+                roomInactiveText.textContent = "This file sharing room has expired and been deleted after 30 minutes of inactivity.";
+            }
+            if (roomInactiveModal) {
+                roomInactiveModal.classList.remove("hidden");
+            }
+            leaveFileRoom(false);
+        }
+
+        // Upload files to create a brand new room
+        function uploadFilesToCreateRoom(files) {
+            if (!files || files.length === 0) return;
+
+            let totalBytes = 0;
+            for (let i = 0; i < files.length; i++) {
+                totalBytes += files[i].size;
+            }
+
+            if (totalBytes > MAX_BYTES) {
+                showToast("Total files size exceeds 500 MB limit.");
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append("files", files[i]);
+            }
+
+            // Progress indicators
+            const landingProgress = document.getElementById("landingTileUploadProgress");
+            const landingProgressBar = document.getElementById("landingTileProgressBar");
+            const landingProgressPercent = document.getElementById("landingTileProgressPercent");
+            const landingProgressText = document.getElementById("landingTileProgressText");
+
+            if (landingProgress) landingProgress.classList.remove("hidden");
+            if (landingProgressBar) landingProgressBar.style.width = "0%";
+            if (landingProgressPercent) landingProgressPercent.textContent = "0%";
+            if (landingProgressText) landingProgressText.textContent = `Uploading ${files.length} file(s)...`;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/api/file-rooms/create-and-upload", true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    if (landingProgressBar) landingProgressBar.style.width = `${pct}%`;
+                    if (landingProgressPercent) landingProgressPercent.textContent = `${pct}%`;
+                }
+            };
+
+            xhr.onload = () => {
+                if (landingProgress) landingProgress.classList.add("hidden");
+
+                if (xhr.status === 200) {
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res.success && res.room) {
+                            try {
+                                localStorage.setItem("anon_file_room_creator_" + res.room.roomId, "true");
+                            } catch (e) {}
+                            res.room.isCreator = true;
+                            openFileRoom(res.room);
+                            showToast(`Room created! Key: ${res.room.roomKey}`);
+                        }
+                    } catch (e) {
+                        showToast("Failed to process room creation.");
+                    }
+                } else {
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        showToast(err.error || `Upload failed (Status ${xhr.status})`);
+                    } catch (e) {
+                        showToast(`Upload failed with status ${xhr.status}`);
+                    }
+                }
+            };
+
+            xhr.onerror = () => {
+                if (landingProgress) landingProgress.classList.add("hidden");
+                showToast("Network error during file upload.");
+            };
+
+            xhr.send(formData);
+        }
+
+        // Upload additional files to an existing active room
+        function uploadFilesToExistingRoom(files) {
+            if (!activeFileRoom || !files || files.length === 0) return;
+
+            let addedBytes = 0;
+            for (let i = 0; i < files.length; i++) {
+                addedBytes += files[i].size;
+            }
+
+            if (activeFileRoom.totalSizeBytes + addedBytes > MAX_BYTES) {
+                const remaining = Math.max(0, MAX_BYTES - activeFileRoom.totalSizeBytes);
+                showToast(`Storage limit exceeded. Only ${formatBytes(remaining)} remaining of 500 MB.`);
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append("files", files[i]);
+            }
+
+            const progressBox = document.getElementById("roomUploadProgressBox");
+            const progressBar = document.getElementById("roomUploadProgressBar");
+            const progressPercent = document.getElementById("roomUploadPercent");
+            const progressFileName = document.getElementById("roomUploadFileName");
+
+            if (progressBox) progressBox.classList.remove("hidden");
+            if (progressBar) progressBar.style.width = "0%";
+            if (progressPercent) progressPercent.textContent = "0%";
+            if (progressFileName) progressFileName.textContent = `Uploading ${files.length} file(s)...`;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `/api/file-rooms/${activeFileRoom.roomId}/upload`, true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    if (progressBar) progressBar.style.width = `${pct}%`;
+                    if (progressPercent) progressPercent.textContent = `${pct}%`;
+                }
+            };
+
+            xhr.onload = () => {
+                if (progressBox) progressBox.classList.add("hidden");
+
+                if (xhr.status === 200) {
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res.success && res.room) {
+                            updateFileRoomUI(res.room);
+                            touchInactivity();
+                            showToast("Files added successfully!");
+                        }
+                    } catch (e) {
+                        showToast("Error processing upload response.");
+                    }
+                } else {
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        showToast(err.error || `Upload failed with status ${xhr.status}`);
+                    } catch (e) {
+                        showToast(`Upload failed with status ${xhr.status}`);
+                    }
+                }
+            };
+
+            xhr.onerror = () => {
+                if (progressBox) progressBox.classList.add("hidden");
+                showToast("Network error uploading files.");
+            };
+
+            xhr.send(formData);
+        }
+
+        // ------------------------------------------------------------
+        // 4. OPEN & MANAGE FILE SHARING ROOM
+        // ------------------------------------------------------------
+        function openFileRoom(roomData) {
+            document.documentElement.classList.remove("loading-file-room");
+            let isCreator = false;
+            try {
+                isCreator = localStorage.getItem("anon_file_room_creator_" + roomData.roomId) === "true";
+            } catch (e) {}
+            roomData.isCreator = isCreator;
+            activeFileRoom = roomData;
+            try {
+                localStorage.setItem("anon_file_room_id", roomData.roomId);
+            } catch (e) {}
+            showFileRoomScreen();
+            updateFileRoomUI(roomData);
+            startInactivityCountdown();
+
+            // Connect socket room for live sync
+            socket.emit("join-file-room", { roomId: roomData.roomId });
+
+            // Update URL without reloading page if not already matching
+            const targetPath = `/share/${roomData.roomId}`;
+            if (window.location.pathname !== targetPath) {
+                window.history.pushState({ type: "file-room", roomId: roomData.roomId }, "", targetPath);
+            }
+        }
+
+        function updateFileRoomUI(roomData) {
+            activeFileRoom = roomData;
+
+            // Room Key
+            const keyEl = document.getElementById("fileRoomKeyDisplay");
+            if (keyEl) keyEl.textContent = roomData.roomKey || roomData.roomId;
+
+            // Storage Meter (Up to 500 MB)
+            const storageText = document.getElementById("fileRoomStorageText");
+            const storageBar = document.getElementById("fileRoomStorageBar");
+            const usedBytes = roomData.totalSizeBytes || 0;
+            const pct = Math.min(100, Math.round((usedBytes / MAX_BYTES) * 100));
+
+            if (storageText) {
+                storageText.textContent = `${formatBytes(usedBytes)} / 500 MB`;
+            }
+            if (storageBar) {
+                storageBar.style.width = `${pct}%`;
+                if (pct > 90) {
+                    storageBar.style.background = "#ef4444";
+                } else {
+                    storageBar.style.background = "linear-gradient(to right, #ff7320, #ffb682)";
+                }
+            }
+
+            // QR Code
+            const qrImg = document.getElementById("fileRoomQrImg");
+            if (qrImg && roomData.qrCodeDataUrl) {
+                qrImg.src = roomData.qrCodeDataUrl;
+            }
+
+            // Badge
+            const badge = document.getElementById("fileRoomCountBadge");
+            const files = roomData.files || [];
+            if (badge) badge.textContent = files.length;
+
+            // Render items
+            renderFileItems(files);
+        }
+
+        function renderFileItems(files) {
+            const listEl = document.getElementById("fileRoomItemsList");
+            const emptyState = document.getElementById("fileRoomEmptyState");
+            if (!listEl) return;
+
+            listEl.innerHTML = "";
+
+            if (!files || files.length === 0) {
+                if (emptyState) {
+                    listEl.appendChild(emptyState);
+                    emptyState.classList.remove("hidden");
+                }
+                return;
+            }
+
+            files.forEach(file => {
+                const item = document.createElement("div");
+                item.className = "file-item-card";
+
+                const iconBox = document.createElement("div");
+                iconBox.className = "file-item-icon";
+                iconBox.innerHTML = `<i class="${getFileIconClass(file.name, file.mimeType)}"></i>`;
+
+                const infoBox = document.createElement("div");
+                infoBox.className = "file-item-info";
+
+                const titleEl = document.createElement("div");
+                titleEl.className = "file-item-name";
+                titleEl.textContent = file.name;
+                titleEl.title = file.name;
+
+                const metaEl = document.createElement("div");
+                metaEl.className = "file-item-meta";
+                const dateStr = file.uploadedAt ? new Date(file.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                metaEl.textContent = `${formatBytes(file.size)} · ${dateStr}`;
+
+                infoBox.appendChild(titleEl);
+                infoBox.appendChild(metaEl);
+
+                // Actions
+                const actionsBox = document.createElement("div");
+                actionsBox.className = "file-item-actions";
+
+                const dlBtn = document.createElement("a");
+                dlBtn.className = "btn-file-dl";
+                dlBtn.href = `/api/file-rooms/${activeFileRoom.roomId}/files/${file.id}/download`;
+                dlBtn.setAttribute("download", file.name);
+                dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i><span>Download</span>';
+                dlBtn.onclick = () => {
+                    touchInactivity();
+                    activeDownloadsCount++;
+                    setTimeout(() => {
+                        activeDownloadsCount = Math.max(0, activeDownloadsCount - 1);
+                    }, 25000);
+                };
+
+                const delBtn = document.createElement("button");
+                delBtn.type = "button";
+                delBtn.className = "btn-file-del";
+                delBtn.title = "Delete file";
+                delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                delBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    confirmDeleteFile(file.id, file.name);
+                };
+
+                actionsBox.appendChild(dlBtn);
+                actionsBox.appendChild(delBtn);
+
+                item.appendChild(iconBox);
+                item.appendChild(infoBox);
+                item.appendChild(actionsBox);
+
+                listEl.appendChild(item);
+            });
+        }
+
+        // Delete File Modal & Handler
+        let fileIdToDelete = null;
+        const deleteFileModal = document.getElementById("deleteFileModal");
+        const deleteFileModalText = document.getElementById("deleteFileModalText");
+        const cancelDeleteFileBtn = document.getElementById("cancelDeleteFileBtn");
+        const confirmDeleteFileBtn = document.getElementById("confirmDeleteFileBtn");
+
+        function confirmDeleteFile(fileId, fileName) {
+            fileIdToDelete = fileId;
+            if (deleteFileModalText) {
+                deleteFileModalText.textContent = `Are you sure you want to delete "${fileName}"? This cannot be undone.`;
+            }
+            if (deleteFileModal) {
+                deleteFileModal.classList.remove("hidden");
+            }
+        }
+
+        if (deleteFileModal) {
+            deleteFileModal.addEventListener("click", (e) => {
+                if (e.target === deleteFileModal) {
+                    deleteFileModal.classList.add("hidden");
+                    fileIdToDelete = null;
+                }
+            });
+        }
+
+        if (cancelDeleteFileBtn) {
+            cancelDeleteFileBtn.onclick = (e) => {
+                if (e) e.stopPropagation();
+                if (deleteFileModal) deleteFileModal.classList.add("hidden");
+                fileIdToDelete = null;
+            };
+        }
+
+        if (confirmDeleteFileBtn) {
+            confirmDeleteFileBtn.onclick = (e) => {
+                if (e) e.stopPropagation();
+                if (!activeFileRoom || !fileIdToDelete) return;
+                const fileId = fileIdToDelete;
+                if (deleteFileModal) deleteFileModal.classList.add("hidden");
+
+                fetch(`/api/file-rooms/${activeFileRoom.roomId}/files/${fileId}`, {
+                    method: "DELETE"
+                })
+                .then(r => r.json())
+                .then(data => {
+                    fileIdToDelete = null;
+                    if (data.success && data.room) {
+                        updateFileRoomUI(data.room);
+                        touchInactivity();
+                        showToast("File deleted from room.");
+                    } else {
+                        showToast(data.error || "Failed to delete file.");
+                    }
+                })
+                .catch(() => {
+                    fileIdToDelete = null;
+                    showToast("Error deleting file.");
+                });
+            };
+        }
+
+        // Open Room by Identifier (Room ID or Room Key)
+        function openFileRoomByIdentifier(identifier, isDirectOrSaved = false) {
+            if (!identifier) {
+                if (isDirectOrSaved) {
+                    document.documentElement.classList.remove("loading-file-room");
+                    try { localStorage.removeItem("anon_file_room_id"); } catch (e) {}
+                } else {
+                    showToast("Please enter a room key or ID.");
+                }
+                return;
+            }
+
+            fetch(`/api/file-rooms/${encodeURIComponent(identifier.trim())}`)
+                .then(r => r.json())
+                .then(data => {
+                    document.documentElement.classList.remove("loading-file-room");
+                    if (data.success && data.room) {
+                        openFileRoom(data.room);
+                    } else {
+                        if (isDirectOrSaved) {
+                            try { localStorage.removeItem("anon_file_room_id"); } catch (e) {}
+                            if (window.location.pathname.startsWith("/share/")) {
+                                window.history.replaceState({}, "", "/");
+                            }
+                            showLandingScreen();
+                        }
+                        showToast(data.error || "File sharing room not found or expired.");
+                    }
+                })
+                .catch(() => {
+                    document.documentElement.classList.remove("loading-file-room");
+                    if (isDirectOrSaved) {
+                        try { localStorage.removeItem("anon_file_room_id"); } catch (e) {}
+                        if (window.location.pathname.startsWith("/share/")) {
+                            window.history.replaceState({}, "", "/");
+                        }
+                        showLandingScreen();
+                    }
+                    showToast("Error connecting to file room.");
+                });
+        }
+
+        function leaveFileRoom(updateUrl = true) {
+            document.documentElement.classList.remove("loading-file-room");
+            if (exitVaultModal) exitVaultModal.classList.add("hidden");
+            if (vaultEndedNoticeModal) vaultEndedNoticeModal.classList.add("hidden");
+            try {
+                localStorage.removeItem("anon_file_room_id");
+            } catch (e) {}
+            if (activeFileRoom) {
+                socket.emit("leave-file-room", { roomId: activeFileRoom.roomId });
+            }
+            if (inactivityInterval) clearInterval(inactivityInterval);
+            activeFileRoom = null;
+            activeDownloadsCount = 0;
+            if (updateUrl) {
+                window.history.pushState({}, "", "/");
+            }
+            showLandingScreen();
+        }
+
+        // ------------------------------------------------------------
+        // 5. EVENT LISTENERS ON LANDING PAGE & ROOM PAGE
+        // ------------------------------------------------------------
+        // Landing Tile File Dropzone & Browse
+        const landingTileDropzone = document.getElementById("landingTileDropzone");
+        const landingTileFileInput = document.getElementById("landingTileFileInput");
+        const landingTileBrowseBtn = document.getElementById("landingTileBrowseBtn");
+
+        if (landingTileBrowseBtn && landingTileFileInput) {
+            landingTileBrowseBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                landingTileFileInput.click();
+            });
+        }
+
+        if (landingTileDropzone && landingTileFileInput) {
+            landingTileDropzone.addEventListener("click", () => {
+                landingTileFileInput.click();
+            });
+
+            landingTileDropzone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                landingTileDropzone.classList.add("dragover");
+            });
+
+            landingTileDropzone.addEventListener("dragleave", () => {
+                landingTileDropzone.classList.remove("dragover");
+            });
+
+            landingTileDropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                landingTileDropzone.classList.remove("dragover");
+                if (e.dataTransfer && e.dataTransfer.files) {
+                    uploadFilesToCreateRoom(e.dataTransfer.files);
+                }
+            });
+
+            landingTileFileInput.addEventListener("change", (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    uploadFilesToCreateRoom(e.target.files);
+                    e.target.value = "";
+                }
+            });
+        }
+
+        // Landing Tile "Open Key"
+        const landingTileOpenKeyBtn = document.getElementById("landingTileOpenKeyBtn");
+        if (landingTileOpenKeyBtn && landingTileKeyInput) {
+            landingTileOpenKeyBtn.addEventListener("click", () => {
+                openFileRoomByIdentifier(landingTileKeyInput.value);
+            });
+            landingTileKeyInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    openFileRoomByIdentifier(landingTileKeyInput.value);
+                }
+            });
+        }
+
+        // Right Panel Upload Button & File Input
+        const rightPanelUploadBtn = document.getElementById("rightPanelUploadBtn");
+        const rightPanelFileInput = document.getElementById("rightPanelFileInput");
+        if (rightPanelUploadBtn && rightPanelFileInput) {
+            rightPanelUploadBtn.addEventListener("click", () => {
+                rightPanelFileInput.click();
+            });
+            rightPanelFileInput.addEventListener("change", (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    uploadFilesToCreateRoom(e.target.files);
+                    e.target.value = "";
+                }
+            });
+        }
+
+        // Right Panel "Open File Room" button
+        const rightPanelJoinFileRoomBtn = document.getElementById("rightPanelJoinFileRoomBtn");
+        const rightPanelRoomKey = document.getElementById("rightPanelRoomKey");
+        if (rightPanelJoinFileRoomBtn && rightPanelRoomKey) {
+            rightPanelJoinFileRoomBtn.addEventListener("click", () => {
+                openFileRoomByIdentifier(rightPanelRoomKey.value);
+            });
+            rightPanelRoomKey.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    openFileRoomByIdentifier(rightPanelRoomKey.value);
+                }
+            });
+        }
+
+        // Room Page: Add more files dropzone
+        const roomAddDropArea = document.getElementById("roomAddDropArea");
+        const roomAddFileInput = document.getElementById("roomAddFileInput");
+        if (roomAddDropArea && roomAddFileInput) {
+            roomAddDropArea.addEventListener("click", () => {
+                roomAddFileInput.click();
+            });
+
+            roomAddDropArea.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                roomAddDropArea.classList.add("border-[#ffb682]");
+            });
+
+            roomAddDropArea.addEventListener("dragleave", () => {
+                roomAddDropArea.classList.remove("border-[#ffb682]");
+            });
+
+            roomAddDropArea.addEventListener("drop", (e) => {
+                e.preventDefault();
+                roomAddDropArea.classList.remove("border-[#ffb682]");
+                if (e.dataTransfer && e.dataTransfer.files) {
+                    uploadFilesToExistingRoom(e.dataTransfer.files);
+                }
+            });
+
+            roomAddFileInput.addEventListener("change", (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    uploadFilesToExistingRoom(e.target.files);
+                    e.target.value = "";
+                }
+            });
+        }
+
+        // Room Page: "Share" Button (strictly labelled "Share")
+        const btnShareFileRoom = document.getElementById("btnShareFileRoom");
+        if (btnShareFileRoom) {
+            btnShareFileRoom.addEventListener("click", async () => {
+                if (!activeFileRoom) return;
+                touchInactivity();
+
+                const roomUrl = `${window.location.origin}/share/${activeFileRoom.roomId}`;
+                const sharePayload = {
+                    title: "Anon File Vault",
+                    text: `Access files in room: ${activeFileRoom.roomKey}`,
+                    url: roomUrl
+                };
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share(sharePayload);
+                    } catch (err) {
+                        if (err.name !== "AbortError") {
+                            copyText(roomUrl, "Room link copied to clipboard!");
+                        }
+                    }
+                } else {
+                    copyText(roomUrl, "Room link copied to clipboard!");
+                }
+            });
+        }
+
+        // Room Page: "Copy Link" direct button
+        const btnCopyFileRoomLink = document.getElementById("btnCopyFileRoomLink");
+        if (btnCopyFileRoomLink) {
+            btnCopyFileRoomLink.addEventListener("click", () => {
+                if (!activeFileRoom) return;
+                touchInactivity();
+                const roomUrl = `${window.location.origin}/share/${activeFileRoom.roomId}`;
+                copyText(roomUrl, "Room link copied to clipboard!");
+            });
+        }
+
+        // Room Page: "Copy Key" button
+        const copyFileRoomKeyBtn = document.getElementById("copyFileRoomKeyBtn");
+        if (copyFileRoomKeyBtn) {
+            copyFileRoomKeyBtn.addEventListener("click", () => {
+                if (!activeFileRoom) return;
+                touchInactivity();
+                copyText(activeFileRoom.roomKey, "Room key copied to clipboard!");
+            });
+        }
+
+        // Room Page: Download QR Code
+        const btnDownloadQr = document.getElementById("btnDownloadQr");
+        const fileRoomQrImg = document.getElementById("fileRoomQrImg");
+        if (btnDownloadQr && fileRoomQrImg) {
+            btnDownloadQr.addEventListener("click", () => {
+                if (!fileRoomQrImg.src) return;
+                touchInactivity();
+                const a = document.createElement("a");
+                a.href = fileRoomQrImg.src;
+                a.download = `qr-${activeFileRoom ? activeFileRoom.roomKey : 'room'}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+        }
+
+        // Room Page: Refresh files list button
+        const btnRefreshFiles = document.getElementById("btnRefreshFiles");
+        if (btnRefreshFiles) {
+            btnRefreshFiles.addEventListener("click", () => {
+                if (!activeFileRoom) return;
+                touchInactivity();
+                fetch(`/api/file-rooms/${activeFileRoom.roomId}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.room) {
+                            updateFileRoomUI(data.room);
+                            showToast("Files refreshed.");
+                        }
+                    });
+            });
+        }
+
+        // Room Page: Theme toggle button
+        const fileRoomThemeToggleBtn = document.getElementById("fileRoomThemeToggleBtn");
+        const fileRoomThemeToggleIcon = document.getElementById("fileRoomThemeToggleIcon");
+        const fileRoomThemeToggleText = document.getElementById("fileRoomThemeToggleText");
+
+        if (fileRoomThemeToggleBtn) {
+            fileRoomThemeToggleBtn.addEventListener("click", () => {
+                const isLight = document.body.classList.contains('light-mode');
+                const newTheme = isLight ? 'dark' : 'light';
+                localStorage.setItem('anon_chat_theme', newTheme);
+                applyTheme(newTheme);
+                if (fileRoomThemeToggleIcon) fileRoomThemeToggleIcon.className = newTheme === 'light' ? "fas fa-moon text-xs" : "fas fa-sun text-xs";
+                if (fileRoomThemeToggleText) fileRoomThemeToggleText.textContent = newTheme === 'light' ? "Dark" : "Light";
+            });
+        }
+
+        // Exit / End Vault Warning Logic
+        let activeDownloadsCount = 0;
+        const exitVaultModal = document.getElementById("exitVaultModal");
+        const exitVaultModalTitle = document.getElementById("exitVaultModalTitle");
+        const exitVaultModalText = document.getElementById("exitVaultModalText");
+        const cancelExitVaultBtn = document.getElementById("cancelExitVaultBtn");
+        const confirmExitVaultBtn = document.getElementById("confirmExitVaultBtn");
+
+        const vaultEndedNoticeModal = document.getElementById("vaultEndedNoticeModal");
+        const vaultEndedNoticeOkBtn = document.getElementById("vaultEndedNoticeOkBtn");
+
+        if (cancelExitVaultBtn) {
+            cancelExitVaultBtn.addEventListener("click", () => {
+                if (exitVaultModal) exitVaultModal.classList.add("hidden");
+            });
+        }
+
+        if (exitVaultModal) {
+            exitVaultModal.addEventListener("click", (e) => {
+                if (e.target === exitVaultModal) {
+                    exitVaultModal.classList.add("hidden");
+                }
+            });
+        }
+
+        if (confirmExitVaultBtn) {
+            confirmExitVaultBtn.addEventListener("click", () => {
+                if (!activeFileRoom) return;
+                const roomId = activeFileRoom.roomId;
+                const isCreator = activeFileRoom.isCreator;
+                if (exitVaultModal) exitVaultModal.classList.add("hidden");
+
+                if (isCreator) {
+                    // Creator ends the vault: delete completely and broadcast
+                    fetch(`/api/file-rooms/${roomId}`, {
+                        method: "DELETE"
+                    })
+                    .finally(() => {
+                        try {
+                            localStorage.removeItem("anon_file_room_creator_" + roomId);
+                        } catch (e) {}
+                        activeDownloadsCount = 0;
+                        showToast("Vault ended and closed.");
+                        leaveFileRoom(true);
+                    });
+                } else {
+                    // Member leaving while downloading
+                    activeDownloadsCount = 0;
+                    leaveFileRoom(true);
+                }
+            });
+        }
+
+        // Room Page: Home / Exit button
+        const fileRoomHomeBtn = document.getElementById("fileRoomHomeBtn");
+        if (fileRoomHomeBtn) {
+            fileRoomHomeBtn.addEventListener("click", () => {
+                if (!activeFileRoom) {
+                    leaveFileRoom(true);
+                    return;
+                }
+
+                if (activeFileRoom.isCreator) {
+                    // Creator exiting: Show "Are you sure to end the vault"
+                    if (exitVaultModalTitle) exitVaultModalTitle.textContent = "Are you sure to end the vault?";
+                    if (exitVaultModalText) exitVaultModalText.textContent = "Ending this vault will immediately close the room and delete all shared files for everyone.";
+                    if (confirmExitVaultBtn) {
+                        confirmExitVaultBtn.textContent = "End Vault";
+                        confirmExitVaultBtn.className = "modal-btn-danger";
+                    }
+                    if (exitVaultModal) exitVaultModal.classList.remove("hidden");
+                } else {
+                    // Other members in the room: only show warning if currently downloading any file
+                    if (activeDownloadsCount > 0) {
+                        if (exitVaultModalTitle) exitVaultModalTitle.textContent = "Are you sure to leave the vault?";
+                        if (exitVaultModalText) exitVaultModalText.textContent = "You are currently downloading a file. Leaving now may interrupt your download.";
+                        if (confirmExitVaultBtn) {
+                            confirmExitVaultBtn.textContent = "Leave Vault";
+                            confirmExitVaultBtn.className = "modal-btn-danger";
+                        }
+                        if (exitVaultModal) exitVaultModal.classList.remove("hidden");
+                    } else {
+                        // Not downloading: exit directly without popup
+                        leaveFileRoom(true);
+                    }
+                }
+            });
+        }
+
+        // Socket events for real-time live sync of file rooms
+        socket.on("file-room-updated", (updatedRoom) => {
+            if (activeFileRoom && activeFileRoom.roomId === updatedRoom.roomId) {
+                const wasCreator = activeFileRoom.isCreator;
+                updateFileRoomUI(updatedRoom);
+                activeFileRoom.isCreator = wasCreator;
+            }
+        });
+
+        socket.on("file-room-expired", (message) => {
+            if (activeFileRoom) {
+                handleFileRoomExpired();
+            }
+        });
+
+        socket.on("file-vault-ended", (message) => {
+            if (activeFileRoom) {
+                if (exitVaultModal) exitVaultModal.classList.add("hidden");
+                if (vaultEndedNoticeModal) {
+                    vaultEndedNoticeModal.classList.remove("hidden");
+                } else {
+                    showToast(message || "The creator has ended this vault.");
+                    leaveFileRoom(false);
+                }
+            }
+        });
+
+        if (vaultEndedNoticeOkBtn) {
+            vaultEndedNoticeOkBtn.addEventListener("click", () => {
+                if (vaultEndedNoticeModal) vaultEndedNoticeModal.classList.add("hidden");
+                leaveFileRoom(false);
+            });
+        }
+
+        // ------------------------------------------------------------
+        // 6. DIRECT URL CHECK ON LOAD (/share/:identifier or ?share=...)
+        // ------------------------------------------------------------
+        function checkDirectShareUrl() {
+            const pathname = window.location.pathname;
+            const searchParams = new URLSearchParams(window.location.search);
+
+            if (pathname.startsWith("/share/")) {
+                const id = pathname.replace("/share/", "").split("/")[0].trim();
+                if (id) {
+                    openFileRoomByIdentifier(id, true);
+                    return;
+                }
+            }
+
+            if (searchParams.has("share")) {
+                const id = searchParams.get("share").trim();
+                if (id) {
+                    openFileRoomByIdentifier(id, true);
+                    return;
+                }
+            }
+
+            if (searchParams.has("fileRoom")) {
+                const id = searchParams.get("fileRoom").trim();
+                if (id) {
+                    openFileRoomByIdentifier(id, true);
+                    return;
+                }
+            }
+
+            let savedFileRoom = null;
+            try {
+                savedFileRoom = localStorage.getItem("anon_file_room_id");
+            } catch (e) {}
+
+            if (savedFileRoom && (pathname === "/" || pathname === "")) {
+                openFileRoomByIdentifier(savedFileRoom, true);
+                return;
+            }
+
+            document.documentElement.classList.remove("loading-file-room");
+        }
+
+        // Handle popstate for back/forward navigation
+        window.addEventListener("popstate", (e) => {
+            if (e.state && e.state.type === "file-room" && e.state.roomId) {
+                openFileRoomByIdentifier(e.state.roomId, true);
+            } else if (window.location.pathname.startsWith("/share/")) {
+                const id = window.location.pathname.replace("/share/", "").split("/")[0].trim();
+                if (id) {
+                    openFileRoomByIdentifier(id, true);
+                } else {
+                    leaveFileRoom(false);
+                }
+            } else if (fileRoomScreen && fileRoomScreen.style.display !== "none") {
+                leaveFileRoom(false);
+            }
+        });
+
+        checkDirectShareUrl();
+    })();
 });
