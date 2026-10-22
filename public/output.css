@@ -563,14 +563,17 @@ h1, h2, h3, .font-heading {
   font-family: var(--font-heading);
 }
 
-body {
+html,
+  body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  height: 100vh;
+  height: 100%;
   height: 100dvh;
+  background: #000000;
   background-color: #000000;
   color: #ffffff;
+  overscroll-behavior: none;
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -878,8 +881,8 @@ input:focus-visible,
   height: 100%;
 }
 
-.h-screen {
-  height: 100vh;
+.max-h-\[100dvh\] {
+  max-height: 100dvh;
 }
 
 .max-h-\[90vh\] {
@@ -888,10 +891,6 @@ input:focus-visible,
 
 .max-h-full {
   max-height: 100%;
-}
-
-.max-h-screen {
-  max-height: 100vh;
 }
 
 .min-h-0 {
@@ -1784,7 +1783,6 @@ input:focus-visible,
 #joinScreen {
   display: grid !important;
   grid-template-columns: 1.15fr 1fr;
-  height: 100vh;
   height: 100dvh;
   width: 100%;
   background: #000000;
@@ -2211,7 +2209,6 @@ input:focus-visible,
   #joinScreen {
     display: flex !important;
     flex-direction: column !important;
-    min-height: 100vh !important;
     min-height: 100dvh !important;
     height: auto !important;
     background: #000000 !important;
@@ -2584,7 +2581,7 @@ input:focus-visible,
   left: 0;
   right: 0;
   bottom: 0;
-  height: 100vh;
+  height: 100%;
   height: 100dvh;
   height: var(--vvh, 100dvh);
   width: 100%;
@@ -2596,7 +2593,7 @@ input:focus-visible,
 #chat-header {
   background: #0d0d0d;
   border-bottom: 1px solid #262626;
-  padding: 10px 20px;
+  padding: max(10px, env(safe-area-inset-top)) 20px 10px 20px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -2656,7 +2653,7 @@ input:focus-visible,
 
 @media (max-width: 767px) {
   #chat-header {
-    padding: 10px 14px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 10px 14px;
     position: sticky;
     top: 0;
     left: 0;
@@ -2674,15 +2671,15 @@ input:focus-visible,
   }
 
   .composer-outer {
-    padding: 8px 12px 10px 12px;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 8px 12px;
   }
 }
 
 /* Messages area with fixed SVG tiled background */
 
 #messages {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   background-color: #000000;
@@ -3173,16 +3170,22 @@ body.light-mode .received-message .file-btn-save i {
 
 #chat-input-container {
   flex-shrink: 0;
-  background: transparent;
+  background: #000000;
   padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
   position: relative;
   z-index: 10;
+  width: 100%;
+}
+
+body.light-mode #chat-input-container {
+  background: #fbfbf9;
 }
 
 .composer-outer {
   max-width: 860px;
   margin: 0 auto;
-  padding: 12px 16px 16px 16px;
+  padding: 12px 16px;
   width: 100%;
 }
 
@@ -4524,9 +4527,7 @@ body.light-mode .drag-drop-box {
 #fileRoomScreen {
   display: flex;
   flex-direction: column;
-  height: 100vh;
   height: 100dvh;
-  max-height: 100vh;
   max-height: 100dvh;
   width: 100%;
   overflow: hidden;
@@ -4892,9 +4893,7 @@ html.loading-file-room #joinScreen {
 html.loading-file-room #fileRoomScreen {
   display: flex !important;
   flex-direction: column !important;
-  height: 100vh !important;
   height: 100dvh !important;
-  max-height: 100vh !important;
   max-height: 100dvh !important;
   overflow: hidden !important;
 }

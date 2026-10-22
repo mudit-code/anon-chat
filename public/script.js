@@ -2443,15 +2443,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let viewportHeight = window.innerHeight;
             let offsetTop = 0;
+            const isInputActive = (document.activeElement === messageInput);
 
             if (window.visualViewport) {
                 viewportHeight = window.visualViewport.height;
                 offsetTop = window.visualViewport.offsetTop || 0;
             }
 
-            document.documentElement.style.setProperty('--vvh', `${viewportHeight}px`);
-            chatScreen.style.height = `${viewportHeight}px`;
-            chatScreen.style.top = `${offsetTop}px`;
+            // Keyboard is detected if input is active or visual viewport is significantly smaller than layout viewport
+            const isKeyboardOpen = isInputActive || (window.visualViewport && window.visualViewport.height < window.innerHeight - 80);
+
+            if (isKeyboardOpen) {
+                document.documentElement.style.setProperty('--vvh', `${viewportHeight}px`);
+                chatScreen.style.height = `${viewportHeight}px`;
+                chatScreen.style.top = `${offsetTop}px`;
+                chatScreen.style.bottom = 'auto';
+            } else {
+                document.documentElement.style.removeProperty('--vvh');
+                chatScreen.style.height = '100dvh';
+                chatScreen.style.top = '0px';
+                chatScreen.style.bottom = '0px';
+            }
 
             // Enforce window scroll position at (0, 0)
             if (window.scrollY !== 0 || window.scrollX !== 0) {
