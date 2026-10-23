@@ -16,6 +16,131 @@ function absUrl(path) {
 
 const resolveMediaUrl = absUrl;
 
+// ======== REUSABLE APP-STYLED DIALOG SYSTEM (Alert, Confirm, Toast) ========
+let activeDialogResolver = null;
+
+function closeAppDialog(result) {
+    const modal = document.getElementById("appDialogModal");
+    if (modal) modal.classList.add("hidden");
+    if (activeDialogResolver) {
+        const resolver = activeDialogResolver;
+        activeDialogResolver = null;
+        resolver(result);
+    }
+}
+
+function showToast(message, duration = 3000) {
+    const toast = document.getElementById("toastNotification");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add("show");
+    if (toast._timeout) clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+        toast.classList.remove("show");
+    }, duration);
+}
+window.showToast = showToast;
+
+function appAlert(message, title = "Notice") {
+    return new Promise((resolve) => {
+        if (activeDialogResolver) {
+            closeAppDialog(false);
+        }
+        activeDialogResolver = resolve;
+
+        const modal = document.getElementById("appDialogModal");
+        const titleEl = document.getElementById("appDialogTitle");
+        const msgEl = document.getElementById("appDialogMessage");
+        const okBtn = document.getElementById("appDialogOkBtn");
+        const cancelBtn = document.getElementById("appDialogCancelBtn");
+
+        if (!modal) {
+            resolve();
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = title || "Notice";
+        if (msgEl) msgEl.textContent = typeof message === "object" ? (message?.message || JSON.stringify(message)) : String(message || "");
+        if (cancelBtn) cancelBtn.classList.add("hidden");
+
+        if (okBtn) {
+            okBtn.textContent = "OK";
+            okBtn.className = "modal-btn-primary";
+            okBtn.onpointerdown = (e) => e.preventDefault();
+            okBtn.onclick = (e) => {
+                e.preventDefault();
+                closeAppDialog(true);
+            };
+        }
+
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                closeAppDialog(true);
+            }
+        };
+
+        modal.classList.remove("hidden");
+    });
+}
+window.appAlert = appAlert;
+
+function appConfirm(message, { title = "Confirm", okText = "Confirm", cancelText = "Cancel", danger = false } = {}) {
+    return new Promise((resolve) => {
+        if (activeDialogResolver) {
+            closeAppDialog(false);
+        }
+        activeDialogResolver = resolve;
+
+        const modal = document.getElementById("appDialogModal");
+        const titleEl = document.getElementById("appDialogTitle");
+        const msgEl = document.getElementById("appDialogMessage");
+        const okBtn = document.getElementById("appDialogOkBtn");
+        const cancelBtn = document.getElementById("appDialogCancelBtn");
+
+        if (!modal) {
+            resolve(false);
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = title || "Confirm";
+        if (msgEl) msgEl.textContent = typeof message === "object" ? (message?.message || JSON.stringify(message)) : String(message || "");
+
+        if (cancelBtn) {
+            cancelBtn.textContent = cancelText || "Cancel";
+            cancelBtn.classList.remove("hidden");
+            cancelBtn.onpointerdown = (e) => e.preventDefault();
+            cancelBtn.onclick = (e) => {
+                e.preventDefault();
+                closeAppDialog(false);
+            };
+        }
+
+        if (okBtn) {
+            okBtn.textContent = okText || "Confirm";
+            okBtn.className = danger ? "modal-btn-danger" : "modal-btn-primary";
+            okBtn.onpointerdown = (e) => e.preventDefault();
+            okBtn.onclick = (e) => {
+                e.preventDefault();
+                closeAppDialog(true);
+            };
+        }
+
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                closeAppDialog(false);
+            }
+        };
+
+        modal.classList.remove("hidden");
+    });
+}
+window.appConfirm = appConfirm;
+
+// Override native window.alert to route into app dialog so nothing native leaks
+window.alert = function (msg) {
+    appAlert(msg);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io(API_BASE || undefined, { transports: ['websocket', 'polling'] });
 
@@ -727,13 +852,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if we can start recording (browser support + media limit)
     function checkCanRecord() {
         if (!AudioRecorder.isSupported()) {
-            alert('Audio recording not supported in this browser');
+            appAlert('Audio recording not supported in this browser');
             return false;
         }
 
         const currentMediaCount = pastedMedia.length + (audioPreviewBlob ? 1 : 0);
         if (currentMediaCount >= MAX_MEDIA_ITEMS) {
-            alert(`Media limit reached (${MAX_MEDIA_ITEMS}/${MAX_MEDIA_ITEMS}). Remove items to record audio.`);
+            appAlert(`Media limit reached (${MAX_MEDIA_ITEMS}/${MAX_MEDIA_ITEMS}). Remove items to record audio.`);
             return false;
         }
 
@@ -776,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Add audio to media strip (check limit first)
                 const currentMediaCount = pastedMedia.length;
                 if (currentMediaCount >= MAX_MEDIA_ITEMS) {
-                    alert(`Media limit reached (${MAX_MEDIA_ITEMS}/${MAX_MEDIA_ITEMS}). Remove items to add audio.`);
+                    appAlert(`Media limit reached (${MAX_MEDIA_ITEMS}/${MAX_MEDIA_ITEMS}). Remove items to add audio.`);
                     // Cleanup
                     if (audioRecorder) {
                         audioRecorder.cleanup();
@@ -829,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Max recording duration reached - preview shown (NOT auto-sent)');
             },
             onError: (type, message) => {
-                alert(message);
+                appAlert(message);
                 isRecording = false;
                 recordBtn.classList.remove('recording');
                 recordBtn.querySelector('i').className = 'fas fa-microphone';
@@ -1035,8 +1160,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Delete button
-        deleteBtn.onclick = () => {
-            if (confirm('Discard this recording?')) {
+        deleteBtn.onclick = async () => {
+            if (await appConfirm('Discard this recording?', { title: 'Discard Recording', okText: 'Discard', danger: true })) {
                 stopAudioRecording();
                 hideRecordingUI();
             }
@@ -1614,13 +1739,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) {
                     console.error("Error processing upload response:", error);
-                    alert("Error processing upload: " + error.message); // Visible alert
+                    appAlert("Error processing upload: " + error.message); // Visible alert
                     messageBubble.innerHTML = '<div class="text-red-400 text-sm">Upload processing failed</div>';
                 }
             } else {
                 if (xhr.status !== 0) {
                     messageBubble.innerHTML = '<div class="text-red-400 text-sm">File upload failed</div>';
-                    alert("Upload failed with status: " + xhr.status); // Visible alert
+                    appAlert("Upload failed with status: " + xhr.status); // Visible alert
                 }
             }
         };
@@ -1659,7 +1784,10 @@ document.addEventListener('DOMContentLoaded', () => {
     createRoomBtn.onclick = () => {
         roomKey = roomKeyInput.value.trim();
         username = usernameInput.value.trim();
-        if (!roomKey || !username) return alert("Please enter a username and a room key.");
+        if (!roomKey || !username) {
+            appAlert("Please enter a username and a room key.");
+            return;
+        }
         socket.emit("create-room", {
             roomKey,
             username
@@ -1669,7 +1797,10 @@ document.addEventListener('DOMContentLoaded', () => {
     joinRoomBtn.onclick = () => {
         roomKey = roomKeyInput.value.trim();
         username = usernameInput.value.trim();
-        if (!roomKey || !username) return alert("Please enter a username and a room key.");
+        if (!roomKey || !username) {
+            appAlert("Please enter a username and a room key.");
+            return;
+        }
         socket.emit("join-room", {
             roomKey,
             username
@@ -2932,11 +3063,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    socket.on("room-exists", (m) => alert(m));
-    socket.on("room-not-found", (m) => alert(m));
-    socket.on("admin-offline", (m) => alert(m));
-    socket.on("join-request-sent", (m) => alert(m));
-    socket.on("join-denied", (m) => alert(m));
+    socket.on("room-exists", (m) => appAlert(m, "Room Exists"));
+    socket.on("room-not-found", (m) => appAlert(m, "Room Not Found"));
+    socket.on("admin-offline", (m) => appAlert(m, "Admin Offline"));
+    socket.on("join-request-sent", (m) => appAlert(m, "Join Request"));
+    socket.on("join-denied", (m) => appAlert(m, "Access Denied"));
 
     socket.on("join-request", ({ userId, username: requestingUsername }) => {
         if (isAdmin) {
@@ -4328,6 +4459,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const App = window.Capacitor.Plugins?.App;
         if (App) {
             App.addListener('backButton', () => {
+                // Close app dialog modal if open
+                const appDialogModal = document.getElementById("appDialogModal");
+                if (appDialogModal && !appDialogModal.classList.contains("hidden")) {
+                    closeAppDialog(false);
+                    return;
+                }
                 // Close preview modal if open
                 if (previewModal && !previewModal.classList.contains("hidden")) {
                     closePreview?.click?.();

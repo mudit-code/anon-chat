@@ -696,6 +696,18 @@
     </div>
   </div>
 
+  <!-- App-Styled Global Dialog Modal (Alert & Confirm) -->
+  <div id="appDialogModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
+    <div class="modal-panel animate-modal-in max-w-sm w-full" id="appDialogPanel">
+      <h3 class="modal-title font-heading font-bold text-lg" id="appDialogTitle">Notice</h3>
+      <p class="modal-body text-sm mt-2 text-[#9a9a9a]" id="appDialogMessage"></p>
+      <div class="flex justify-end gap-3 mt-5" id="appDialogButtons">
+        <button id="appDialogCancelBtn" class="modal-btn-secondary hidden" type="button">Cancel</button>
+        <button id="appDialogOkBtn" class="modal-btn-primary" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastNotification" class="toast-box"></div>
 
