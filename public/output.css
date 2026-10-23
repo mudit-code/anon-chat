@@ -1022,6 +1022,12 @@ input:focus-visible,
   cursor: pointer;
 }
 
+.select-none {
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+}
+
 .select-all {
   -webkit-user-select: all;
      -moz-user-select: all;
@@ -3449,6 +3455,17 @@ body.light-mode #chat-input-container {
   border: 1px solid #2a2a2a;
   border-radius: 14px;
   margin-bottom: 10px;
+  max-height: min(280px, calc(var(--vvh, 100dvh) - 130px - var(--sat)));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#media-picker-content {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 #mediaPreviews {

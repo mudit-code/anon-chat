@@ -1934,6 +1934,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize send button state
     updateSendButtonState();
 
+    // Prevent button pointerdown from stealing focus or closing keyboard
+    if (sendBtn) {
+        sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+    if (emojiBtn) {
+        emojiBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+    if (recordBtn) {
+        recordBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        recordBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+
     messageInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -2081,28 +2095,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     sendBtn.onclick = async () => {
+        // Inert empty send: no text, attachment, or recording
+        if (sendBtn.disabled) return;
+
+        const message = messageInput.value.trim();
+        const hasMedia = pastedMedia.length > 0;
+        if (message === "" && !hasMedia && !fileToSend) return;
+
         // Stop typing when sending message
         if (isTyping) {
             socket.emit("typing:stop", { roomKey, userId: socket.id });
             isTyping = false;
             if (typingTimeout) clearTimeout(typingTimeout);
         }
-
-        if (fileToSend) {
-            sendFile(fileToSend);
-            fileToSend = null;
-            messageInput.value = "";
-            messageInput.disabled = false;
-            autoResizeTextarea(); // Reset height
-            messageInput.focus();
-            return;
-        }
-
-        const message = messageInput.value.trim();
-        const hasMedia = pastedMedia.length > 0;
-
-        // Require either text or media
-        if (message === "" && !hasMedia) return;
 
         // Helper function to upload a single media file with progress tracking
         const uploadMediaFile = async (mediaItem, index, onProgress) => {
@@ -2330,6 +2335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMediaPreviews(); // Hide preview strip
         messageInput.focus();
         updateSendButtonState();
+        scrollMessagesToBottom(true);
     };
 
 
@@ -2424,24 +2430,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const isHidden = mediaPicker.classList.contains("hidden");
         if (!isHidden) {
             mediaPicker.classList.add("hidden");
+            scrollMessagesToBottom(true);
             return;
         }
         mediaPicker.classList.remove("hidden");
         mediaPicker.style.display = "";
         mediaPicker.innerHTML = "";
+        scrollMessagesToBottom(true);
 
         // Create tabs container
         const tabsContainer = document.createElement("div");
-        tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4";
+        tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4 flex-shrink-0";
 
         const emojiTab = document.createElement("button");
         emojiTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
         emojiTab.textContent = "Emoji";
+        emojiTab.addEventListener("pointerdown", (e) => e.preventDefault());
         emojiTab.onclick = () => showEmojiPicker();
 
         const gifTab = document.createElement("button");
         gifTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
         gifTab.textContent = "GIF";
+        gifTab.addEventListener("pointerdown", (e) => e.preventDefault());
         gifTab.onclick = () => showGifPicker();
 
         tabsContainer.appendChild(emojiTab);
@@ -2483,7 +2493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchInput = document.createElement("input");
             searchInput.type = "text";
             searchInput.placeholder = "Search for GIFs...";
-            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] mb-3 text-sm";
+            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] mb-3 text-sm flex-shrink-0";
             searchInput.oninput = () => {
                 searchGifs(searchInput.value);
             };
@@ -2506,9 +2516,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 img.src = gif.images.fixed_height.url;
                                 img.className = "cursor-pointer w-full rounded-lg hover:opacity-80 transition-opacity";
                                 img.loading = "lazy";
+                                img.addEventListener("pointerdown", (e) => e.preventDefault());
                                 img.onclick = () => {
                                     socket.emit("chat-message", { roomKey, username, message: { type: 'gif', content: img.src } });
                                     mediaPicker.classList.add("hidden");
+                                    scrollMessagesToBottom(true);
                                 };
                                 gifResults.appendChild(img);
                             });
@@ -2547,9 +2559,12 @@ document.addEventListener('DOMContentLoaded', () => {
         emojis.forEach(emoji => {
             const btn = document.createElement("button");
             btn.innerHTML = emoji;
-            btn.className = "text-2xl p-2 rounded-lg hover:bg-[#2c2c2c] transition-colors cursor-pointer";
-            btn.onclick = () => {
+            btn.className = "text-2xl p-2 rounded-lg hover:bg-[#2c2c2c] transition-colors cursor-pointer select-none";
+            btn.addEventListener("pointerdown", (e) => e.preventDefault());
+            btn.onclick = (e) => {
+                e.preventDefault();
                 messageInput.value += emoji;
+                autoResizeTextarea();
                 messageInput.focus();
                 updateSendButtonState();
             };
@@ -4454,33 +4469,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initServerHealthCheck();
 
-    // 3. Android Native Hardware Back Button
+    // 3. Android Native Hardware Back Button & Keyboard Tracking
+    let isNativeKeyboardOpen = false;
     if (window.Capacitor?.isNativePlatform?.()) {
+        const Keyboard = window.Capacitor.Plugins?.Keyboard;
+        if (Keyboard) {
+            Keyboard.addListener('keyboardDidShow', () => {
+                isNativeKeyboardOpen = true;
+                scrollMessagesToBottom(true);
+            });
+            Keyboard.addListener('keyboardDidHide', () => {
+                isNativeKeyboardOpen = false;
+                scrollMessagesToBottom(true);
+            });
+        }
+
         const App = window.Capacitor.Plugins?.App;
         if (App) {
             App.addListener('backButton', () => {
-                // Close app dialog modal if open
+                // 1. Close app dialog modal if open
                 const appDialogModal = document.getElementById("appDialogModal");
                 if (appDialogModal && !appDialogModal.classList.contains("hidden")) {
                     closeAppDialog(false);
                     return;
                 }
-                // Close preview modal if open
+                // 2. Close media picker panel if open
+                if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
+                    mediaPicker.classList.add("hidden");
+                    scrollMessagesToBottom(true);
+                    return;
+                }
+                // 3. Close keyboard if open
+                if (isNativeKeyboardOpen || document.activeElement === messageInput) {
+                    messageInput.blur();
+                    if (Keyboard) {
+                        Keyboard.hide();
+                    }
+                    isNativeKeyboardOpen = false;
+                    return;
+                }
+                // 4. Close preview modal if open
                 if (previewModal && !previewModal.classList.contains("hidden")) {
                     closePreview?.click?.();
                     return;
                 }
-                // Close user sidebar if open
+                // 5. Close user sidebar if open
                 if (mobileUserSidebar && !mobileUserSidebar.classList.contains("translate-x-full")) {
                     closeMobileSidebar?.click?.();
                     return;
                 }
-                // Close media picker if open
-                if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
-                    mediaPicker.classList.add("hidden");
-                    return;
-                }
-                // Close warning modals
+                // 6. Close warning modals
                 if (leaveChatModal && !leaveChatModal.classList.contains("hidden")) {
                     cancelLeaveBtn?.click?.();
                     return;
@@ -4493,20 +4531,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     denyCancelBtn?.click?.();
                     return;
                 }
-                // If in chat room, trigger leave
+                // 7. If in chat room, trigger leave
                 if (chatScreen && chatScreen.style.display !== "none" && chatScreen.style.display !== "") {
                     leaveBtn?.click?.();
                     return;
                 }
-                // If in file room, trigger leave
+                // 8. If in file room, trigger leave
                 if (fileRoomScreen && fileRoomScreen.style.display !== "none" && fileRoomScreen.style.display !== "") {
-                    const fileLeaveBtn = document.getElementById("fileLeaveRoomBtn") || document.getElementById("leaveFileBtn");
+                    const fileLeaveBtn = document.getElementById("fileLeaveRoomBtn") || document.getElementById("leaveFileBtn") || document.getElementById("fileRoomHomeBtn");
                     if (fileLeaveBtn) {
                         fileLeaveBtn.click();
                         return;
                     }
                 }
-                // If on join screen, exit native app
+                // 9. If on join screen, exit native app
                 App.exitApp();
             });
         }

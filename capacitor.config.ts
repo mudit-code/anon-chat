@@ -11,6 +11,7 @@ const config: CapacitorConfig = {
   plugins: {
     Keyboard: {
       resize: KeyboardResize.Body,
+      resizeOnFullScreen: true,
     },
     SystemBars: {
       insetsHandling: 'css',
