@@ -855,6 +855,10 @@ input:focus-visible,
   height: 0.625rem;
 }
 
+.h-24 {
+  height: 6rem;
+}
+
 .h-4 {
   height: 1rem;
 }
@@ -1040,10 +1044,6 @@ input:focus-visible,
   -webkit-user-select: all;
      -moz-user-select: all;
           user-select: all;
-}
-
-.resize-none {
-  resize: none;
 }
 
 .resize {
@@ -1397,6 +1397,11 @@ input:focus-visible,
 .object-contain {
   -o-object-fit: contain;
      object-fit: contain;
+}
+
+.object-cover {
+  -o-object-fit: cover;
+     object-fit: cover;
 }
 
 .p-1 {
@@ -3350,6 +3355,36 @@ body.light-mode #chat-input-container {
   cursor: default !important;
 }
 
+/* Contenteditable Composer Placeholder */
+
+#messageInput[contenteditable="true"]:empty:before {
+  content: attr(data-placeholder);
+  color: #808080;
+  pointer-events: none;
+  display: block;
+}
+
+body.light-mode #messageInput[contenteditable="true"]:empty:before {
+  color: #78716c;
+}
+
+/* Sticker Bubble - borderless & transparent background */
+
+.sticker-bubble {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.sticker-message {
+  max-width: 170px;
+  max-height: 170px;
+  -o-object-fit: contain;
+     object-fit: contain;
+  display: block;
+}
+
 /* In-Place WhatsApp-Style Voice Recording Row */
 
 #voiceRecordingRow {
@@ -5297,6 +5332,12 @@ html.loading-file-room #fileRoomScreen {
   .md\:hidden {
     display: none !important;
   }
+}
+
+.hover\:scale-105:hover {
+  --tw-scale-x: 1.05;
+  --tw-scale-y: 1.05;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
 .hover\:border-\[\#ffb682\]\/60:hover {

@@ -1478,6 +1478,33 @@ body.light-mode #chat-input-container {
   cursor: default !important;
 }
 
+/* Contenteditable Composer Placeholder */
+#messageInput[contenteditable="true"]:empty:before {
+  content: attr(data-placeholder);
+  color: #808080;
+  pointer-events: none;
+  display: block;
+}
+
+body.light-mode #messageInput[contenteditable="true"]:empty:before {
+  color: #78716c;
+}
+
+/* Sticker Bubble - borderless & transparent background */
+.sticker-bubble {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.sticker-message {
+  max-width: 170px;
+  max-height: 170px;
+  object-fit: contain;
+  display: block;
+}
+
 /* In-Place WhatsApp-Style Voice Recording Row */
 #voiceRecordingRow {
   width: 100%;

@@ -154,6 +154,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const joinScreen = document.getElementById("joinScreen");
     const fileRoomScreen = document.getElementById("fileRoomScreen");
     const messageInput = document.getElementById("messageInput");
+    if (messageInput) {
+        if (!('value' in messageInput)) {
+            Object.defineProperty(messageInput, 'value', {
+                get() {
+                    return this.innerText || this.textContent || '';
+                },
+                set(val) {
+                    if (!val) {
+                        this.innerHTML = '';
+                    } else {
+                        this.innerText = val;
+                    }
+                },
+                configurable: true
+            });
+        }
+        if (!('placeholder' in messageInput)) {
+            Object.defineProperty(messageInput, 'placeholder', {
+                get() {
+                    return this.getAttribute('data-placeholder') || '';
+                },
+                set(val) {
+                    this.setAttribute('data-placeholder', val);
+                },
+                configurable: true
+            });
+        }
+        if (!('disabled' in messageInput)) {
+            Object.defineProperty(messageInput, 'disabled', {
+                get() {
+                    return this.getAttribute('contenteditable') === 'false';
+                },
+                set(val) {
+                    this.setAttribute('contenteditable', val ? 'false' : 'true');
+                },
+                configurable: true
+            });
+        }
+    }
     const sendBtn = document.getElementById("sendBtn");
     const messagesDiv = document.getElementById("messages");
     const fileInput = document.getElementById("fileInput");
@@ -2071,24 +2110,36 @@ document.addEventListener('DOMContentLoaded', () => {
         recordBtn.addEventListener('mousedown', (e) => e.preventDefault());
     }
 
+    const MAX_MESSAGE_LENGTH = 4000;
+
     messageInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendBtn.click();
+            return;
+        }
+        if (e.key === "Enter" && e.shiftKey) {
+            e.preventDefault();
+            document.execCommand('insertLineBreak');
+            autoResizeTextarea();
+            return;
+        }
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            if ((messageInput.value || '').length >= MAX_MESSAGE_LENGTH) {
+                e.preventDefault();
+                showToast("Character limit reached");
+            }
         }
     });
 
     messageInput.addEventListener("input", () => {
-        // Auto-resize textarea
         autoResizeTextarea();
         updateSendButtonState();
 
-        // Only emit if there's content and we're in a room
         if (!roomKey || !username) return;
 
-        const hasContent = messageInput.value.trim().length > 0;
+        const hasContent = (messageInput.value || '').trim().length > 0;
 
-        // Emit typing:start only once when typing begins
         if (!isTyping && hasContent) {
             socket.emit("typing:start", {
                 roomKey,
@@ -2098,17 +2149,14 @@ document.addEventListener('DOMContentLoaded', () => {
             isTyping = true;
         }
 
-        // Reset debounce timer on each keystroke
         if (typingTimeout) clearTimeout(typingTimeout);
 
-        // If field is empty, stop typing immediately
         if (!hasContent && isTyping) {
             socket.emit("typing:stop", { roomKey, userId: socket.id });
             isTyping = false;
             return;
         }
 
-        // Auto-stop after 2 seconds of inactivity
         typingTimeout = setTimeout(() => {
             if (isTyping) {
                 socket.emit("typing:stop", { roomKey, userId: socket.id });
@@ -2117,59 +2165,135 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
-
     messageInput.addEventListener("focus", () => {
         mediaPicker.style.display = "none";
     });
 
-    messageInput.addEventListener('paste', async (event) => {
-        if (!mediaPasteEnabled) {
-            // Don't prevent default - allow text paste even when media limit reached
+    // Helper to handle external media files from paste, drop, or keyboard insertion
+    function handleMediaFilesFromExternal(files) {
+        if (!files || files.length === 0) return;
+        const imageFiles = Array.from(files).filter(f => f && f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
+        if (imageFiles.length === 0) return;
+
+        const hasTypedText = (messageInput.value || '').trim().length > 0;
+        const itemsToAdd = [];
+
+        imageFiles.forEach(file => {
+            if (pastedMedia.length + itemsToAdd.length < MAX_MEDIA_ITEMS) {
+                const objectUrl = URL.createObjectURL(file);
+                itemsToAdd.push({ file, objectUrl });
+            }
+        });
+
+        if (itemsToAdd.length === 0) {
+            showToast('Media limit reached (10 max)');
             return;
         }
 
-        const items = event.clipboardData?.items;
-        if (!items) return;
+        pastedMedia.push(...itemsToAdd);
+        renderMediaPreviews();
+        updateSendButtonState();
 
-        let hasMediaFiles = false;
-        const newMediaItems = [];
+        if (!hasTypedText) {
+            // No text typed -> send immediately through existing upload flow
+            sendBtn.click();
+        } else {
+            // Text already typed -> keep in attachment tray
+            showToast(`${itemsToAdd.length} image added to attachments`);
+        }
+    }
 
-        // Loop through clipboard items
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-
-            // Check item.kind === "file" to ignore text-only paste
-            if (item.kind === 'file') {
-                const file = item.getAsFile();
-                if (!file) continue;
-
-                // Only accept images and videos
-                if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
-                    hasMediaFiles = true;
-
-                    // Check if adding this would exceed limit
-                    if (pastedMedia.length + newMediaItems.length < MAX_MEDIA_ITEMS) {
-                        // Create object URL for preview
-                        const objectUrl = URL.createObjectURL(file);
-                        newMediaItems.push({ file, objectUrl });
-                    } else {
-                        // Limit reached - show warning
-                        console.warn('Media paste limit reached');
-                        break;
-                    }
-                }
+    // Paste handler supporting files, direct image URLs, and text
+    messageInput.addEventListener('paste', async (event) => {
+        // 1. Check for image files in clipboardData
+        const files = event.clipboardData?.files;
+        if (files && files.length > 0) {
+            const imgFiles = Array.from(files).filter(f => f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
+            if (imgFiles.length > 0) {
+                event.preventDefault();
+                handleMediaFilesFromExternal(imgFiles);
+                return;
             }
         }
 
-        // If we found media files, prevent default paste and add to preview
-        if (hasMediaFiles && newMediaItems.length > 0) {
+        if (event.clipboardData?.items) {
+            const itemFiles = [];
+            for (let i = 0; i < event.clipboardData.items.length; i++) {
+                const item = event.clipboardData.items[i];
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    const f = item.getAsFile();
+                    if (f) itemFiles.push(f);
+                }
+            }
+            if (itemFiles.length > 0) {
+                event.preventDefault();
+                handleMediaFilesFromExternal(itemFiles);
+                return;
+            }
+        }
+
+        // 2. Check for pasted direct image/GIF URLs (Giphy, Tenor, direct .gif/.png/.webp)
+        const pastedText = event.clipboardData ? event.clipboardData.getData('text/plain').trim() : '';
+        const isDirectImageUrl = /^https?:\/\/.+\.(gif|webp|png|jpe?g)($|\?)/i.test(pastedText) ||
+            /^https?:\/\/(media[0-9]*\.giphy\.com|c\.tenor\.com|tenor\.com\/view|i\.giphy\.com)\/.+/i.test(pastedText);
+
+        const hasTypedText = (messageInput.value || '').trim().length > 0;
+        if (isDirectImageUrl && !hasTypedText) {
             event.preventDefault();
+            const isGif = pastedText.toLowerCase().includes('.gif') || pastedText.includes('giphy');
+            const msgType = isGif ? 'gif' : 'image';
+            const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const payload = {
+                roomKey,
+                username,
+                id: messageId,
+                message: { type: msgType, content: pastedText },
+                seenBy: []
+            };
+            if (replyContext) {
+                payload.replyTo = {
+                    messageId: replyContext.messageId,
+                    sender: replyContext.sender,
+                    previewText: replyContext.previewText
+                };
+                clearReplyContext();
+            }
+            displayMessage(username, payload.message, messageId, [], payload.replyTo);
+            socket.emit("chat-message", payload);
+            scrollMessagesToBottom(true);
+            return;
+        }
 
-            // Add new items to pastedMedia array
-            pastedMedia.push(...newMediaItems);
+        // 3. Plain text paste: prevent rich HTML tags from leaking into contenteditable
+        event.preventDefault();
+        const plainText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+        document.execCommand('insertText', false, plainText);
+        autoResizeTextarea();
+        updateSendButtonState();
+    });
 
-            // Render previews
-            renderMediaPreviews();
+    // Handle beforeinput (e.g. keyboard GIF/sticker commit on Android WebView)
+    messageInput.addEventListener('beforeinput', (e) => {
+        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertReplacementText') {
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const imgFiles = Array.from(e.dataTransfer.files).filter(f => f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
+                if (imgFiles.length > 0) {
+                    e.preventDefault();
+                    handleMediaFilesFromExternal(imgFiles);
+                }
+            }
+        }
+    });
+
+    // Handle drop directly onto messageInput
+    messageInput.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const imgFiles = Array.from(e.dataTransfer.files).filter(f => f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
+            if (imgFiles.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleMediaFilesFromExternal(imgFiles);
+            }
         }
     });
 
@@ -2538,19 +2662,26 @@ document.addEventListener('DOMContentLoaded', () => {
         tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4 flex-shrink-0";
 
         const emojiTab = document.createElement("button");
-        emojiTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
+        emojiTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
         emojiTab.textContent = "Emoji";
         emojiTab.addEventListener("pointerdown", (e) => e.preventDefault());
         emojiTab.onclick = () => showEmojiPicker();
 
         const gifTab = document.createElement("button");
-        gifTab.className = "flex-1 py-2 px-4 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
-        gifTab.textContent = "GIF";
+        gifTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
+        gifTab.textContent = "GIFs";
         gifTab.addEventListener("pointerdown", (e) => e.preventDefault());
         gifTab.onclick = () => showGifPicker();
 
+        const stickerTab = document.createElement("button");
+        stickerTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
+        stickerTab.textContent = "Stickers";
+        stickerTab.addEventListener("pointerdown", (e) => e.preventDefault());
+        stickerTab.onclick = () => showStickerPicker();
+
         tabsContainer.appendChild(emojiTab);
         tabsContainer.appendChild(gifTab);
+        tabsContainer.appendChild(stickerTab);
         mediaPicker.appendChild(tabsContainer);
 
         // Content area
@@ -2561,11 +2692,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show emoji by default
         showEmojiPicker();
 
+        function activateTab(activeTab) {
+            [emojiTab, gifTab, stickerTab].forEach(t => {
+                if (t === activeTab) {
+                    t.classList.add("border-[#ff7320]", "text-[#ff7320]");
+                    t.classList.remove("border-transparent", "text-[#9a9a9a]");
+                } else {
+                    t.classList.remove("border-[#ff7320]", "text-[#ff7320]");
+                    t.classList.add("border-transparent", "text-[#9a9a9a]");
+                }
+            });
+        }
+
         function showEmojiPicker() {
-            emojiTab.classList.add("border-[#ff7320]", "text-[#ff7320]");
-            emojiTab.classList.remove("border-transparent", "text-[#9a9a9a]");
-            gifTab.classList.remove("border-[#ff7320]", "text-[#ff7320]");
-            gifTab.classList.add("border-transparent", "text-[#9a9a9a]");
+            activateTab(emojiTab);
 
             contentArea.innerHTML = "";
             if (emojis.length === 0) {
@@ -2579,10 +2719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function showGifPicker() {
-            gifTab.classList.add("border-[#ff7320]", "text-[#ff7320]");
-            gifTab.classList.remove("border-transparent", "text-[#9a9a9a]");
-            emojiTab.classList.remove("border-[#ff7320]", "text-[#ff7320]");
-            emojiTab.classList.add("border-transparent", "text-[#9a9a9a]");
+            activateTab(gifTab);
 
             contentArea.innerHTML = "";
             const searchInput = document.createElement("input");
@@ -2600,30 +2737,115 @@ document.addEventListener('DOMContentLoaded', () => {
             contentArea.appendChild(resultsDiv);
 
             function searchGifs(query) {
-                fetch(`${API_BASE}/api/gifs?query=${query || "trending"}`)
+                fetch(`${API_BASE}/api/gifs?query=${encodeURIComponent(query || "trending")}`)
                     .then(res => res.json())
                     .then(data => {
                         const gifResults = document.getElementById("gif-results");
-                        if (gifResults) {
+                        if (gifResults && data && data.data) {
                             gifResults.innerHTML = "";
                             data.data.forEach(gif => {
                                 const img = document.createElement("img");
-                                img.src = gif.images.fixed_height.url;
-                                img.className = "cursor-pointer w-full rounded-lg hover:opacity-80 transition-opacity";
+                                const imgUrl = gif.images?.fixed_height?.url || gif.images?.original?.url;
+                                if (!imgUrl) return;
+                                img.src = imgUrl;
+                                img.className = "cursor-pointer w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity";
                                 img.loading = "lazy";
                                 img.addEventListener("pointerdown", (e) => e.preventDefault());
                                 img.onclick = () => {
-                                    socket.emit("chat-message", { roomKey, username, message: { type: 'gif', content: img.src } });
+                                    const messageId = `gif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                                    const messagePayload = {
+                                        roomKey,
+                                        username,
+                                        id: messageId,
+                                        message: { type: 'gif', content: img.src },
+                                        seenBy: []
+                                    };
+                                    if (replyContext) {
+                                        messagePayload.replyTo = {
+                                            messageId: replyContext.messageId,
+                                            sender: replyContext.sender,
+                                            previewText: replyContext.previewText
+                                        };
+                                        clearReplyContext();
+                                    }
+                                    displayMessage(username, messagePayload.message, messageId, [], messagePayload.replyTo);
+                                    socket.emit("chat-message", messagePayload);
                                     mediaPicker.classList.add("hidden");
                                     scrollMessagesToBottom(true);
                                 };
                                 gifResults.appendChild(img);
                             });
                         }
-                    });
+                    })
+                    .catch(err => console.warn('GIF search error:', err));
             }
 
             searchGifs("trending");
+        }
+
+        function showStickerPicker() {
+            activateTab(stickerTab);
+
+            contentArea.innerHTML = "";
+            const searchInput = document.createElement("input");
+            searchInput.type = "text";
+            searchInput.placeholder = "Search stickers...";
+            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] mb-3 text-sm flex-shrink-0";
+            searchInput.oninput = () => {
+                searchStickers(searchInput.value);
+            };
+            contentArea.appendChild(searchInput);
+
+            const resultsDiv = document.createElement("div");
+            resultsDiv.className = "mt-3 grid grid-cols-3 gap-3";
+            resultsDiv.id = "sticker-results";
+            contentArea.appendChild(resultsDiv);
+
+            function searchStickers(query) {
+                fetch(`${API_BASE}/api/stickers?query=${encodeURIComponent(query || "trending")}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const stickerResults = document.getElementById("sticker-results");
+                        if (stickerResults && data && data.data) {
+                            stickerResults.innerHTML = "";
+                            data.data.forEach(stk => {
+                                const img = document.createElement("img");
+                                const imgUrl = stk.images?.fixed_height?.url || stk.images?.original?.url;
+                                if (!imgUrl) return;
+                                img.src = imgUrl;
+                                img.className = "cursor-pointer w-full h-24 object-contain rounded-lg hover:scale-105 transition-transform";
+                                img.loading = "lazy";
+                                img.addEventListener("pointerdown", (e) => e.preventDefault());
+                                img.onclick = () => {
+                                    const messageId = `stk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                                    const messagePayload = {
+                                        roomKey,
+                                        username,
+                                        id: messageId,
+                                        message: { type: 'sticker', content: img.src },
+                                        seenBy: []
+                                    };
+                                    if (replyContext) {
+                                        messagePayload.replyTo = {
+                                            messageId: replyContext.messageId,
+                                            sender: replyContext.sender,
+                                            previewText: replyContext.previewText
+                                        };
+                                        clearReplyContext();
+                                    }
+                                    displayMessage(username, messagePayload.message, messageId, [], messagePayload.replyTo);
+                                    socket.emit("chat-message", messagePayload);
+                                    mediaPicker.classList.add("hidden");
+                                    scrollMessagesToBottom(true);
+                                };
+                                stickerResults.appendChild(img);
+                            });
+                        }
+                    })
+                    .catch(err => console.warn('Sticker search error:', err));
+            }
+
+            searchStickers("trending");
         }
     }
 

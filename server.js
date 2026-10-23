@@ -94,13 +94,29 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
 app.get("/api/gifs", async (req, res) => {
   const { query } = req.query;
-  const url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${query}&limit=12`;
+  const url = (query && query.trim() !== "" && query !== "trending")
+    ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=16`
+    : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=16`;
   try {
     const response = await fetch(url);
     const json = await response.json();
     res.json(json);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch GIFs" });
+  }
+});
+
+app.get("/api/stickers", async (req, res) => {
+  const { query } = req.query;
+  const url = (query && query.trim() !== "" && query !== "trending")
+    ? `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=16`
+    : `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=16`;
+  try {
+    const response = await fetch(url);
+    const json = await response.json();
+    res.json(json);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch stickers" });
   }
 });
 
