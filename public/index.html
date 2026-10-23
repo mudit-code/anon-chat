@@ -190,6 +190,44 @@
           </div>
         </div>
 
+        <!-- Direct Join Invite Card (shown when visiting via shared link ?room=KEY) -->
+        <div id="panelJoinInvite" class="hidden">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ff7320]/15 text-[#ff7320] text-xs font-semibold mb-3">
+            <i class="fas fa-envelope-open-text"></i> Room Invitation
+          </div>
+          <h2 class="landing-form-title font-heading font-bold tracking-tight">You're invited to join</h2>
+          <p class="landing-form-subtitle">Enter your codename to request entry to this private room.</p>
+
+          <div class="p-3.5 mb-4 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-between">
+            <span class="text-xs text-[#888888] font-medium">Room key:</span>
+            <span id="inviteRoomKeyDisplay" class="font-mono font-bold text-base text-[#ffb682] tracking-wider"></span>
+          </div>
+
+          <div class="landing-field-group">
+            <label for="inviteUsername" class="landing-label">Your Codename</label>
+            <input type="text" id="inviteUsername" placeholder="Codename (not your real name)" class="landing-input" autocomplete="off">
+            <p class="landing-hint">Shown to room members. Not your real identity.</p>
+          </div>
+
+          <button id="askJoinRoomBtn" type="button" class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
+            <i class="fas fa-paper-plane text-sm"></i>
+            <span>Ask to join room</span>
+          </button>
+
+          <div id="inviteJoinStatus" class="hidden mt-3 p-3 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/30 text-xs text-center text-[#ffb682]">
+            <div class="flex items-center justify-center gap-2 font-medium">
+              <i class="fas fa-spinner fa-spin text-sm"></i>
+              <span>Join request sent! Waiting for room host to approve...</span>
+            </div>
+          </div>
+
+          <div class="mt-4 text-center">
+            <button id="cancelInviteBtn" type="button" class="text-xs text-[#888888] hover:text-[#ffb682] transition-colors underline cursor-pointer">
+              Or create your own room instead
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -277,58 +315,75 @@
               </span>
             </div>
 
-            <!-- Media Previews Strip -->
-            <div id="mediaPreviews" class="hidden"></div>
+            <!-- Active Media Upload Progress Banner -->
+            <div id="uploadProgressBanner" class="hidden mb-2.5 p-2.5 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/40 text-xs shadow-lg">
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <div class="flex items-center gap-2 min-w-0">
+                  <i class="fas fa-cloud-arrow-up text-[#ffb682] animate-bounce text-sm"></i>
+                  <span id="uploadProgressTitle" class="text-white font-medium truncate">Sending media...</span>
+                </div>
+                <span id="uploadProgressPercent" class="font-mono text-[#ffb682] font-semibold text-xs">0%</span>
+              </div>
+              <div class="w-full bg-[#111111] rounded-full h-1.5 overflow-hidden">
+                <div id="uploadProgressBar" class="bg-gradient-to-r from-[#ff7320] to-[#ffb682] h-full transition-all duration-150 rounded-full" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Media Previews Strip (Rewritten Draft System) -->
+            <div id="mediaPreviews" class="hidden mb-2.5"></div>
 
             <!-- Media Picker (Emoji & GIF) -->
             <div id="media-picker" class="hidden h-64 overflow-y-auto p-4 custom-scrollbar"></div>
 
-            <!-- Standard Input Bar + Send Button Row -->
-            <div id="composerRow" class="flex items-end gap-3 w-full">
-              <div class="composer-wrapper flex-1 flex items-center gap-1">
-                <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
-                  <i class="far fa-smile text-base"></i>
-                </button>
-                <div class="flex-1 min-w-0 py-1">
-                  <div id="messageInput" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Type a message"
-                    class="w-full bg-transparent text-white text-[15.5px] outline-none border-none py-1.5 px-2 block overflow-y-auto"
-                    style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;" autocomplete="off"
-                    autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+            <!-- Composer Row Wrapper (Relative container for seamless in-place voice overlay) -->
+            <div class="composer-container relative w-full">
+              <!-- Standard Input Bar + Send Button Row -->
+              <div id="composerRow" class="flex items-end gap-3 w-full">
+                <div class="composer-wrapper flex-1 flex items-center gap-1">
+                  <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
+                    <i class="far fa-smile text-base"></i>
+                  </button>
+                  <div class="flex-1 min-w-0 py-1">
+                    <div id="messageInput" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Type a message"
+                      class="w-full bg-transparent text-white text-[15.5px] outline-none border-none py-1.5 px-2 block overflow-y-auto"
+                      style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;" autocomplete="off"
+                      autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+                  </div>
+                  <button id="fileBtn" title="Attach file" type="button" class="composer-icon-btn">
+                    <i class="fas fa-paperclip text-sm"></i>
+                  </button>
+                  <button id="recordBtn" title="Record audio" type="button" class="composer-icon-btn">
+                    <i class="fas fa-microphone text-sm"></i>
+                  </button>
+                  <input type="file" id="fileInput" class="hidden" multiple>
                 </div>
-                <button id="fileBtn" title="Attach file" type="button" class="composer-icon-btn">
-                  <i class="fas fa-paperclip text-sm"></i>
-                </button>
-                <button id="recordBtn" title="Record audio" type="button" class="composer-icon-btn">
-                  <i class="fas fa-microphone text-sm"></i>
-                </button>
-                <input type="file" id="fileInput" class="hidden" multiple>
-              </div>
-              <button id="sendBtn" title="Send message" type="button" disabled>
-                <i class="fas fa-paper-plane text-base"></i>
-              </button>
-            </div>
-
-            <!-- In-Place WhatsApp-Style Voice Recording Row -->
-            <div id="voiceRecordingRow" class="hidden flex items-center gap-3 w-full h-[48px]">
-              <div class="voice-record-wrapper flex-1 flex items-center gap-3 px-3 h-[48px] rounded-full bg-[#1c1c1c] border border-[#2a2a2a]">
-                <button id="voiceRecordTrashBtn" type="button" class="voice-record-btn text-[#ff7b7b] hover:text-[#ff9b9b] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Discard recording">
-                  <i class="fas fa-trash-can text-base"></i>
-                </button>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                  <span class="w-2.5 h-2.5 rounded-full bg-[#ff7b7b] animate-pulse"></span>
-                  <span id="voiceRecordTimer" class="font-mono text-sm font-semibold text-white">00:00</span>
-                </div>
-                <div id="voiceLiveWaveform" class="voice-live-waveform flex-1 flex items-center gap-[3px] h-6 overflow-hidden px-1"></div>
-                <button id="voiceRecordPauseBtn" type="button" class="voice-record-btn text-white hover:text-[#ffb682] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Pause">
-                  <i id="voiceRecordPauseIcon" class="fas fa-pause text-sm"></i>
+                <button id="sendBtn" title="Send message" type="button" disabled>
+                  <i class="fas fa-paper-plane text-base"></i>
                 </button>
               </div>
-              <button id="voiceRecordSendBtn" type="button" class="w-12 h-12 rounded-full bg-[#ff7320] hover:bg-[#ff9150] text-black flex items-center justify-center flex-shrink-0 shadow-lg cursor-pointer transition-transform active:scale-95" title="Send voice note">
-                <i class="fas fa-paper-plane text-base"></i>
-              </button>
+
+              <!-- In-Place WhatsApp-Style Voice Recording Row (Overlay that preserves composer focus) -->
+              <div id="voiceRecordingRow" class="hidden flex items-center gap-3 w-full h-[48px]">
+                <div class="voice-record-wrapper flex-1 flex items-center gap-3 px-3 h-[48px] rounded-full bg-[#1c1c1c] border border-[#2a2a2a]">
+                  <button id="voiceRecordTrashBtn" type="button" class="voice-record-btn text-[#ff7b7b] hover:text-[#ff9b9b] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Discard recording">
+                    <i class="fas fa-trash-can text-base"></i>
+                  </button>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#ff7b7b] animate-pulse"></span>
+                    <span id="voiceRecordTimer" class="font-mono text-sm font-semibold text-white">00:00</span>
+                  </div>
+                  <div id="voiceLiveWaveform" class="voice-live-waveform flex-1 flex items-center gap-[3px] h-6 overflow-hidden px-1"></div>
+                  <button id="voiceRecordPauseBtn" type="button" class="voice-record-btn text-white hover:text-[#ffb682] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Pause">
+                    <i id="voiceRecordPauseIcon" class="fas fa-pause text-sm"></i>
+                  </button>
+                </div>
+                <button id="voiceRecordSendBtn" type="button" class="w-12 h-12 rounded-full bg-[#ff7320] hover:bg-[#ff9150] text-black flex items-center justify-center flex-shrink-0 shadow-lg cursor-pointer transition-transform active:scale-95" title="Send voice note">
+                  <i class="fas fa-paper-plane text-base"></i>
+                </button>
+              </div>
             </div>
 
-            <!-- Upload Progress Bar -->
+            <!-- Upload Progress Bar (Legacy backup) -->
             <div class="w-full bg-[#262626] rounded-full mt-3 hidden h-1.5 overflow-hidden" id="progress-container">
               <div class="h-full transition-all duration-300" id="progress-bar" style="width: 0%"></div>
               <p id="progress-text" class="text-xs text-[#9a9a9a] text-center mt-1"></p>
@@ -336,13 +391,21 @@
           </div>
         </div>
 
-        <!-- Media Preview Modal -->
-        <div id="previewModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <span id="closePreview"
-            class="absolute top-6 right-6 text-white text-2xl cursor-pointer hover:text-[#ffb682] transition-colors z-10 w-10 h-10 flex items-center justify-center">
-            <i class="fas fa-times"></i>
-          </span>
-          <div id="previewContent" class="max-w-full max-h-full rounded-xl overflow-hidden"></div>
+        <!-- Media Preview Modal (Lightbox with Zoom & Gestures & Click Anywhere to Close) -->
+        <div id="previewModal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-0 select-none overflow-hidden touch-none" style="backdrop-filter: blur(8px);">
+          <!-- Top Bar with controls -->
+          <div class="absolute top-4 left-4 right-4 flex items-center justify-between z-30 pointer-events-none">
+            <div id="previewZoomIndicator" class="px-2.5 py-1 rounded-full bg-black/70 text-[#ffb682] font-mono text-xs border border-white/10 opacity-0 transition-opacity">100%</div>
+            <div class="flex items-center gap-2 pointer-events-auto">
+              <button id="previewZoomResetBtn" type="button" class="w-9 h-9 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition-colors text-xs border border-white/15 cursor-pointer" title="Reset Zoom">
+                <i class="fas fa-compress"></i>
+              </button>
+              <button id="closePreview" type="button" class="w-9 h-9 rounded-full bg-black/70 hover:bg-black/90 text-white hover:text-[#ffb682] flex items-center justify-center transition-colors text-sm border border-white/15 cursor-pointer" title="Close (or click anywhere)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <div id="previewContent" class="w-full h-full flex items-center justify-center overflow-hidden cursor-zoom-out"></div>
         </div>
       </div>
 
@@ -356,11 +419,18 @@
             <button type="button" id="copyRoomKeyBtn"
               class="copy-key-btn px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer">Copy key</button>
           </div>
-          <button type="button" id="shareRoomCardBtn"
-            class="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30 text-xs font-semibold hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">
-            <i class="fas fa-share-nodes text-xs"></i>
-            <span>Share room link</span>
-          </button>
+          <div class="flex gap-2">
+            <button type="button" id="shareRoomCardBtn"
+              class="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30 text-xs font-semibold hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">
+              <i class="fas fa-share-nodes text-xs"></i>
+              <span>Share link</span>
+            </button>
+            <button type="button" id="showRoomQrBtn"
+              class="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-[#1e1e1e] text-[#cccccc] border border-[#333333] text-xs font-semibold hover:bg-[#ff7320] hover:text-black transition-colors cursor-pointer" title="Show QR Code">
+              <i class="fas fa-qrcode text-xs"></i>
+              <span>QR</span>
+            </button>
+          </div>
         </div>
 
         <div class="flex items-center justify-between mb-4">
@@ -385,11 +455,18 @@
           </button>
         </div>
       </div>
-      <button type="button" id="mobileShareRoomBtn"
-        class="w-full mb-4 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30 text-xs font-semibold hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">
-        <i class="fas fa-share-nodes text-xs"></i>
-        <span>Share room link</span>
-      </button>
+      <div class="flex gap-2 mb-4">
+        <button type="button" id="mobileShareRoomBtn"
+          class="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30 text-xs font-semibold hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">
+          <i class="fas fa-share-nodes text-xs"></i>
+          <span>Share link</span>
+        </button>
+        <button type="button" id="mobileShowRoomQrBtn"
+          class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#1e1e1e] text-[#cccccc] border border-[#333333] text-xs font-semibold hover:bg-[#ff7320] hover:text-black transition-colors cursor-pointer" title="Show QR Code">
+          <i class="fas fa-qrcode text-xs"></i>
+          <span>QR</span>
+        </button>
+      </div>
       <ul id="mobileUserList" class="space-y-2"></ul>
     </div>
 
