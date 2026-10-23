@@ -779,10 +779,6 @@ input:focus-visible,
   margin-right: 0.375rem;
 }
 
-.mr-2 {
-  margin-right: 0.5rem;
-}
-
 .mr-3 {
   margin-right: 0.75rem;
 }
@@ -855,6 +851,10 @@ input:focus-visible,
   height: 0.5rem;
 }
 
+.h-2\.5 {
+  height: 0.625rem;
+}
+
 .h-4 {
   height: 1rem;
 }
@@ -881,6 +881,10 @@ input:focus-visible,
 
 .h-\[100dvh\] {
   height: 100dvh;
+}
+
+.h-\[48px\] {
+  height: 48px;
 }
 
 .h-\[7px\] {
@@ -921,6 +925,10 @@ input:focus-visible,
 
 .w-14 {
   width: 3.5rem;
+}
+
+.w-2\.5 {
+  width: 0.625rem;
 }
 
 .w-4 {
@@ -1112,6 +1120,10 @@ input:focus-visible,
 
 .gap-6 {
   gap: 1.5rem;
+}
+
+.gap-\[3px\] {
+  gap: 3px;
 }
 
 .space-x-2 > :not([hidden]) ~ :not([hidden]) {
@@ -1324,6 +1336,11 @@ input:focus-visible,
   background-color: rgb(255 115 32 / 0.15);
 }
 
+.bg-\[\#ff7b7b\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 123 123 / var(--tw-bg-opacity, 1));
+}
+
 .bg-\[\#ffb682\] {
   --tw-bg-opacity: 1;
   background-color: rgb(255 182 130 / var(--tw-bg-opacity, 1));
@@ -1412,6 +1429,11 @@ input:focus-visible,
 
 .p-6 {
   padding: 1.5rem;
+}
+
+.px-1 {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
 
 .px-2 {
@@ -1544,6 +1566,10 @@ input:focus-visible,
 
 .text-\[17px\] {
   font-size: 17px;
+}
+
+.text-\[9px\] {
+  font-size: 9px;
 }
 
 .text-base {
@@ -1789,10 +1815,6 @@ input:focus-visible,
 
 .duration-300 {
   transition-duration: 300ms;
-}
-
-.ease-in-out {
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :root {
@@ -3328,6 +3350,167 @@ body.light-mode #chat-input-container {
   cursor: default !important;
 }
 
+/* In-Place WhatsApp-Style Voice Recording Row */
+
+#voiceRecordingRow {
+  width: 100%;
+}
+
+.voice-record-wrapper {
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+}
+
+.voice-live-waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.voice-live-waveform-bar {
+  width: 3px;
+  min-height: 4px;
+  border-radius: 9999px;
+  background: var(--o);
+  transition: height 0.08s ease;
+}
+
+/* Custom WhatsApp-Style Voice Player Bubble */
+
+.voice-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+  min-width: 220px;
+  max-width: 300px;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+}
+
+.voice-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--o);
+  color: #000000;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.voice-play-btn:active {
+  transform: scale(0.92);
+}
+
+.voice-play-btn:hover {
+  background: var(--o-hi);
+}
+
+.voice-player-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voice-waveform-track {
+  height: 18px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.voice-waveform-bars {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  width: 100%;
+  height: 100%;
+}
+
+.voice-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: #555555;
+  transition: background-color 0.1s ease;
+}
+
+.voice-bar.active {
+  background: var(--o);
+}
+
+.sent-message .voice-bar {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.sent-message .voice-bar.active {
+  background: #000000;
+}
+
+.voice-player-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-family: monospace;
+  color: #9a9a9a;
+  line-height: 1;
+}
+
+.sent-message .voice-player-info {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.voice-speed-btn {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.sent-message .voice-speed-btn {
+  background: rgba(0, 0, 0, 0.12);
+  color: #000000;
+}
+
+.voice-speed-btn:hover {
+  opacity: 0.8;
+}
+
+.voice-download-btn {
+  color: inherit;
+  opacity: 0.75;
+  padding: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.voice-download-btn:hover {
+  opacity: 1;
+  color: var(--o);
+}
+
+.sent-message .voice-download-btn {
+  color: #000000;
+}
+
 /* Indicators & Previews */
 
 .reply-preview-bar {
@@ -3469,46 +3652,132 @@ body.light-mode #chat-input-container {
 }
 
 #mediaPreviews {
-  background: #1a1a1a;
+  background: #1c1c1c;
   border: 1px solid #2a2a2a;
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  border-radius: 14px;
+  padding: 10px 12px;
   margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
-.media-preview-item {
-  width: 90px;
-  height: 90px;
-  border-radius: 8px;
-  overflow: hidden;
+.attachment-tray-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.attachment-count-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 115, 32, 0.15);
+  color: #ffb682;
+  border: 1px solid rgba(255, 115, 32, 0.3);
+}
+
+.attachment-chips-scroll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.attachment-chip {
   position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #262626;
   border: 1px solid #333333;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.media-preview-thumbnail {
+.attachment-chip-thumb {
   width: 100%;
   height: 100%;
   -o-object-fit: cover;
      object-fit: cover;
 }
 
-.media-remove-btn {
+.attachment-chip-doc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+}
+
+.attachment-chip-doc-name {
+  font-size: 9px;
+  max-width: 58px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 3px;
+  color: #cccccc;
+}
+
+.attachment-remove-btn {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.75);
   color: #ffffff;
-  border: none;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 10px;
+  border: none;
+  cursor: pointer;
+  z-index: 5;
+  transition: background-color 0.15s ease;
+}
+
+.attachment-remove-btn:hover {
+  background: #dc2626;
+}
+
+.attachment-progress-track {
+  position: absolute;
+  inset-x: 0;
+  bottom: 0;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.attachment-progress-fill {
+  height: 100%;
+  background: var(--o);
+  transition: width 0.15s ease;
+}
+
+.attachment-error-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(220, 38, 38, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #ffffff;
   font-size: 11px;
 }
 
@@ -4014,6 +4283,38 @@ body.light-mode #mediaPreviews {
   background: #ffffff;
   border-color: #e7e5e4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .voice-record-wrapper {
+  background: #f5f5f4;
+  border-color: #e7e5e4;
+}
+
+body.light-mode #voiceRecordTimer {
+  color: #1c1917;
+}
+
+body.light-mode .received-message .voice-player-info {
+  color: #78716c;
+}
+
+body.light-mode .received-message .voice-speed-btn {
+  background: #e7e5e4;
+  color: #1c1917;
+}
+
+body.light-mode .attachment-count-badge {
+  background: rgba(255, 115, 32, 0.12);
+  color: #ff7320;
+}
+
+body.light-mode .attachment-chip {
+  background: #f5f5f4;
+  border-color: #e7e5e4;
+}
+
+body.light-mode .attachment-chip-doc-name {
+  color: #444444;
 }
 
 body.light-mode #progress-container {
@@ -5017,6 +5318,11 @@ html.loading-file-room #fileRoomScreen {
   background-color: rgb(51 51 51 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-\[\#ff9150\]:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 145 80 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-\[\#ffa767\]:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(255 167 103 / var(--tw-bg-opacity, 1));
@@ -5024,6 +5330,11 @@ html.loading-file-room #fileRoomScreen {
 
 .hover\:bg-black\/80:hover {
   background-color: rgb(0 0 0 / 0.8);
+}
+
+.hover\:text-\[\#ff9b9b\]:hover {
+  --tw-text-opacity: 1;
+  color: rgb(255 155 155 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-\[\#ffb682\]:hover {
@@ -5034,10 +5345,6 @@ html.loading-file-room #fileRoomScreen {
 .hover\:text-white:hover {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
-}
-
-.hover\:opacity-75:hover {
-  opacity: 0.75;
 }
 
 .hover\:opacity-80:hover {
@@ -5052,6 +5359,12 @@ html.loading-file-room #fileRoomScreen {
 .focus\:outline-none:focus {
   outline: 2px solid transparent;
   outline-offset: 2px;
+}
+
+.active\:scale-95:active {
+  --tw-scale-x: .95;
+  --tw-scale-y: .95;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
 .group:hover .group-hover\:opacity-100 {

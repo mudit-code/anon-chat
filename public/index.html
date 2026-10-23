@@ -279,8 +279,8 @@
             <!-- Media Picker (Emoji & GIF) -->
             <div id="media-picker" class="hidden h-64 overflow-y-auto p-4 custom-scrollbar"></div>
 
-            <!-- Input Bar + Send Button Row -->
-            <div class="flex items-end gap-3 w-full">
+            <!-- Standard Input Bar + Send Button Row -->
+            <div id="composerRow" class="flex items-end gap-3 w-full">
               <div class="composer-wrapper flex-1 flex items-center gap-1">
                 <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
                   <i class="far fa-smile text-base"></i>
@@ -298,11 +298,28 @@
                   <i class="fas fa-microphone text-sm"></i>
                 </button>
                 <input type="file" id="fileInput" class="hidden" multiple>
-                <div id="recordingTimer" class="hidden text-[#ff7b7b] text-xs font-mono flex items-center gap-1.5 px-2">
-                  <span class="recording-time">00:00</span>
-                </div>
               </div>
               <button id="sendBtn" title="Send message" type="button" disabled>
+                <i class="fas fa-paper-plane text-base"></i>
+              </button>
+            </div>
+
+            <!-- In-Place WhatsApp-Style Voice Recording Row -->
+            <div id="voiceRecordingRow" class="hidden flex items-center gap-3 w-full h-[48px]">
+              <div class="voice-record-wrapper flex-1 flex items-center gap-3 px-3 h-[48px] rounded-full bg-[#1c1c1c] border border-[#2a2a2a]">
+                <button id="voiceRecordTrashBtn" type="button" class="voice-record-btn text-[#ff7b7b] hover:text-[#ff9b9b] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Discard recording">
+                  <i class="fas fa-trash-can text-base"></i>
+                </button>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#ff7b7b] animate-pulse"></span>
+                  <span id="voiceRecordTimer" class="font-mono text-sm font-semibold text-white">00:00</span>
+                </div>
+                <div id="voiceLiveWaveform" class="voice-live-waveform flex-1 flex items-center gap-[3px] h-6 overflow-hidden px-1"></div>
+                <button id="voiceRecordPauseBtn" type="button" class="voice-record-btn text-white hover:text-[#ffb682] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Pause">
+                  <i id="voiceRecordPauseIcon" class="fas fa-pause text-sm"></i>
+                </button>
+              </div>
+              <button id="voiceRecordSendBtn" type="button" class="w-12 h-12 rounded-full bg-[#ff7320] hover:bg-[#ff9150] text-black flex items-center justify-center flex-shrink-0 shadow-lg cursor-pointer transition-transform active:scale-95" title="Send voice note">
                 <i class="fas fa-paper-plane text-base"></i>
               </button>
             </div>

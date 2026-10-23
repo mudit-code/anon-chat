@@ -100,6 +100,7 @@ class AudioRecorder {
         this.onStop = callbacks.onStop;
         this.onMaxDuration = callbacks.onMaxDuration;
         this.onError = callbacks.onError;
+        this.onVisibilityPause = callbacks.onVisibilityPause;
 
         try {
             // Determine MIME type
@@ -213,12 +214,15 @@ class AudioRecorder {
     }
 
     /**
-     * Handle tab visibility change - auto-stop recording
+     * Handle tab visibility change - pause recording when backgrounded
      */
     handleVisibilityChange() {
-        if (document.hidden && this.isRecording) {
-            console.log('Tab hidden, auto-stopping recording');
-            this.stopRecording();
+        if (document.hidden && this.isRecording && this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+            console.log('Tab hidden, auto-pausing recording');
+            this.pauseRecording();
+            if (this.onVisibilityPause) {
+                this.onVisibilityPause();
+            }
         }
     }
 
