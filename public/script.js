@@ -214,6 +214,82 @@ document.addEventListener('DOMContentLoaded', () => {
     const closePreview = document.getElementById("closePreview");
     const userCount = document.getElementById("userCount");
 
+    // Room Share elements & handler
+    const shareRoomBtn = document.getElementById("shareRoomBtn");
+    const shareRoomCardBtn = document.getElementById("shareRoomCardBtn");
+    const mobileShareRoomBtn = document.getElementById("mobileShareRoomBtn");
+
+    async function shareRoomLink() {
+        if (!roomKey) return;
+        const PUBLIC_WEB_URL = (window.location.origin && window.location.origin.startsWith('http') && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1'))
+            ? window.location.origin
+            : 'https://anon-chat-jtef.onrender.com';
+        const shareUrl = `${PUBLIC_WEB_URL}/?room=${encodeURIComponent(roomKey)}`;
+        const shareTitle = 'Join my Anon Chat room';
+        const shareText = `Join my private encrypted room on Anon Chat: ${roomKey}`;
+
+        // 1. Try Native Capacitor Share
+        const CapShare = window.Capacitor?.Plugins?.Share;
+        if (CapShare) {
+            try {
+                await CapShare.share({
+                    title: shareTitle,
+                    text: shareText,
+                    url: shareUrl,
+                    dialogTitle: 'Share Anon Chat Room'
+                });
+                return;
+            } catch (err) {
+                const msg = (err && err.message) ? err.message.toLowerCase() : '';
+                if (msg.includes('cancel') || msg.includes('abort') || msg.includes('dismiss')) {
+                    return;
+                }
+                console.warn('Capacitor share failed, falling back:', err);
+            }
+        }
+
+        // 2. Web navigator.share
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: shareTitle,
+                    text: shareText,
+                    url: shareUrl
+                });
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                console.warn('navigator.share failed, falling back:', err);
+            }
+        }
+
+        // 3. Fallback: Copy link to clipboard
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(shareUrl);
+            } else {
+                const temp = document.createElement('textarea');
+                temp.value = shareUrl;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+            }
+            showToast('Room link copied to clipboard!');
+        } catch (e) {
+            showToast('Failed to copy link');
+        }
+    }
+
+    [shareRoomBtn, shareRoomCardBtn, mobileShareRoomBtn].forEach(btn => {
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                shareRoomLink();
+            });
+        }
+    });
+
     // Mobile user sidebar elements
     const mobileUsersBtn = document.getElementById("mobileUsersBtn");
     const mobileUserSidebar = document.getElementById("mobileUserSidebar");
@@ -4684,6 +4760,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            if (searchParams.has("room")) {
+                const roomCode = searchParams.get("room").trim();
+                if (roomCode) {
+                    handleRoomParamPrefill(roomCode);
+                }
+            }
+
             let savedFileRoom = null;
             try {
                 savedFileRoom = localStorage.getItem("anon_file_room_id");
@@ -4695,6 +4778,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             document.documentElement.classList.remove("loading-file-room");
+        }
+
+        function handleRoomParamPrefill(code) {
+            if (!code) return;
+            const cleanCode = code.trim();
+            if (roomKeyInput) {
+                roomKeyInput.value = cleanCode;
+                const tabJoin = document.getElementById("tabJoin");
+                if (tabJoin) tabJoin.click();
+                showToast(`Room code ${cleanCode} entered`);
+                if (usernameInput) {
+                    setTimeout(() => usernameInput.focus(), 250);
+                }
+            }
+        }
+
+        if (window.Capacitor?.Plugins?.App) {
+            window.Capacitor.Plugins.App.addListener('appUrlOpen', (data) => {
+                if (data && data.url) {
+                    try {
+                        const parsed = new URL(data.url);
+                        if (parsed.searchParams.has('room')) {
+                            handleRoomParamPrefill(parsed.searchParams.get('room'));
+                        }
+                    } catch (e) {
+                        console.warn('appUrlOpen error:', e);
+                    }
+                }
+            });
         }
 
         // Handle popstate for back/forward navigation

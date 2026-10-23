@@ -120,6 +120,21 @@ app.get("/api/stickers", async (req, res) => {
   }
 });
 
+app.get("/.well-known/assetlinks.json", (req, res) => {
+  res.json([
+    {
+      relation: ["delegate_permission/common.handle_all_urls"],
+      target: {
+        namespace: "android_app",
+        package_name: "com.mudit.anonchat",
+        sha256_cert_fingerprints: [
+          "PLACEHOLDER_RELEASE_KEYSTORE_SHA256_FINGERPRINT"
+        ]
+      }
+    }
+  ]);
+});
+
 app.use("/uploads", express.static(uploadDir));
 
 // ============================================================

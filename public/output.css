@@ -763,10 +763,6 @@ input:focus-visible,
   margin-bottom: 1.25rem;
 }
 
-.mb-6 {
-  margin-bottom: 1.5rem;
-}
-
 .ml-1 {
   margin-left: 0.25rem;
 }
@@ -5369,6 +5365,11 @@ html.loading-file-room #fileRoomScreen {
   background-color: rgb(255 167 103 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-\[\#ffb682\]:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 182 130 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-black\/80:hover {
   background-color: rgb(0 0 0 / 0.8);
 }
@@ -5381,6 +5382,11 @@ html.loading-file-room #fileRoomScreen {
 .hover\:text-\[\#ffb682\]:hover {
   --tw-text-opacity: 1;
   color: rgb(255 182 130 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-black:hover {
+  --tw-text-opacity: 1;
+  color: rgb(0 0 0 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-white:hover {

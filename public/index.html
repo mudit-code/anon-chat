@@ -213,6 +213,10 @@
           <i id="themeToggleIcon" class="fas fa-sun text-xs"></i>
           <span class="header-btn-text" id="themeToggleText">Light</span>
         </button>
+        <button id="shareRoomBtn" title="Share room" class="header-btn" aria-label="Share room">
+          <i class="fas fa-share-nodes text-xs"></i>
+          <span class="header-btn-text">Share</span>
+        </button>
         <button id="mobileUsersBtn" title="View users" class="md:hidden header-btn relative">
           <i class="fas fa-users text-sm"></i>
           <span id="mobileUserCount"
@@ -346,13 +350,17 @@
       <div class="sidebar-panel custom-scrollbar">
         <!-- Invite Card -->
         <div id="inviteCard" class="mb-4 p-3.5 bg-[#141414] border border-[#262626] rounded-xl">
-          <div class="text-[12px] text-[#9a9a9a] mb-2 leading-snug">Share this key with people you want in the room.
-          </div>
-          <div class="flex items-center justify-between gap-2">
+          <div class="text-[12px] text-[#9a9a9a] mb-2 leading-snug">Share this key with people you want in the room.</div>
+          <div class="flex items-center justify-between gap-2 mb-2.5">
             <span class="font-mono text-sm tracking-widest text-[#cccccc]" id="maskedRoomKey">••••••</span>
             <button type="button" id="copyRoomKeyBtn"
               class="copy-key-btn px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer">Copy key</button>
           </div>
+          <button type="button" id="shareRoomCardBtn"
+            class="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30 text-xs font-semibold hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">
+            <i class="fas fa-share-nodes text-xs"></i>
+            <span>Share room link</span>
+          </button>
         </div>
 
         <div class="flex items-center justify-between mb-4">
@@ -366,7 +374,7 @@
     <!-- Mobile User Sidebar Drawer -->
     <div id="mobileUserSidebar"
       class="md:hidden fixed inset-y-0 right-0 w-80 transform translate-x-full transition-transform duration-300 z-30 overflow-y-auto custom-scrollbar p-6">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-4">
         <h3 class="font-heading font-bold text-lg text-white">In this room</h3>
         <div class="flex items-center space-x-3">
           <span id="mobileUserCountText"
@@ -377,6 +385,11 @@
           </button>
         </div>
       </div>
+      <button type="button" id="mobileShareRoomBtn"
+        class="w-full mb-4 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30 text-xs font-semibold hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">
+        <i class="fas fa-share-nodes text-xs"></i>
+        <span>Share room link</span>
+      </button>
       <ul id="mobileUserList" class="space-y-2"></ul>
     </div>
 
