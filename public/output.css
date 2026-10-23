@@ -1808,6 +1808,11 @@ input:focus-visible,
   --border-dark: #262626;
   --border-mid: #333333;
   --text-muted: #9a9a9a;
+  /* Shared safe area inset variables: robust fallback combining standard env() and Capacitor injected CSS properties */
+  --sat: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --sab: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --sal: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+  --sar: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
 }
 
 /* ============================================================
@@ -2266,9 +2271,9 @@ input:focus-visible,
     width: 100% !important;
     box-sizing: border-box !important;
     z-index: 100 !important;
-    height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+    height: calc(56px + var(--sat)) !important;
     margin: 0 !important;
-    padding: env(safe-area-inset-top, 0px) 16px 0 16px !important;
+    padding: var(--sat) calc(16px + var(--sar)) 0 calc(16px + var(--sal)) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -2300,7 +2305,7 @@ input:focus-visible,
   /* Top Hero Section (Black with luminous doodle background) */
 
   .landing-left {
-    padding: calc(56px + env(safe-area-inset-top, 0px) + 20px) 20px 14px 20px !important;
+    padding: calc(56px + var(--sat) + 20px) calc(20px + var(--sar)) 14px calc(20px + var(--sal)) !important;
     /* Leaves room for fixed header */
     height: auto !important;
     min-height: auto !important;
@@ -2323,19 +2328,19 @@ input:focus-visible,
 
   @media (min-height: 680px) {
     .landing-left {
-      padding-top: calc(56px + env(safe-area-inset-top, 0px) + clamp(24px, 5.5vh, 46px)) !important;
+      padding-top: calc(56px + var(--sat) + clamp(24px, 5.5vh, 46px)) !important;
     }
   }
 
   @media (min-height: 800px) {
     .landing-left {
-      padding-top: calc(56px + env(safe-area-inset-top, 0px) + clamp(46px, 8.5vh, 74px)) !important;
+      padding-top: calc(56px + var(--sat) + clamp(46px, 8.5vh, 74px)) !important;
     }
   }
 
   @media (min-height: 920px) {
     .landing-left {
-      padding-top: calc(56px + env(safe-area-inset-top, 0px) + clamp(68px, 12vh, 104px)) !important;
+      padding-top: calc(56px + var(--sat) + clamp(68px, 12vh, 104px)) !important;
     }
   }
 
@@ -2457,7 +2462,7 @@ input:focus-visible,
     border-top-right-radius: 32px !important;
     background: #ffffff !important;
     box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45) !important;
-    padding: 24px 20px max(28px, env(safe-area-inset-bottom, 22px)) 20px !important;
+    padding: 24px calc(20px + var(--sar)) calc(28px + var(--sab)) calc(20px + var(--sal)) !important;
     width: 100% !important;
     box-sizing: border-box !important;
     flex: none !important;
@@ -2631,7 +2636,10 @@ input:focus-visible,
 #chat-header {
   background: #0d0d0d;
   border-bottom: 1px solid #262626;
-  padding: max(10px, env(safe-area-inset-top)) 20px 10px 20px;
+  padding-top: calc(10px + var(--sat));
+  padding-bottom: 10px;
+  padding-left: calc(20px + var(--sal));
+  padding-right: calc(20px + var(--sar));
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -2640,6 +2648,7 @@ input:focus-visible,
   width: 100%;
   z-index: 30;
   touch-action: none;
+  box-sizing: border-box;
 }
 
 .header-logo {
@@ -2691,7 +2700,10 @@ input:focus-visible,
 
 @media (max-width: 767px) {
   #chat-header {
-    padding: max(10px, env(safe-area-inset-top)) 14px 10px 14px;
+    padding-top: calc(10px + var(--sat));
+    padding-bottom: 10px;
+    padding-left: calc(14px + var(--sal));
+    padding-right: calc(14px + var(--sar));
     position: sticky;
     top: 0;
     left: 0;
@@ -3210,10 +3222,13 @@ body.light-mode .received-message .file-btn-save i {
   flex-shrink: 0;
   background: #000000;
   padding: 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
   position: relative;
   z-index: 10;
   width: 100%;
+  box-sizing: border-box;
 }
 
 body.light-mode #chat-input-container {
@@ -3601,6 +3616,11 @@ body.light-mode #chat-input-container {
 
 .modal-backdrop {
   background: rgba(0, 0, 0, 0.7);
+  padding-top: calc(16px + var(--sat));
+  padding-bottom: calc(16px + var(--sab));
+  padding-left: calc(16px + var(--sal));
+  padding-right: calc(16px + var(--sar));
+  box-sizing: border-box;
 }
 
 .modal-panel {
@@ -4588,6 +4608,18 @@ body.light-mode .drag-drop-box {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid #222222;
+  box-sizing: border-box;
+  padding-top: calc(14px + var(--sat)) !important;
+  padding-bottom: 14px !important;
+  padding-left: calc(16px + var(--sal)) !important;
+  padding-right: calc(16px + var(--sar)) !important;
+}
+
+@media (min-width: 640px) {
+  #file-room-header {
+    padding-left: calc(24px + var(--sal)) !important;
+    padding-right: calc(24px + var(--sar)) !important;
+  }
 }
 
 .file-vault-main-container {
@@ -4597,7 +4629,9 @@ body.light-mode .drag-drop-box {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding-bottom: clamp(40px, 8vh, 80px);
+  padding-bottom: calc(56px + var(--sab)) !important;
+  padding-left: calc(16px + var(--sal));
+  padding-right: calc(16px + var(--sar));
 }
 
 .file-vault-main-container::-webkit-scrollbar {
@@ -4619,12 +4653,17 @@ body.light-mode .file-vault-main-container::-webkit-scrollbar-thumb {
 
 @media (max-width: 640px) {
   #file-room-header {
-    padding: 10px 14px;
+    padding-top: calc(10px + var(--sat)) !important;
+    padding-bottom: 10px !important;
+    padding-left: calc(14px + var(--sal)) !important;
+    padding-right: calc(14px + var(--sar)) !important;
   }
 
   .file-vault-main-container {
-    padding: 12px 14px;
-    padding-bottom: 56px;
+    padding-top: 12px;
+    padding-bottom: calc(56px + var(--sab)) !important;
+    padding-left: calc(14px + var(--sal)) !important;
+    padding-right: calc(14px + var(--sar)) !important;
   }
 }
 

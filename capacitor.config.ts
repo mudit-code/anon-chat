@@ -12,6 +12,9 @@ const config: CapacitorConfig = {
     Keyboard: {
       resize: KeyboardResize.Body,
     },
+    SystemBars: {
+      insetsHandling: 'css',
+    },
   },
 };
 
