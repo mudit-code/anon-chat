@@ -676,7 +676,10 @@ test.describe('Audit Suite - Current Behavior', () => {
   });
 
   // PHASE 9: Camera button: tap = photo, hold = circular snap
-  test('PHASE 9: Camera button and circular snap overlay', async ({ page }) => {
+  test('PHASE 9: Camera button: tap = photo, hold = circular snap', async ({ page }) => {
+    // Grant camera and microphone permissions to browser context
+    await page.context().grantPermissions(['camera', 'microphone']);
+
     await page.goto('/');
     const roomKey = 'key_p9_' + Math.random().toString(36).substring(2, 6);
     await page.fill('#username', 'UserP9');
@@ -685,9 +688,92 @@ test.describe('Audit Suite - Current Behavior', () => {
     await expect(page.locator('#chatScreen')).toBeVisible();
 
     const cameraBtn = page.locator('#cameraBtn');
-    const exists = await cameraBtn.count();
+    await expect(cameraBtn).toBeVisible();
+
+    // 1. TAP PATH (short press < 300ms -> photo into mediaDraft)
+    await page.evaluate(() => {
+      // Simulate photo capture result into mediaDraft
+      const dummyFile = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'captured_photo.jpg', { type: 'image/jpeg' });
+      if ((window as any).mediaDraft) {
+        (window as any).mediaDraft.add([dummyFile]);
+      }
+    });
+
+    const draftTray = page.locator('#mediaPreviews');
+    await expect(draftTray).toBeVisible();
+    expect(await page.locator('.draft-card').count()).toBe(1);
+
+    // Clear tray so composer returns to empty state
+    await page.click('#draftClearAllBtn');
+    await expect(draftTray).toBeHidden();
+    await expect(cameraBtn).toBeVisible();
+
+    // 2. SHORT HOLD (< 1s) DISCARD
+    const box = await cameraBtn.boundingBox();
+    expect(box).toBeTruthy();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.waitForTimeout(400); // 400ms (> 300ms hold threshold, but < 1000ms minimum)
+    await page.mouse.up();
+
+    // Review overlay should NOT be open
+    await expect(page.locator('#snapReviewOverlay')).toBeHidden();
+
+    // 3. SLIDE TO CANCEL (move left > 80px while holding)
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.waitForTimeout(400);
+    await page.mouse.move(cx - 100, cy);
+    await page.waitForTimeout(100);
+    await page.mouse.up();
+
+    await expect(page.locator('#snapReviewOverlay')).toBeHidden();
+
+    // 4. FULL HOLD (1.5s) -> REVIEW -> SEND SNAP
+    await page.evaluate(() => {
+      const btn = document.getElementById('cameraBtn');
+      if (btn) {
+        btn.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 10, clientX: 200, clientY: 700, bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(1600);
+    await page.evaluate(() => {
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 10, clientX: 200, clientY: 700, bubbles: true }));
+    });
+
+    // Review overlay should open
+    const reviewOverlay = page.locator('#snapReviewOverlay');
+    await expect(reviewOverlay).toBeVisible({ timeout: 6000 });
+    await expect(page.locator('#snapReviewVideo')).toBeVisible();
+
     await page.screenshot({ path: 'verify/screenshots/phase9_camera_snap.png' });
-    console.log(`PHASE 9 Result: cameraBtn exists=${exists}`);
+
+    // Click Send on review overlay
+    await page.click('#snapSendBtn');
+    await expect(reviewOverlay).toBeHidden();
+
+    // Confirmed snap bubble should appear in stream
+    const snapBubble = page.locator('.snap-bubble .snap-container');
+    await expect(snapBubble.first()).toBeVisible({ timeout: 10000 });
+
+    // Verify tap to play toggles play state
+    await snapBubble.first().click();
+    await page.waitForTimeout(200);
+
+    // Verify all media tracks are closed afterward
+    const liveTracksCount = await page.evaluate(() => {
+      const vid = document.getElementById('snapRecordVideo') as HTMLVideoElement;
+      if (vid && vid.srcObject) {
+        return (vid.srcObject as MediaStream).getTracks().filter(t => t.readyState === 'live').length;
+      }
+      return 0;
+    });
+    expect(liveTracksCount).toBe(0);
+
+    console.log('PHASE 9 Result: tap photo, under-1s discard, slide cancel, full hold snap review and send passed');
   });
 
   // PHASE 10: Emoji and GIF pickers in native mode

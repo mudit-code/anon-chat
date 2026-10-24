@@ -3671,3 +3671,46 @@ html.loading-file-room #fileRoomScreen {
   max-height: 100dvh !important;
   overflow: hidden !important;
 }
+
+/* ============================================================
+   CIRCULAR SNAP VIDEO MESSAGE BUBBLES (PHASE 9)
+   ============================================================ */
+.snap-bubble {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.snap-container {
+  position: relative;
+  width: min(62vw, 220px);
+  height: min(62vw, 220px);
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 2.5px solid rgba(255, 115, 32, 0.6);
+  background: #000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.snap-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.snap-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.snap-play-overlay.playing {
+  opacity: 0;
+  pointer-events: none;
+}

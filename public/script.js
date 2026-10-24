@@ -1042,7 +1042,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = JSON.parse(xhr.responseText);
                     const fType = (mediaItem.file && mediaItem.file.type) ? mediaItem.file.type : '';
                     let messageType = 'video';
-                    if (fType.startsWith('image')) {
+                    if (mediaItem.type === 'snap' || mediaItem.isSnap) {
+                        messageType = 'snap';
+                    } else if (fType.startsWith('image')) {
                         messageType = 'image';
                     } else if (fType.startsWith('audio')) {
                         messageType = 'audio';
@@ -1082,7 +1084,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 type: messageType,
                                 content: data.path,
                                 name: mediaItem.file?.name,
-                                size: mediaItem.file?.size
+                                size: mediaItem.file?.size,
+                                durationMs: mediaItem.durationMs || 0
                             },
                             seenBy: []
                         };
@@ -1237,6 +1240,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             } else if (message.type === 'audio') {
                 contentHtml = createVoicePlayerHtml(mediaSrc, message.durationMs || 0, user === username);
+            } else if (message.type === 'snap') {
+                messageBubble.className = 'snap-bubble message-bubble';
+                const durationLabel = message.durationMs ? `${Math.round(message.durationMs / 1000)}s` : '';
+                contentHtml = `
+                <div class="snap-container cursor-pointer" onclick="toggleSnapPlayback(this)">
+                    <video src="${mediaSrc}" playsinline class="snap-video" loop></video>
+                    <div class="snap-play-overlay">
+                        <div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white shadow-lg">
+                            <i class="fas fa-play text-sm ml-0.5"></i>
+                        </div>
+                    </div>
+                    ${durationLabel ? `<span class="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-[10px] font-mono border border-white/10">${durationLabel}</span>` : ''}
+                </div>`;
             }
         }
 
@@ -3162,6 +3178,398 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recordBtn) {
         recordBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         recordBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+
+    // ============================================================
+    // PHASE 9: CAMERA BUTTON (TAP = PHOTO, HOLD = CIRCULAR SNAP)
+    // ============================================================
+    const cameraPhotoInput = document.getElementById("cameraPhotoInput");
+    const snapRecordingOverlay = document.getElementById("snapRecordingOverlay");
+    const snapRecordTimer = document.getElementById("snapRecordTimer");
+    const snapRecordVideo = document.getElementById("snapRecordVideo");
+    const snapRecordProgressRing = document.getElementById("snapRecordProgressRing");
+    const snapSlideCancelHint = document.getElementById("snapSlideCancelHint");
+
+    const snapReviewOverlay = document.getElementById("snapReviewOverlay");
+    const snapReviewWrapper = document.getElementById("snapReviewWrapper");
+    const snapReviewVideo = document.getElementById("snapReviewVideo");
+    const snapReviewSoundBadge = document.getElementById("snapReviewSoundBadge");
+    const snapReviewDuration = document.getElementById("snapReviewDuration");
+    const snapDeleteBtn = document.getElementById("snapDeleteBtn");
+    const snapSendBtn = document.getElementById("snapSendBtn");
+
+    let cameraHoldTimer = null;
+    let cameraPressStartTime = 0;
+    let cameraPointerStartX = 0;
+    let cameraPointerStartY = 0;
+    let isCameraHolding = false;
+    let isSnapCancelled = false;
+
+    let snapMediaStream = null;
+    let snapMediaRecorder = null;
+    let snapRecordedChunks = [];
+    let snapRecordInterval = null;
+    let snapDurationMs = 0;
+    let recordedSnapBlob = null;
+    let recordedSnapUrl = null;
+
+    const SNAP_MAX_DURATION_MS = 30000;
+    const SNAP_RING_CIRCUMFERENCE = 766.5;
+
+    function stopAllSnapTracks() {
+        if (snapMediaStream) {
+            try {
+                snapMediaStream.getTracks().forEach(t => t.stop());
+            } catch (e) {}
+            snapMediaStream = null;
+        }
+        if (snapRecordVideo) {
+            snapRecordVideo.srcObject = null;
+        }
+    }
+
+    async function takePhoto() {
+        try {
+            if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins?.Camera) {
+                const image = await window.Capacitor.Plugins.Camera.getPhoto({
+                    quality: 85,
+                    allowEditing: false,
+                    resultType: 'uri',
+                    source: 'CAMERA'
+                });
+                if (image && (image.webPath || image.path)) {
+                    const res = await fetch(image.webPath);
+                    const blob = await res.blob();
+                    const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    if (window.mediaDraft) {
+                        window.mediaDraft.add([file]);
+                    }
+                }
+            } else {
+                if (cameraPhotoInput) {
+                    cameraPhotoInput.click();
+                }
+            }
+        } catch (err) {
+            if (err && err.message && (err.message.includes('denied') || err.message.includes('permission'))) {
+                if (typeof appAlert === 'function') {
+                    appAlert('Camera permission was denied. Please enable camera access in settings.');
+                }
+            } else if (!err || !err.message || !err.message.includes('User cancelled')) {
+                console.warn('Camera photo error:', err);
+            }
+        }
+    }
+
+    if (cameraPhotoInput) {
+        cameraPhotoInput.onchange = () => {
+            const files = Array.from(cameraPhotoInput.files || []);
+            if (files.length > 0 && window.mediaDraft) {
+                window.mediaDraft.add(files);
+            }
+            cameraPhotoInput.value = "";
+        };
+    }
+
+    async function startSnapRecording() {
+        isSnapCancelled = false;
+        snapRecordedChunks = [];
+        snapDurationMs = 0;
+
+        try {
+            snapMediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, aspectRatio: 1 },
+                audio: true
+            });
+
+            if (snapRecordVideo) {
+                snapRecordVideo.srcObject = snapMediaStream;
+                await snapRecordVideo.play();
+            }
+
+            let mimeType = 'video/webm';
+            if (typeof MediaRecorder !== 'undefined') {
+                if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
+                    mimeType = 'video/mp4;codecs=avc1';
+                } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+                    mimeType = 'video/webm;codecs=vp9,opus';
+                } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+                    mimeType = 'video/webm;codecs=vp8,opus';
+                }
+            }
+
+            snapMediaRecorder = new MediaRecorder(snapMediaStream, {
+                mimeType,
+                videoBitsPerSecond: 800000,
+                audioBitsPerSecond: 64000
+            });
+
+            snapMediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) {
+                    snapRecordedChunks.push(e.data);
+                }
+            };
+
+            snapMediaRecorder.onstop = () => {
+                stopAllSnapTracks();
+                if (isSnapCancelled) return;
+                if (snapDurationMs < 1000) {
+                    showToast('Hold to record');
+                    return;
+                }
+                const blobType = snapMediaRecorder.mimeType || 'video/webm';
+                recordedSnapBlob = new Blob(snapRecordedChunks, { type: blobType });
+                openSnapReviewOverlay(recordedSnapBlob, snapDurationMs);
+            };
+
+            snapMediaRecorder.start(100);
+
+            if (snapRecordingOverlay) snapRecordingOverlay.classList.remove('hidden');
+            if (snapSlideCancelHint) snapSlideCancelHint.classList.remove('text-red-400');
+
+            const startRecTime = Date.now();
+            if (snapRecordProgressRing) {
+                snapRecordProgressRing.style.strokeDashoffset = `${SNAP_RING_CIRCUMFERENCE}`;
+            }
+
+            snapRecordInterval = setInterval(() => {
+                const elapsed = Date.now() - startRecTime;
+                snapDurationMs = elapsed;
+                const totalSec = Math.floor(elapsed / 1000);
+                const mm = Math.floor(totalSec / 60);
+                const ss = String(totalSec % 60).padStart(2, '0');
+                if (snapRecordTimer) {
+                    snapRecordTimer.textContent = `${mm}:${ss} / 0:30`;
+                }
+
+                const progress = Math.min(1, elapsed / SNAP_MAX_DURATION_MS);
+                if (snapRecordProgressRing) {
+                    snapRecordProgressRing.style.strokeDashoffset = `${SNAP_RING_CIRCUMFERENCE * (1 - progress)}`;
+                }
+
+                if (elapsed >= SNAP_MAX_DURATION_MS) {
+                    stopSnapRecording();
+                }
+            }, 100);
+
+        } catch (err) {
+            console.warn('Snap recording init error:', err);
+            isCameraHolding = false;
+            stopAllSnapTracks();
+            if (snapRecordingOverlay) snapRecordingOverlay.classList.add('hidden');
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                if (typeof appAlert === 'function') {
+                    appAlert('Camera or microphone permission was denied. Please allow access.');
+                }
+            }
+        }
+    }
+
+    function stopSnapRecording() {
+        if (snapRecordInterval) {
+            clearInterval(snapRecordInterval);
+            snapRecordInterval = null;
+        }
+        if (snapRecordingOverlay) snapRecordingOverlay.classList.add('hidden');
+        if (snapMediaRecorder && snapMediaRecorder.state === 'recording') {
+            snapMediaRecorder.stop();
+        } else {
+            stopAllSnapTracks();
+        }
+    }
+
+    function cancelSnapRecording(reason = 'Cancelled') {
+        isSnapCancelled = true;
+        stopSnapRecording();
+        stopAllSnapTracks();
+        showToast(reason);
+    }
+
+    function openSnapReviewOverlay(blob, durationMs) {
+        if (recordedSnapUrl) {
+            URL.revokeObjectURL(recordedSnapUrl);
+        }
+        recordedSnapUrl = URL.createObjectURL(blob);
+
+        if (snapReviewVideo) {
+            snapReviewVideo.src = recordedSnapUrl;
+            snapReviewVideo.muted = true;
+            snapReviewVideo.play().catch(() => {});
+        }
+
+        const totalSec = Math.floor(durationMs / 1000);
+        const mm = Math.floor(totalSec / 60);
+        const ss = String(totalSec % 60).padStart(2, '0');
+        if (snapReviewDuration) {
+            snapReviewDuration.textContent = `${mm}:${ss}`;
+        }
+
+        if (snapReviewSoundBadge) {
+            snapReviewSoundBadge.innerHTML = '<i class="fas fa-volume-xmark"></i>';
+        }
+
+        if (snapReviewOverlay) {
+            snapReviewOverlay.classList.remove('hidden');
+        }
+    }
+
+    function closeSnapReviewOverlay() {
+        if (snapReviewOverlay) {
+            snapReviewOverlay.classList.add('hidden');
+        }
+        if (snapReviewVideo) {
+            snapReviewVideo.pause();
+            snapReviewVideo.src = "";
+        }
+        if (recordedSnapUrl) {
+            URL.revokeObjectURL(recordedSnapUrl);
+            recordedSnapUrl = null;
+        }
+        recordedSnapBlob = null;
+    }
+
+    if (snapReviewWrapper && snapReviewVideo) {
+        snapReviewWrapper.onclick = () => {
+            snapReviewVideo.muted = !snapReviewVideo.muted;
+            if (snapReviewSoundBadge) {
+                snapReviewSoundBadge.innerHTML = snapReviewVideo.muted
+                    ? '<i class="fas fa-volume-xmark"></i>'
+                    : '<i class="fas fa-volume-high text-[#ffb682]"></i>';
+            }
+        };
+    }
+
+    if (snapDeleteBtn) {
+        snapDeleteBtn.onclick = () => {
+            closeSnapReviewOverlay();
+        };
+    }
+
+    if (snapSendBtn) {
+        snapSendBtn.onclick = () => {
+            if (!recordedSnapBlob) {
+                closeSnapReviewOverlay();
+                return;
+            }
+            const ext = recordedSnapBlob.type.includes('mp4') ? 'mp4' : 'webm';
+            const snapFile = new File([recordedSnapBlob], `snap_${Date.now()}.${ext}`, {
+                type: recordedSnapBlob.type || 'video/webm'
+            });
+            const snapDur = snapDurationMs;
+            closeSnapReviewOverlay();
+
+            if (typeof dispatchMediaUpload === 'function') {
+                const clientMsgId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const objectUrl = URL.createObjectURL(snapFile);
+                createPendingMediaBubble({
+                    file: snapFile,
+                    objectUrl,
+                    clientMsgId,
+                    roomInstanceId: roomInstanceId || '',
+                    onCancel: () => {
+                        const act = activeUploads.get(clientMsgId);
+                        if (act && act.xhr) act.xhr.abort();
+                        removePendingBubble(clientMsgId);
+                        activeUploads.delete(clientMsgId);
+                    },
+                    onRetry: () => {
+                        setPendingBubbleRetrying(clientMsgId);
+                        dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur });
+                    },
+                    onDelete: () => {
+                        removePendingBubble(clientMsgId);
+                        activeUploads.delete(clientMsgId);
+                    }
+                });
+                dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur });
+            }
+        };
+    }
+
+    function toggleSnapPlayback(container) {
+        if (!container) return;
+        const video = container.querySelector('.snap-video');
+        const overlay = container.querySelector('.snap-play-overlay');
+        if (!video) return;
+
+        if (video.paused) {
+            document.querySelectorAll('video, audio').forEach(el => {
+                if (el !== video && !el.paused) el.pause();
+            });
+            document.querySelectorAll('.snap-play-overlay').forEach(el => el.classList.remove('playing'));
+            video.play().then(() => {
+                if (overlay) overlay.classList.add('playing');
+            }).catch(() => {});
+        } else {
+            video.pause();
+            if (overlay) overlay.classList.remove('playing');
+        }
+    }
+    window.toggleSnapPlayback = toggleSnapPlayback;
+
+    // Discard on backgrounding
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (isCameraHolding) {
+                cancelSnapRecording('Backgrounded');
+            }
+            stopAllSnapTracks();
+        }
+    });
+
+    if (cameraBtn) {
+        cameraBtn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            try {
+                cameraBtn.setPointerCapture(e.pointerId);
+            } catch (err) {}
+
+            cameraPressStartTime = Date.now();
+            cameraPointerStartX = e.clientX;
+            cameraPointerStartY = e.clientY;
+            isCameraHolding = false;
+            isSnapCancelled = false;
+
+            cameraHoldTimer = setTimeout(async () => {
+                isCameraHolding = true;
+                await startSnapRecording();
+            }, 300);
+        });
+
+        const handlePointerMove = (e) => {
+            if (isCameraHolding) {
+                const dx = e.clientX - cameraPointerStartX;
+                if (dx < -80 && !isSnapCancelled) {
+                    cancelSnapRecording('Slide to cancel');
+                }
+            }
+        };
+
+        cameraBtn.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointermove', handlePointerMove);
+
+        const handleCameraPointerEnd = (e) => {
+            if (cameraHoldTimer) {
+                clearTimeout(cameraHoldTimer);
+                cameraHoldTimer = null;
+            }
+
+            if (!isCameraHolding) {
+                takePhoto();
+            } else {
+                stopSnapRecording();
+                isCameraHolding = false;
+            }
+        };
+
+        cameraBtn.addEventListener('pointerup', handleCameraPointerEnd);
+        cameraBtn.addEventListener('pointercancel', handleCameraPointerEnd);
+        window.addEventListener('pointerup', (e) => {
+            if (isCameraHolding) {
+                handleCameraPointerEnd(e);
+            }
+        });
+        cameraBtn.addEventListener('contextmenu', e => e.preventDefault());
     }
 
     const MAX_MESSAGE_LENGTH = 4000;
@@ -6439,6 +6847,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 4. Close preview modal if open
                 if (previewModal && !previewModal.classList.contains("hidden")) {
                     closePreview?.click?.();
+                    return;
+                }
+                // 4.5 Close snap review or recording overlay if open
+                if (typeof snapReviewOverlay !== 'undefined' && snapReviewOverlay && !snapReviewOverlay.classList.contains("hidden")) {
+                    closeSnapReviewOverlay();
+                    return;
+                }
+                if (typeof snapRecordingOverlay !== 'undefined' && snapRecordingOverlay && !snapRecordingOverlay.classList.contains("hidden")) {
+                    cancelSnapRecording('Cancelled');
                     return;
                 }
                 // 5. Close user sidebar if open

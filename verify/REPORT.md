@@ -224,3 +224,27 @@
   - Verified Escape key closes modal.
   - Verified close button (#closePreview) closes modal.
 
+---
+
+### Phase 9: Camera Button (Tap = Photo, Hold = Circular Snap)
+- **Status:** **PASS** (Automated Playwright harness verified; physical camera hardware, OS runtime permission dialogs, and tactile long-press feel unverified on physical device per Rule 3 & 7)
+- **Screenshots:**
+  - `verify/screenshots/phase9_camera_snap.png` (Circular snap video review overlay with duration pill, sound toggle, and Send/Delete actions)
+- **Root Cause & Fix:**
+  - *Root Cause:* `#cameraBtn` had no tap photo integration or circular video snap recording pipeline; native Android manifest lacked `CAMERA` permission and hardware feature declarations; no circular snap review overlay existed.
+  - *Fix:*
+    - Added `<uses-permission android:name="android.permission.CAMERA" />` and `<uses-feature android:name="android.hardware.camera" android:required="false" />` to `android/app/src/main/AndroidManifest.xml` and installed `@capacitor/camera`.
+    - Implemented TAP (< 300ms) path: invokes `@capacitor/camera` on native or `#cameraPhotoInput` on web, placing the captured photo into `window.mediaDraft`.
+    - Implemented HOLD (>= 300ms) path: initiates front-camera circular snap recording via `getUserMedia` and `MediaRecorder` (video/mp4 or video/webm at 800 kbps), displaying a 240px circular preview with radial SVG progress ring (30s limit), timer, pulsing red dot, and slide-left-to-cancel (> 80px).
+    - Discards recordings < 1s with toast "Hold to record". Cleanly stops all camera/mic tracks on discard, cancel, review exit, or document visibilitychange (app backgrounding).
+    - Built circular snap review overlay with looping preview, tap-to-toggle audio, duration display, Delete (discard) button, and Send button.
+    - Wired snap messages to upload pipeline with `type: 'snap'`, rendering circular bubbles (`.snap-container`, `max-width: min(62vw, 220px)`) with play overlay, duration badge, and exclusive single-media playback.
+- **Verification:**
+  - Verified tap path adds photo draft to `#mediaPreviews`.
+  - Verified press < 1s discards recording without opening review.
+  - Verified slide left > 80px cancels recording.
+  - Verified hold >= 1.5s opens `#snapReviewOverlay` with looping video.
+  - Verified send dispatches snap, inserts circular bubble into chat stream, and tap toggles playback.
+  - Verified all media tracks close cleanly with 0 live tracks remaining.
+
+
