@@ -3,3 +3,4 @@ uploads/
 *.log
 new_design*.png
 /doodle-tile.svg
+test-results/

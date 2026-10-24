@@ -27,8 +27,7 @@
         var path = window.location.pathname;
         var isSharePath = path.startsWith('/share/') && path.length > 7;
         var hasShareParam = window.location.search.indexOf('share=') !== -1 || window.location.search.indexOf('fileRoom=') !== -1;
-        var savedFileRoom = localStorage.getItem('anon_file_room_id');
-        if (isSharePath || hasShareParam || (savedFileRoom && (path === '/' || path === ''))) {
+        if (isSharePath || hasShareParam) {
           document.documentElement.classList.add('loading-file-room');
         }
       } catch (e) { }
@@ -37,6 +36,20 @@
 </head>
 
 <body class="bg-black text-white antialiased">
+  <!-- Neutral Reconnect Splash (Phase 2) -->
+  <div id="reconnectSplash" class="hidden fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-6 text-center select-none">
+    <img src="/logo.png" alt="Anon Chat" class="w-16 h-16 mb-4 animate-pulse">
+    <h2 class="text-xl font-bold font-heading text-white mb-2" id="splashTitle">Reconnecting…</h2>
+    <p class="text-sm text-[#9a9a9a] max-w-xs mb-4" id="splashSubtitle">Checking your previous session</p>
+    <div id="splashServerWaking" class="hidden text-xs text-[#ffb682] max-w-xs mb-4">
+      <i class="fas fa-server mr-1.5"></i>Waking up the server, this can take up to a minute
+    </div>
+    <div id="splashActions" class="hidden flex gap-3 mt-2">
+      <button id="splashRetryBtn" class="px-4 py-2 bg-[#ff7320] text-black font-semibold rounded-lg text-sm hover:brightness-110 active:scale-95 transition-all">Retry</button>
+      <button id="splashFreshBtn" class="px-4 py-2 bg-[#1f1f1f] text-white border border-[#333] rounded-lg text-sm hover:bg-[#2a2a2a] active:scale-95 transition-all">Start fresh</button>
+    </div>
+  </div>
+
   <!-- Reconnecting socket banner for network dropouts -->
   <div id="socketReconnectingBanner" class="hidden fixed top-0 inset-x-0 bg-[#ff7320] text-black text-xs font-semibold py-1.5 px-4 text-center z-50 shadow-md">
     <i class="fas fa-arrows-rotate fa-spin mr-1.5"></i>Reconnecting to server...
@@ -162,6 +175,17 @@
     <div class="landing-right light-panel">
       <div class="landing-right-content">
 
+        <!-- Dismissible Session Notice (Phase 2) -->
+        <div id="sessionNotice" class="hidden mb-4 p-3 bg-[#1e1e1e] border border-[#ff7320]/40 rounded-xl text-xs flex items-center justify-between text-white shadow-lg animate-fade-in">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-circle-info text-[#ff7320] text-sm"></i>
+            <span id="sessionNoticeText">Your last room has ended</span>
+          </div>
+          <button id="closeSessionNoticeBtn" type="button" class="text-[#9a9a9a] hover:text-white p-1 ml-2 transition-colors">
+            <i class="fas fa-times text-xs"></i>
+          </button>
+        </div>
+
         <!-- Chat Room Creation Panel -->
         <div id="panelChatRoom">
           <h2 class="landing-form-title font-heading font-bold tracking-tight">Start or join a room</h2>
@@ -272,9 +296,11 @@
       <div id="chat-main" class="flex flex-col flex-1 h-full relative overflow-hidden min-h-0">
         <!-- Messages Area (Pattern Background, Centered Content) -->
         <div id="messages" class="custom-scrollbar flex-1 overflow-y-auto min-h-0">
-          <div class="messages-inner-container" id="messagesInner">
-            <div class="day-chip-wrapper" id="dayChip">
-              <span class="day-chip">Today</span>
+          <div id="messagesContainer" class="w-full min-h-full flex flex-col">
+            <div class="messages-inner-container" id="messagesInner">
+              <div class="day-chip-wrapper" id="dayChip">
+                <span class="day-chip">Today</span>
+              </div>
             </div>
           </div>
         </div>

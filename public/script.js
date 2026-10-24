@@ -392,7 +392,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // State
-    let roomKey, username, isAdmin = false;
+    let roomKey = null, username = null, isAdmin = false;
+    let roomInstanceId = null;
+    let sessionToken = null;
+    let memberId = null;
+    let roomExpiresAt = null;
+    window.socket = socket;
+    window.currentRoomKey = null;
+    window.currentRoomInstanceId = null;
     let userToRemove = null; // Store user info for removal
     let pendingJoinRequest = null;
     let uploadToCancel = null;
@@ -675,12 +682,25 @@ document.addEventListener('DOMContentLoaded', () => {
         lastMessageUser = null;
     }
 
-    function displayMessage(user, message, id, seenBy = [], replyTo = null) {
-        // If message already exists (e.g. from file upload flow), don't duplicate, just update if needed
-        if (id && document.getElementById(id)) {
-            const existingMsg = document.getElementById(id);
+    function renderMessageBubble(msgPayload) {
+        if (!msgPayload) return null;
+        const user = msgPayload.username || msgPayload.user;
+        const message = (typeof msgPayload.message === 'object' && msgPayload.message !== null)
+            ? msgPayload.message
+            : { type: msgPayload.type || 'text', content: msgPayload.content || msgPayload.message };
+        const id = msgPayload.id || msgPayload.messageId || msgPayload.clientMsgId || `msg-${Date.now()}`;
+        const clientMsgId = msgPayload.clientMsgId || id;
+        const seenBy = msgPayload.seenBy || [];
+        const replyTo = msgPayload.replyTo || null;
+
+        const domId = `msg-${id}`;
+        let existingWrapper = document.getElementById(domId) ||
+            document.querySelector(`[data-client-msg-id="${clientMsgId}"]`) ||
+            document.getElementById(id);
+
+        if (existingWrapper) {
             // Update seen status if needed
-            const seenStatus = existingMsg.querySelector('.seen-status');
+            const seenStatus = existingWrapper.querySelector('.seen-status');
             if (seenStatus) {
                 const otherViewers = seenBy.filter(u => u !== username);
                 if (otherViewers.length > 0) {
@@ -688,16 +708,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     seenStatus.classList.add('visible');
                 }
             }
-            return;
+            return existingWrapper;
         }
 
         const isConsecutive = lastMessageUser === user;
-
         const bubbleClass = user === username ? 'sent-message' : 'received-message';
         const alignmentClass = user === username ? 'justify-end' : 'justify-start';
 
         const wrapper = document.createElement("div");
-        // Instagram-like grouping: tighter spacing for same user, larger when sender changes
+        wrapper.id = domId;
+        wrapper.setAttribute('data-msg-id', id);
+        wrapper.setAttribute('data-client-msg-id', clientMsgId);
         wrapper.className = `message flex flex-col ${user === username ? 'items-end' : 'items-start'} ${isConsecutive ? 'same-user' : 'new-user'}`;
 
         if (isConsecutive) {
@@ -705,7 +726,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const messageRow = document.createElement("div");
-        // Keep row alignment across full width for left/right alignment
         messageRow.className = `flex flex-col w-full ${alignmentClass} message-row`;
 
         const messageBubble = document.createElement("div");
@@ -723,18 +743,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let contentHtml = '';
         if (message.type === 'text') {
-            messageBubble.className = `${bubbleClass}`;
-            // Escape HTML but preserve line breaks
-            const escapedContent = message.content
+            messageBubble.className = `${bubbleClass} message-bubble`;
+            const escapedContent = (message.content || '')
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>');
             contentHtml = escapedContent;
         } else if (message.type === 'sticker') {
-            // Stickers have no bubble - just the image
             const mediaSrc = resolveMediaUrl(message.content);
-            messageBubble.className = 'sticker-bubble';
+            messageBubble.className = 'sticker-bubble message-bubble';
             contentHtml = `
                 <div class="relative group">
                     <img src="${mediaSrc}" class="sticker-message" loading="lazy">
@@ -743,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </a>
                 </div>`;
         } else {
-            messageBubble.className = `${bubbleClass} message-bubble-media`;
+            messageBubble.className = `${bubbleClass} message-bubble message-bubble-media`;
             const mediaSrc = resolveMediaUrl(message.content);
             if (message.type === 'gif') {
                 contentHtml = `
@@ -756,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (message.type === 'image') {
                 contentHtml = `
                 <div class="relative group">
-                    <img src="${mediaSrc}" class="message-file-preview" loading="lazy">
+                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" onclick="openLightbox('${mediaSrc}')">
                     <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
                         <i class="fas fa-download"></i>
                     </a>
@@ -796,39 +814,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         wrapper.appendChild(messageRow);
 
-        // Add Seen Status (will be shown/hidden based on whether this is the last message)
         const seenStatus = document.createElement("div");
         seenStatus.className = "seen-status";
         seenStatus.setAttribute('data-msg-user', user);
         wrapper.appendChild(seenStatus);
 
-        if (id) {
-            wrapper.id = id;
-            if (user !== username) {
-                // Only mark as seen if tab is visible (user is actually viewing)
-                if (isTabVisible) {
-                    socket.emit("mark-seen", { roomKey, messageId: id, username });
-                } else {
-                    // Queue to mark as seen when user returns to tab
-                    pendingSeenMessages.add(id);
-                }
+        if (id && user !== username) {
+            if (isTabVisible) {
+                socket.emit("mark-seen", { roomKey, roomInstanceId, sessionToken, messageId: id, username });
+            } else {
+                pendingSeenMessages.add(id);
             }
         }
 
         getMessagesTarget().appendChild(wrapper);
 
-        // Update seen status display - only show on last message from sender
         if (user === username && seenBy && seenBy.length > 0) {
             updateSeenStatusDisplay(user, seenBy);
         }
 
-        // Smooth scroll
         messagesDiv.scrollTo({
             top: messagesDiv.scrollHeight,
             behavior: 'smooth'
         });
 
         lastMessageUser = user;
+        return wrapper;
+    }
+
+    function displayMessage(user, message, id, seenBy = [], replyTo = null) {
+        return renderMessageBubble({
+            username: user,
+            message,
+            id,
+            seenBy,
+            replyTo
+        });
     }
 
     // Helper function to update seen status - only show on last message from a user
@@ -2155,24 +2176,156 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveSession() {
-        localStorage.setItem("roomKey", roomKey);
-        localStorage.setItem("username", username);
-        localStorage.setItem("isAdmin", isAdmin);
+        if (roomKey && roomInstanceId && sessionToken) {
+            const sessionRecord = {
+                kind: 'chat',
+                roomKey,
+                roomInstanceId,
+                sessionToken,
+                memberId,
+                username,
+                isAdmin,
+                expiresAt: roomExpiresAt,
+                savedAt: Date.now()
+            };
+            try {
+                localStorage.setItem('anon_session', JSON.stringify(sessionRecord));
+            } catch (e) {}
+        }
+    }
+
+    function clearSession() {
+        try {
+            localStorage.removeItem('anon_session');
+            localStorage.removeItem('roomKey');
+            localStorage.removeItem('username');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('anon_file_room_id');
+        } catch (e) {}
+    }
+
+    let splashWakingTimer = null;
+    let splashActionTimer = null;
+
+    function showReconnectSplash(title = "Reconnecting…", subtitle = "Checking your previous session") {
+        const splash = document.getElementById("reconnectSplash");
+        const titleEl = document.getElementById("splashTitle");
+        const subEl = document.getElementById("splashSubtitle");
+        const wakingEl = document.getElementById("splashServerWaking");
+        const actionsEl = document.getElementById("splashActions");
+        if (!splash) return;
+
+        if (titleEl) titleEl.textContent = title;
+        if (subEl) subEl.textContent = subtitle;
+        if (wakingEl) wakingEl.classList.add("hidden");
+        if (actionsEl) actionsEl.classList.add("hidden");
+
+        splash.classList.remove("hidden");
+
+        if (splashWakingTimer) clearTimeout(splashWakingTimer);
+        if (splashActionTimer) clearTimeout(splashActionTimer);
+
+        splashWakingTimer = setTimeout(() => {
+            if (wakingEl && !splash.classList.contains("hidden")) {
+                wakingEl.classList.remove("hidden");
+            }
+        }, 5000);
+
+        splashActionTimer = setTimeout(() => {
+            if (actionsEl && !splash.classList.contains("hidden")) {
+                actionsEl.classList.remove("hidden");
+            }
+        }, 90000);
+    }
+
+    function hideReconnectSplash() {
+        const splash = document.getElementById("reconnectSplash");
+        if (splash) splash.classList.add("hidden");
+        if (splashWakingTimer) clearTimeout(splashWakingTimer);
+        if (splashActionTimer) clearTimeout(splashActionTimer);
+    }
+
+    function showSessionNotice(text) {
+        const notice = document.getElementById("sessionNotice");
+        const noticeText = document.getElementById("sessionNoticeText");
+        if (notice && noticeText) {
+            noticeText.textContent = text || "Your last room has ended.";
+            notice.classList.remove("hidden");
+        }
+    }
+
+    const closeSessionNoticeBtn = document.getElementById("closeSessionNoticeBtn");
+    if (closeSessionNoticeBtn) {
+        closeSessionNoticeBtn.onclick = () => {
+            const notice = document.getElementById("sessionNotice");
+            if (notice) notice.classList.add("hidden");
+        };
+    }
+
+    const splashRetryBtn = document.getElementById("splashRetryBtn");
+    const splashFreshBtn = document.getElementById("splashFreshBtn");
+    if (splashRetryBtn) {
+        splashRetryBtn.onclick = () => {
+            restoreSession();
+        };
+    }
+    if (splashFreshBtn) {
+        splashFreshBtn.onclick = () => {
+            clearSession();
+            hideReconnectSplash();
+            showLandingScreen();
+        };
     }
 
     function restoreSession() {
-        const savedRoomKey = localStorage.getItem("roomKey");
-        const savedUsername = localStorage.getItem("username");
-        const savedIsAdmin = localStorage.getItem("isAdmin");
+        let session = null;
+        try {
+            const stored = localStorage.getItem("anon_session");
+            if (stored) session = JSON.parse(stored);
+        } catch (e) {}
 
-        if (savedRoomKey && savedUsername) {
-            roomKey = savedRoomKey;
-            username = savedUsername;
-            isAdmin = savedIsAdmin === 'true';
+        if (!session) {
+            clearSession();
+            return;
+        }
 
-            updateExitButton();
-
-            socket.emit("rejoin-room", { roomKey, username, isAdmin });
+        if (session.kind === "chat") {
+            if (!session.roomInstanceId || !session.sessionToken) {
+                clearSession();
+                return;
+            }
+            showReconnectSplash("Reconnecting…", "Resuming your chat room…");
+            socket.emit("resume-session", {
+                roomInstanceId: session.roomInstanceId,
+                sessionToken: session.sessionToken
+            });
+        } else if (session.kind === "vault") {
+            if (!session.identifier) {
+                clearSession();
+                return;
+            }
+            showReconnectSplash("Reconnecting…", "Loading file vault…");
+            fetch(`${API_BASE}/api/file-rooms/${encodeURIComponent(session.identifier)}`)
+                .then(res => {
+                    if (!res.ok) throw new Error("Vault unavailable");
+                    return res.json();
+                })
+                .then(data => {
+                    hideReconnectSplash();
+                    if (data && data.room) {
+                        openFileRoomByIdentifier(session.identifier, true);
+                    } else {
+                        clearSession();
+                        showLandingScreen();
+                        showSessionNotice("That vault has expired or was deleted.");
+                    }
+                })
+                .catch(() => {
+                    hideReconnectSplash();
+                    clearSession();
+                    showLandingScreen();
+                    showSessionNotice("That vault has expired or was deleted.");
+                });
         }
     }
 
@@ -2184,6 +2337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appAlert("Please enter a username and a room key.");
             return;
         }
+        window.currentRoomKey = roomKey;
         socket.emit("create-room", {
             roomKey,
             username
@@ -2197,6 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appAlert("Please enter a username and a room key.");
             return;
         }
+        window.currentRoomKey = roomKey;
         socket.emit("join-room", {
             roomKey,
             username
@@ -2229,6 +2384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             username = codename;
             roomKey = key;
+            window.currentRoomKey = roomKey;
             if (usernameInput) usernameInput.value = username;
             if (roomKeyInput) roomKeyInput.value = roomKey;
 
@@ -2273,14 +2429,17 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit("leave-room", { roomKey, username });
         }
 
-        localStorage.removeItem("roomKey");
-        localStorage.removeItem("username");
-        localStorage.removeItem("isAdmin");
+        clearSession();
 
         showLandingScreen();
         clearMessages();
         roomKeyInput.value = "";
         isAdmin = false;
+        roomKey = null;
+        roomInstanceId = null;
+        sessionToken = null;
+        window.currentRoomKey = null;
+        window.currentRoomInstanceId = null;
         updateExitButton();
         if (killRoomBtn) killRoomBtn.classList.add("hidden");
         lastMessageUser = null;
@@ -2317,7 +2476,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Confirm end room - single confirmation, redirects directly to landing page
     confirmEndRoomBtn.onclick = () => {
         const currentKey = roomKey;
-        socket.emit("kill-room", { roomKey: currentKey });
+        socket.emit("kill-room", { roomKey: currentKey, roomInstanceId, sessionToken });
         performLeaveRoom(false);
     };
 
@@ -2699,23 +2858,26 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const now = Date.now();
-        if (now - lastSendTime < 800) {
+        if (now - lastSendTime < 300) {
             return;
         }
         if (sendBtn.disabled) return;
 
         const message = (messageInput.value || '').trim();
-        const hasMedia = pastedMedia.length > 0;
+        const mediaToSend = [...pastedMedia];
+        const hasMedia = mediaToSend.length > 0;
         if (message === "" && !hasMedia && !fileToSend) return;
 
         isSendingInProgress = true;
         lastSendTime = now;
+        pastedMedia.length = 0;
+        renderMediaPreviews();
         updateSendButtonState();
         sendBtn.classList.add('opacity-60', 'cursor-not-allowed');
 
         // Stop typing indicator when sending
         if (isTyping) {
-            socket.emit("typing:stop", { roomKey, userId: socket.id });
+            socket.emit("typing:stop", { roomKey, roomInstanceId, sessionToken, userId: socket.id });
             isTyping = false;
             if (typingTimeout) clearTimeout(typingTimeout);
         }
@@ -2728,8 +2890,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const formData = new FormData();
                     formData.append('file', mediaItem.file);
 
+                    const clientMsgId = mediaItem.clientMsgId || (crypto.randomUUID ? crypto.randomUUID() : `cmsg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+                    mediaItem.clientMsgId = clientMsgId;
+
+                    formData.append('roomInstanceId', roomInstanceId || '');
+                    formData.append('sessionToken', sessionToken || '');
+                    formData.append('clientMsgId', clientMsgId);
+
                     const startTime = Date.now();
                     xhr.open('POST', `${API_BASE}/upload`, true);
+                    xhr.setRequestHeader('x-room-instance-id', roomInstanceId || '');
+                    xhr.setRequestHeader('x-client-msg-id', clientMsgId);
 
                     // Track upload progress
                     xhr.upload.onprogress = (e) => {
@@ -2751,10 +2922,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (xhr.status === 200) {
                             try {
                                 const data = JSON.parse(xhr.responseText);
-                                resolve({ success: true, path: data.path, file: mediaItem.file });
+                                resolve({ success: true, path: data.path, file: mediaItem.file, clientMsgId });
                             } catch (error) {
                                 reject({ success: false, error: 'Failed to parse response' });
                             }
+                        } else if (xhr.status === 410) {
+                            showToast("Room has ended");
+                            reject({ success: false, error: 'Room ended' });
+                        } else if (xhr.status === 429) {
+                            showToast("You're sending too fast");
+                            reject({ success: false, error: 'Rate limited' });
                         } else {
                             reject({ success: false, error: `Upload failed with status ${xhr.status}` });
                         }
@@ -2768,8 +2945,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
 
-            // Upload media with concurrency limit (3 at a time)
-            const uploadWithConcurrency = async (items, limit = 3) => {
+            // Upload media with concurrency limit (2 at a time as specified in Phase 1)
+            const uploadWithConcurrency = async (items, limit = 2) => {
                 const results = [];
                 const executing = [];
 
@@ -2819,9 +2996,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Upload all media files
             let uploadedMedia = [];
 
-            if (pastedMedia.length > 0) {
-                showUploadProgress(`Sending ${pastedMedia.length} file(s)...`, 10);
-                const uploadResults = await uploadWithConcurrency(pastedMedia, 3);
+            if (mediaToSend.length > 0) {
+                showUploadProgress(`Sending ${mediaToSend.length} file(s)...`, 10);
+                const uploadResults = await uploadWithConcurrency(mediaToSend, 2);
 
                 // Process results - only keep successful uploads
                 uploadedMedia = uploadResults
@@ -2837,9 +3014,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Send text message if present
             if (message !== "") {
-                const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                const clientMsgId = crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                const messageId = clientMsgId;
                 const messagePayload = {
                     roomKey,
+                    roomInstanceId,
+                    sessionToken,
+                    clientMsgId,
                     username,
                     id: messageId,
                     message: { type: 'text', content: message },
@@ -2853,6 +3034,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         previewText: replyContext.previewText
                     };
                 }
+
+                renderMessageBubble({
+                    username,
+                    message: messagePayload.message,
+                    id: messageId,
+                    clientMsgId,
+                    seenBy: [],
+                    replyTo: replyContext ? messagePayload.replyTo : null
+                });
 
                 socket.emit("chat-message", messagePayload);
             }
@@ -2872,11 +3062,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageType = 'file';
                 }
 
-                const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                const clientMsgId = media.clientMsgId || (crypto.randomUUID ? crypto.randomUUID() : `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+                const messageId = clientMsgId;
 
                 if (messageType === 'file') {
                     const filePayload = {
                         roomKey,
+                        roomInstanceId,
+                        sessionToken,
+                        clientMsgId,
                         username,
                         id: messageId,
                         file: {
@@ -2892,11 +3086,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const messagePayload = {
                         roomKey,
+                        roomInstanceId,
+                        sessionToken,
+                        clientMsgId,
                         username,
                         id: messageId,
                         message: {
                             type: messageType,
-                            content: media.path
+                            content: media.path,
+                            name: media.file?.name,
+                            size: media.file?.size
                         },
                         seenBy: []
                     };
@@ -2909,24 +3108,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         };
                     }
 
-                    displayMessage(username, {
-                        type: messageType,
-                        content: media.path
-                    }, messageId, [], replyContext ? messagePayload.replyTo : null);
+                    renderMessageBubble({
+                        username,
+                        message: messagePayload.message,
+                        id: messageId,
+                        clientMsgId,
+                        seenBy: [],
+                        replyTo: replyContext ? messagePayload.replyTo : null
+                    });
 
                     socket.emit("chat-message", messagePayload);
                 }
             }
 
             // Revoke object URLs
-            pastedMedia.forEach(item => {
+            mediaToSend.forEach(item => {
                 if (item.objectUrl) {
                     try { URL.revokeObjectURL(item.objectUrl); } catch (e) {}
                 }
             });
 
             // Clear draft state
-            pastedMedia.length = 0;
             clearReplyContext();
 
             messageInput.value = "";
@@ -3035,15 +3237,8 @@ document.addEventListener('DOMContentLoaded', () => {
         gifTab.addEventListener("pointerdown", (e) => e.preventDefault());
         gifTab.onclick = () => showGifPicker();
 
-        const stickerTab = document.createElement("button");
-        stickerTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
-        stickerTab.textContent = "Stickers";
-        stickerTab.addEventListener("pointerdown", (e) => e.preventDefault());
-        stickerTab.onclick = () => showStickerPicker();
-
         tabsContainer.appendChild(emojiTab);
         tabsContainer.appendChild(gifTab);
-        tabsContainer.appendChild(stickerTab);
         mediaPicker.appendChild(tabsContainer);
 
         // Content area
@@ -3055,7 +3250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showEmojiPicker();
 
         function activateTab(activeTab) {
-            [emojiTab, gifTab, stickerTab].forEach(t => {
+            [emojiTab, gifTab].forEach(t => {
                 if (t === activeTab) {
                     t.classList.add("border-[#ff7320]", "text-[#ff7320]");
                     t.classList.remove("border-transparent", "text-[#9a9a9a]");
@@ -4052,6 +4247,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Socket.io Handlers
     socket.on("room-created", (data) => {
         isAdmin = data.isAdmin;
+        if (data && typeof data === "object") {
+            roomInstanceId = data.roomInstanceId;
+            sessionToken = data.sessionToken;
+            memberId = data.memberId;
+            roomExpiresAt = data.expiresAt;
+            if (data.roomKey) roomKey = data.roomKey;
+        }
+        window.currentRoomKey = roomKey;
+        window.currentRoomInstanceId = roomInstanceId;
         updateExitButton();
         if (killRoomBtn) killRoomBtn.classList.add("hidden");
         saveSession();
@@ -4062,6 +4266,16 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("join-approved", (data) => {
         clearMessages();
         lastMessageUser = null;
+        if (data && typeof data === "object") {
+            if (data.roomInstanceId) roomInstanceId = data.roomInstanceId;
+            if (data.sessionToken) sessionToken = data.sessionToken;
+            if (data.memberId) memberId = data.memberId;
+            if (data.expiresAt) roomExpiresAt = data.expiresAt;
+            if (data.roomKey) roomKey = data.roomKey;
+            if (data.username) username = data.username;
+        }
+        window.currentRoomKey = roomKey;
+        window.currentRoomInstanceId = roomInstanceId;
 
         const inviteJoinStatus = document.getElementById("inviteJoinStatus");
         const panelJoinInvite = document.getElementById("panelJoinInvite");
@@ -4070,25 +4284,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (panelJoinInvite) panelJoinInvite.classList.add("hidden");
         if (panelChatRoom) panelChatRoom.classList.remove("hidden");
 
-        // Sort messages by timestamp to maintain chronological order
         const messages = data.messages || [];
         messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-        // Display messages in chronological order
         messages.forEach(msg => {
-            if (msg.file) {
-                // This is a file message
-                displayFile(msg.username, msg.file, msg.id || msg.messageId, msg.seenBy || []);
-            } else {
-                // This is a text/media message
-                displayMessage(msg.username, msg.message, msg.id || msg.messageId, msg.seenBy || []);
-            }
+            renderMessageBubble(msg);
         });
 
         updateExitButton();
         saveSession();
         showChatScreen();
         displaySystemMessage("Your request was approved. Welcome to the room!");
+    });
+
+    socket.on("resume-session-response", (res) => {
+        hideReconnectSplash();
+        if (res && res.valid) {
+            roomKey = res.roomKey;
+            roomInstanceId = res.roomInstanceId;
+            sessionToken = res.sessionToken;
+            memberId = res.memberId;
+            username = res.username;
+            isAdmin = !!res.isAdmin;
+            roomExpiresAt = res.expiresAt;
+            window.currentRoomKey = roomKey;
+            window.currentRoomInstanceId = roomInstanceId;
+
+            saveSession();
+            updateExitButton();
+
+            if (joinScreen) joinScreen.style.display = "none";
+            if (chatScreen) chatScreen.style.display = "flex";
+            if (fileRoomScreen) fileRoomScreen.style.display = "none";
+
+            clearMessages();
+            if (res.messages && Array.isArray(res.messages)) {
+                res.messages.forEach(msg => {
+                    renderMessageBubble(msg);
+                });
+            }
+
+            if (res.members && Array.isArray(res.members)) {
+                updateUserList(res.members);
+            }
+            scrollMessagesToBottom(true);
+        } else {
+            clearSession();
+            if (joinScreen) joinScreen.style.display = "flex";
+            if (chatScreen) chatScreen.style.display = "none";
+            if (fileRoomScreen) fileRoomScreen.style.display = "none";
+            showSessionNotice("Your last room has ended or expired.");
+        }
+    });
+
+    socket.on("room-ended", (data) => {
+        const reason = (typeof data === "object" ? data.reason : data) || "ended";
+        clearSession();
+        performLeaveRoom(false);
+        const noticeMsg = reason === "expired" ? "Your room has expired due to inactivity." : "This room was ended by the admin.";
+        showSessionNotice(noticeMsg);
+    });
+
+    socket.on("rate-limited", (data) => {
+        const msg = (typeof data === "object" ? data.message : data) || "You're sending too fast";
+        showToast(msg);
     });
 
     socket.on("promoted-to-admin", () => {
@@ -4129,17 +4388,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle room closed due to inactivity (30 minutes) using in-UI modal
+    // Handle room closed due to inactivity using in-UI modal
     socket.on("room-inactive", (message) => {
-        if (chatScreen.style.display === "none") return;
-
-        const text = typeof message === "string" ? message : (message?.message || "Room has been closed due to 30 minutes of inactivity.");
-        if (roomInactiveText) roomInactiveText.textContent = text;
-        if (roomInactiveModal) {
-            roomInactiveModal.classList.remove("hidden");
-        } else {
-            performLeaveRoom(false);
-        }
+        clearSession();
+        performLeaveRoom(false);
+        showSessionNotice("Room has been closed due to inactivity.");
     });
 
     socket.on("user-removed", () => {
@@ -4155,15 +4408,9 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("update-user-list", (users) => updateUserList(users));
 
     socket.on("room-killed", () => {
-        // If already left or on landing page, do nothing
-        if (chatScreen.style.display === "none") return;
-
-        // Show the in-UI modal card to the member
-        if (roomEndedNoticeModal) {
-            roomEndedNoticeModal.classList.remove("hidden");
-        } else {
-            performLeaveRoom(false);
-        }
+        clearSession();
+        performLeaveRoom(false);
+        showSessionNotice("This room was ended by the admin.");
     });
 
     function resetInviteState() {
@@ -5508,6 +5755,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            let savedSession = null;
+            try {
+                const raw = localStorage.getItem("anon_session");
+                if (raw) savedSession = JSON.parse(raw);
+            } catch (e) {}
+
+            if (savedSession && (pathname === "/" || pathname === "")) {
+                restoreSession();
+                return;
+            }
+
             let savedFileRoom = null;
             try {
                 savedFileRoom = localStorage.getItem("anon_file_room_id");
@@ -5598,10 +5856,25 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("disconnect", (reason) => {
         console.warn("Socket disconnected:", reason);
         if (socketReconnectBanner) socketReconnectBanner.classList.remove("hidden");
+        try { if (socket.sendBuffer) socket.sendBuffer.length = 0; } catch (e) {}
     });
     socket.on("connect", () => {
         console.log("Socket connected:", socket.id);
         if (socketReconnectBanner) socketReconnectBanner.classList.add("hidden");
+        try { if (socket.sendBuffer) socket.sendBuffer.length = 0; } catch (e) {}
+
+        const raw = localStorage.getItem("anon_session");
+        if (raw) {
+            try {
+                const s = JSON.parse(raw);
+                if (s && s.kind === "chat" && s.roomInstanceId && s.sessionToken) {
+                    socket.emit("resume-session", {
+                        roomInstanceId: s.roomInstanceId,
+                        sessionToken: s.sessionToken
+                    });
+                }
+            } catch (e) {}
+        }
     });
 
     // 2. Cold-start backend health check
@@ -5744,4 +6017,96 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
         // Web PWA service worker registration preserved for web browsers
     }
+
+    // 5. Session Revalidation on lifecycle events (Phase 2)
+    function revalidateCurrentSession() {
+        const raw = localStorage.getItem("anon_session");
+        if (!raw) return;
+        try {
+            const s = JSON.parse(raw);
+            if (s && s.kind === "chat" && s.roomInstanceId && s.sessionToken) {
+                if (socket && socket.connected) {
+                    socket.emit("resume-session", {
+                        roomInstanceId: s.roomInstanceId,
+                        sessionToken: s.sessionToken
+                    });
+                }
+            } else if (s && s.kind === "vault" && s.identifier) {
+                fetch(`${API_BASE}/api/file-rooms/${encodeURIComponent(s.identifier)}`)
+                    .then(res => {
+                        if (res.status === 404 || res.status === 410) {
+                            clearSession();
+                            leaveFileRoom(false);
+                            showSessionNotice("That vault has expired or was deleted.");
+                        }
+                    })
+                    .catch(() => {});
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            revalidateCurrentSession();
+        }
+    });
+
+    window.addEventListener("pageshow", () => {
+        revalidateCurrentSession();
+    });
+
+    window.addEventListener("online", () => {
+        revalidateCurrentSession();
+    });
+
+    if (window.Capacitor?.Plugins?.App) {
+        window.Capacitor.Plugins.App.addListener('appStateChange', (state) => {
+            if (state && state.isActive) {
+                revalidateCurrentSession();
+            }
+        });
+    }
+
+    // 6. Dev-only Eruda in-app console (toggled by 5 taps on logo, Rule 6)
+    let erudaTapCount = 0;
+    let erudaTapTimer = null;
+    let erudaLoaded = false;
+
+    function handleLogoTap() {
+        erudaTapCount++;
+        if (erudaTapTimer) clearTimeout(erudaTapTimer);
+        erudaTapTimer = setTimeout(() => {
+            erudaTapCount = 0;
+        }, 2500);
+
+        if (erudaTapCount >= 5) {
+            erudaTapCount = 0;
+            if (erudaLoaded && window.eruda) {
+                if (window.eruda._isInit) {
+                    window.eruda.show();
+                    showToast("Developer console opened");
+                }
+            } else {
+                showToast("Loading developer console…");
+                const script = document.createElement("script");
+                script.src = "/eruda.js";
+                script.onload = () => {
+                    if (window.eruda) {
+                        window.eruda.init();
+                        window.eruda.show();
+                        erudaLoaded = true;
+                        showToast("Developer console enabled");
+                    }
+                };
+                script.onerror = () => {
+                    showToast("Failed to load developer console");
+                };
+                document.head.appendChild(script);
+            }
+        }
+    }
+
+    document.querySelectorAll(".header-logo, .landing-logo-img, .landing-logo-header").forEach(el => {
+        el.addEventListener("click", handleLogoTap);
+    });
 });

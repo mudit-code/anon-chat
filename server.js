@@ -73,6 +73,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/share", express.static(path.join(__dirname, "public")));
 
+// Rate limiting & Expiry Constants (Phases 1 & 2, Rule 8)
+const ROOM_TTL_MS = parseInt(process.env.ROOM_TTL_MS, 10) || (30 * 60 * 1000);
+const VAULT_TTL_MS = parseInt(process.env.VAULT_TTL_MS, 10) || (30 * 60 * 1000);
+const CLEANUP_INTERVAL_MS = parseInt(process.env.CLEANUP_INTERVAL_MS, 10) || (30 * 1000);
+
+const SOCKET_BUCKET_CAPACITY = 10;
+const SOCKET_BUCKET_REFILL_MS = 5000; // 10 messages per 5s
+const UPLOAD_RATE_WINDOW_MS = 60 * 1000; // 1 minute
+const UPLOAD_RATE_MAX_PER_MIN = 30; // 30 uploads per minute per IP
+const UPLOAD_CONCURRENT_MAX_PER_IP = 5; // Max concurrent uploads per IP
+const DEDUPE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const TOMBSTONE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// In-memory maps for rate limiting and tombstones
+const roomTombstones = new Map(); // roomInstanceId -> { instanceId, roomKey, endedAt, reason }
+const ipUploadTracker = new Map(); // ip -> { timestamps: number[], inFlight: number }
+
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
@@ -87,8 +104,71 @@ const upload = multer({ storage });
 
 const GIPHY_API_KEY = "X2rfEL5mqbPjVprW2ev39QFtsE12J7Py";
 
-app.post("/upload", upload.single("file"), (req, res) => {
+// Upload endpoint with IP rate limiting and room instance validation
+app.post("/upload", (req, res, next) => {
+  const ip = req.ip || req.connection?.remoteAddress || "unknown";
+  const now = Date.now();
+  let tracker = ipUploadTracker.get(ip);
+  if (!tracker) {
+    tracker = { timestamps: [], inFlight: 0 };
+    ipUploadTracker.set(ip, tracker);
+  }
+  tracker.timestamps = tracker.timestamps.filter(t => now - t < UPLOAD_RATE_WINDOW_MS);
+  if (tracker.timestamps.length >= UPLOAD_RATE_MAX_PER_MIN) {
+    return res.status(429).json({ error: "Upload rate limit exceeded. Please wait a moment." });
+  }
+  if (tracker.inFlight >= UPLOAD_CONCURRENT_MAX_PER_IP) {
+    return res.status(429).json({ error: "Too many concurrent uploads. Please wait." });
+  }
+  tracker.inFlight++;
+  tracker.timestamps.push(now);
+
+  const cleanup = () => {
+    if (tracker) {
+      tracker.inFlight = Math.max(0, tracker.inFlight - 1);
+    }
+  };
+  res.on("finish", cleanup);
+  res.on("close", cleanup);
+
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      cleanup();
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded." });
+
+  const roomInstanceId = req.body?.roomInstanceId || req.headers["x-room-instance-id"];
+  const clientMsgId = req.body?.clientMsgId || req.headers["x-client-msg-id"];
+
+  if (roomInstanceId) {
+    const room = findRoomByInstanceId(roomInstanceId);
+    if (!room) {
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(410).json({ error: "Room ended", code: "ROOM_ENDED" });
+    }
+
+    if (clientMsgId && room.dedupeMap && room.dedupeMap.has(clientMsgId)) {
+      const cached = room.dedupeMap.get(clientMsgId);
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.json(cached);
+    }
+
+    const result = { path: `/uploads/${req.file.filename}`, clientMsgId };
+    if (clientMsgId && room.dedupeMap) {
+      room.dedupeMap.set(clientMsgId, { ...result, timestamp: Date.now() });
+    }
+    room.lastActivity = Date.now();
+    return res.json(result);
+  }
+
   res.json({ path: `/uploads/${req.file.filename}` });
 });
 
@@ -223,9 +303,15 @@ function deleteFileRoom(roomId, reason = "expired") {
     }
   }
   if (reason === "ended") {
-    io.to("file-room-" + roomId).emit("file-vault-ended", "The creator has ended this vault. All files have been erased.");
+    io.to("file-room-" + roomId).emit("file-vault-ended", {
+      reason: "ended",
+      message: "The creator has ended this vault. All files have been erased."
+    });
   } else {
-    io.to("file-room-" + roomId).emit("file-room-expired", "This file room has expired due to 30 minutes of inactivity.");
+    io.to("file-room-" + roomId).emit("file-room-expired", {
+      reason: "expired",
+      message: "This file room has expired due to inactivity."
+    });
   }
 }
 
@@ -291,6 +377,7 @@ app.post("/api/file-rooms/create-and-upload", (req, res, next) => {
     roomKey,
     createdAt: now,
     lastActivity: now,
+    expiresAt: now + VAULT_TTL_MS,
     totalSizeBytes: totalUploadedBytes,
     maxSizeBytes: MAX_ROOM_STORAGE_BYTES,
     files: fileEntries
@@ -392,10 +479,17 @@ app.post("/api/file-rooms/:roomId/upload", (req, res, next) => {
 app.get("/api/file-rooms/:identifier", async (req, res) => {
   const room = findRoomByIdOrKey(req.params.identifier);
   if (!room) {
-    return res.status(404).json({ error: "File sharing room not found or has expired." });
+    return res.status(404).json({ error: "File vault not found or has expired.", code: "VAULT_NOT_FOUND" });
   }
 
-  room.lastActivity = Date.now();
+  const now = Date.now();
+  if (now - room.lastActivity > VAULT_TTL_MS) {
+    deleteFileRoom(room.roomId, "expired");
+    return res.status(410).json({ error: "File vault has expired.", code: "VAULT_EXPIRED" });
+  }
+
+  room.lastActivity = now;
+  room.expiresAt = now + VAULT_TTL_MS;
   saveRoomMetadata(room.roomId, room);
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
@@ -413,6 +507,7 @@ app.get("/api/file-rooms/:identifier", async (req, res) => {
     success: true,
     room: {
       ...room,
+      expiresAt: room.expiresAt,
       roomUrl,
       qrCodeDataUrl
     }
@@ -503,9 +598,38 @@ app.get(["/share/:identifier", "/share"], (req, res, next) => {
 
 let rooms = {};
 
+function findRoomByInstanceId(roomInstanceId) {
+  if (!roomInstanceId) return null;
+  for (const key in rooms) {
+    if (rooms[key].roomInstanceId === roomInstanceId) {
+      return rooms[key];
+    }
+  }
+  return null;
+}
+
+function checkSocketRateLimit(socket, room) {
+  const now = Date.now();
+  let bucket = room.tokenBuckets.get(socket.id);
+  if (!bucket) {
+    bucket = { tokens: SOCKET_BUCKET_CAPACITY, lastRefill: now };
+    room.tokenBuckets.set(socket.id, bucket);
+  }
+  const elapsed = now - bucket.lastRefill;
+  const tokensToAdd = (elapsed / SOCKET_BUCKET_REFILL_MS) * SOCKET_BUCKET_CAPACITY;
+  bucket.tokens = Math.min(SOCKET_BUCKET_CAPACITY, bucket.tokens + tokensToAdd);
+  bucket.lastRefill = now;
+
+  if (bucket.tokens < 1) {
+    return false;
+  }
+  bucket.tokens -= 1;
+  return true;
+}
+
 const updateUserList = (roomKey) => {
   if (rooms[roomKey]) {
-    io.to(roomKey).emit("update-user-list", rooms[roomKey].users);
+    io.to(roomKey).emit("update-user-list", rooms[roomKey].users.map(u => ({ id: u.id, username: u.username })));
   }
 };
 
@@ -520,16 +644,33 @@ io.on("connection", (socket) => {
 
   socket.on("create-room", ({ roomKey, username }) => {
     if (rooms[roomKey]) return socket.emit("room-exists", "This room key is already taken.");
+    const roomInstanceId = crypto.randomUUID();
+    const sessionToken = crypto.randomBytes(16).toString("hex");
+    const memberId = crypto.randomUUID();
+
     socket.join(roomKey);
     rooms[roomKey] = {
-      admin: { id: socket.id, username },
-      users: [{ id: socket.id, username }],
-      messages: [], // Unified storage for all messages (text, images, videos, files)
+      roomKey,
+      roomInstanceId,
+      admin: { id: socket.id, username, memberId, sessionToken },
+      users: [{ id: socket.id, username, memberId, sessionToken }],
+      messages: [],
       pendingUsers: [],
       typingUsers: new Set(),
-      lastActivity: Date.now()
+      lastActivity: Date.now(),
+      dedupeMap: new Map(),
+      tokenBuckets: new Map()
     };
-    socket.emit("room-created", { isAdmin: true });
+
+    socket.emit("room-created", {
+      isAdmin: true,
+      roomKey,
+      roomInstanceId,
+      sessionToken,
+      memberId,
+      username,
+      expiresAt: Date.now() + ROOM_TTL_MS
+    });
     updateUserList(roomKey);
   });
 
@@ -546,68 +687,58 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on('rejoin-room', ({ roomKey, username, isAdmin }) => {
-    let room = rooms[roomKey];
-
-    // Scenario 1: Room does not exist (was deleted because empty)
+  socket.on("resume-session", ({ roomInstanceId, sessionToken }) => {
+    if (!roomInstanceId || !sessionToken) {
+      return socket.emit("resume-session-response", { valid: false, reason: "invalid_params" });
+    }
+    const room = findRoomByInstanceId(roomInstanceId);
     if (!room) {
-      // Only recreate if the user claims to be the admin
-      if (isAdmin) {
-        socket.join(roomKey);
-        rooms[roomKey] = {
-          admin: { id: socket.id, username },
-          users: [{ id: socket.id, username }],
-          messages: [],
-          pendingUsers: [],
-          typingUsers: new Set(),
-          lastActivity: Date.now()
-        };
-        socket.emit("room-created", { isAdmin: true });
-        socket.emit('chat-history', {
-          messages: []
-        });
-        updateUserList(roomKey);
-        return;
-      } else {
-        // If not admin, we can't recreate the room
-        socket.emit('room-not-found');
-        return;
-      }
+      const tombstone = roomTombstones.get(roomInstanceId);
+      return socket.emit("resume-session-response", {
+        valid: false,
+        reason: tombstone ? tombstone.reason : "expired"
+      });
     }
 
-    // Scenario 2: Room exists
-    const user = room.users.find(u => u.username === username);
+    const member = room.users.find(u => u.sessionToken === sessionToken);
+    if (!member) {
+      return socket.emit("resume-session-response", { valid: false, reason: "NOT_MEMBER" });
+    }
 
-    if (user) {
-      // User is already in the list (maybe opened a second tab, or quick reconnect)
-      user.id = socket.id;
-      socket.join(roomKey);
-      // If this user was the admin, update the admin socket id too
-      if (room.admin.username === username) {
-        room.admin.id = socket.id;
-        socket.emit("promoted-to-admin");
-      }
-      socket.emit('join-approved', {
-        messages: room.messages
-      });
-      updateUserList(roomKey);
+    member.id = socket.id;
+    if (room.admin.memberId === member.memberId) {
+      room.admin.id = socket.id;
+    }
+    socket.join(room.roomKey);
+    room.lastActivity = Date.now();
+
+    socket.emit("resume-session-response", {
+      valid: true,
+      roomKey: room.roomKey,
+      roomInstanceId: room.roomInstanceId,
+      sessionToken: member.sessionToken,
+      memberId: member.memberId,
+      username: member.username,
+      isAdmin: room.admin.memberId === member.memberId,
+      members: room.users.map(u => ({ id: u.id, username: u.username })),
+      messages: room.messages,
+      expiresAt: room.lastActivity + ROOM_TTL_MS
+    });
+
+    updateUserList(room.roomKey);
+  });
+
+  socket.on("peek-room", ({ roomKey }, callback) => {
+    const room = rooms[roomKey];
+    const response = {
+      exists: !!room,
+      onlineCount: room ? room.users.length : 0,
+      full: room ? room.users.length >= 50 : false
+    };
+    if (typeof callback === "function") {
+      callback(response);
     } else {
-      // User was removed from the list (disconnect), put them back in
-      const newUser = { id: socket.id, username };
-      room.users.push(newUser);
-      socket.join(roomKey);
-
-      // If they were the admin, restore their status
-      if (isAdmin && (!room.admin || room.admin.username === username)) {
-        room.admin = newUser;
-        socket.emit("promoted-to-admin");
-      }
-
-      socket.emit('join-approved', {
-        messages: room.messages
-      });
-      io.to(roomKey).emit("user-joined", username);
-      updateUserList(roomKey);
+      socket.emit("peek-room-response", response);
     }
   });
 
@@ -617,12 +748,22 @@ io.on("connection", (socket) => {
     const userToJoin = room.pendingUsers.find(u => u.id === userId);
     if (userToJoin) {
       room.pendingUsers = room.pendingUsers.filter(u => u.id !== userId);
-      room.users.push(userToJoin);
+      const sessionToken = crypto.randomBytes(16).toString("hex");
+      const memberId = crypto.randomUUID();
+      const newUser = { id: userToJoin.id, username: userToJoin.username, memberId, sessionToken };
+      room.users.push(newUser);
       const userSocket = io.sockets.sockets.get(userId);
       if (userSocket) {
         userSocket.join(roomKey);
         userSocket.emit("join-approved", {
-          messages: room.messages
+          messages: room.messages,
+          roomKey,
+          roomInstanceId: room.roomInstanceId,
+          sessionToken,
+          memberId,
+          username: userToJoin.username,
+          isAdmin: false,
+          expiresAt: room.lastActivity + ROOM_TTL_MS
         });
         io.to(roomKey).emit("user-joined", userToJoin.username);
         updateUserList(roomKey);
@@ -639,12 +780,24 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("kill-room", ({ roomKey }) => {
-    const room = rooms[roomKey];
-    if (room && room.admin.id === socket.id) {
-      // Notify other participants in the room
-      socket.to(roomKey).emit("room-killed");
-      delete rooms[roomKey];
+  socket.on("kill-room", ({ roomKey, roomInstanceId, sessionToken }) => {
+    let room = rooms[roomKey];
+    if (!room && roomInstanceId) {
+      room = findRoomByInstanceId(roomInstanceId);
+    }
+    if (!room) return;
+    if (room.admin.id === socket.id || (sessionToken && room.admin.sessionToken === sessionToken)) {
+      const instanceId = room.roomInstanceId;
+      roomTombstones.set(instanceId, {
+        instanceId,
+        roomKey: room.roomKey,
+        endedAt: Date.now(),
+        reason: "ended"
+      });
+
+      io.to(room.roomKey).emit("room-ended", { reason: "ended" });
+      io.in(room.roomKey).socketsLeave(room.roomKey);
+      delete rooms[room.roomKey];
     }
   });
 
@@ -665,21 +818,48 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("chat-message", ({ roomKey, username, message, id, replyTo }) => {
-    if (rooms[roomKey]) {
-      const msgId = id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      const entry = {
-        id: msgId,
-        username,
-        message,
-        timestamp: Date.now(),
-        seenBy: [],
-        ...(replyTo && { replyTo }) // Only add replyTo if present
-      };
-      rooms[roomKey].messages.push(entry);
-      rooms[roomKey].lastActivity = Date.now();
-      io.to(roomKey).emit("chat-message", entry);
+  socket.on("chat-message", ({ roomKey, roomInstanceId, sessionToken, clientMsgId, username, message, id, replyTo }) => {
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    if (!room) {
+      return socket.emit("room-ended", { reason: "ended" });
     }
+
+    if (roomInstanceId && room.roomInstanceId !== roomInstanceId) {
+      return socket.emit("room-ended", { reason: "ended" });
+    }
+
+    if (!checkSocketRateLimit(socket, room)) {
+      return socket.emit("rate-limited", { message: "You're sending too fast" });
+    }
+
+    if (clientMsgId && room.dedupeMap.has(clientMsgId)) {
+      const existing = room.dedupeMap.get(clientMsgId);
+      return socket.emit("chat-message", existing.entry);
+    }
+
+    const msgId = id || clientMsgId || `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const entry = {
+      id: msgId,
+      clientMsgId: clientMsgId || msgId,
+      username,
+      message,
+      timestamp: Date.now(),
+      seenBy: [],
+      ...(replyTo && { replyTo })
+    };
+
+    room.messages.push(entry);
+    if (clientMsgId) {
+      room.dedupeMap.set(clientMsgId, { entry, timestamp: Date.now() });
+      if (room.dedupeMap.size > 200) {
+        const now = Date.now();
+        for (const [k, v] of room.dedupeMap.entries()) {
+          if (now - v.timestamp > DEDUPE_TTL_MS) room.dedupeMap.delete(k);
+        }
+      }
+    }
+    room.lastActivity = Date.now();
+    io.to(room.roomKey).emit("chat-message", entry);
   });
 
   socket.on("mark-seen", ({ roomKey, messageId, username }) => {
@@ -693,19 +873,37 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("file-uploaded", ({ roomKey, username, file, messageId }) => {
-    if (rooms[roomKey]) {
-      const entry = {
-        id: messageId,
-        username,
-        file,
-        timestamp: Date.now(),
-        seenBy: []
-      };
-      rooms[roomKey].messages.push(entry);
-      rooms[roomKey].lastActivity = Date.now();
-      io.to(roomKey).emit("file-uploaded", entry);
+  socket.on("file-uploaded", ({ roomKey, roomInstanceId, sessionToken, clientMsgId, username, file, messageId }) => {
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    if (!room) {
+      return socket.emit("room-ended", { reason: "ended" });
     }
+    if (roomInstanceId && room.roomInstanceId !== roomInstanceId) {
+      return socket.emit("room-ended", { reason: "ended" });
+    }
+    if (!checkSocketRateLimit(socket, room)) {
+      return socket.emit("rate-limited", { message: "You're sending too fast" });
+    }
+    if (clientMsgId && room.dedupeMap.has(clientMsgId)) {
+      const existing = room.dedupeMap.get(clientMsgId);
+      return socket.emit("file-uploaded", existing.entry);
+    }
+
+    const entry = {
+      id: messageId || clientMsgId || `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+      clientMsgId: clientMsgId || messageId,
+      username,
+      file,
+      timestamp: Date.now(),
+      seenBy: []
+    };
+
+    room.messages.push(entry);
+    if (clientMsgId) {
+      room.dedupeMap.set(clientMsgId, { entry, timestamp: Date.now() });
+    }
+    room.lastActivity = Date.now();
+    io.to(room.roomKey).emit("file-uploaded", entry);
   });
 
   // Production-grade typing indicators
@@ -809,7 +1007,8 @@ io.on("connection", (socket) => {
     for (const roomKey in rooms) {
       const user = rooms[roomKey].users.find(u => u.id === socket.id);
       if (user) {
-        handleUserLeave(roomKey, user.username);
+        user.id = null;
+        updateUserList(roomKey);
         break;
       }
     }
@@ -840,18 +1039,32 @@ io.on("connection", (socket) => {
   });
 });
 
-// Clean up inactive rooms after 30 minutes of complete inactivity
+// Clean up inactive rooms after TTL of inactivity
 setInterval(() => {
   const now = Date.now();
-  const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
 
   // 1. Clean up inactive chat rooms
   for (const roomKey in rooms) {
     const room = rooms[roomKey];
-    if (now - room.lastActivity > thirtyMinutes) {
-      console.log(`Deleting inactive chat room: ${roomKey} (inactive for ${Math.round((now - room.lastActivity) / 1000 / 60)} minutes)`);
-      io.to(roomKey).emit("room-inactive", "Room has been closed due to 30 minutes of inactivity.");
+    if (now - room.lastActivity > ROOM_TTL_MS) {
+      console.log(`Deleting inactive chat room: ${roomKey}`);
+      const instanceId = room.roomInstanceId;
+      roomTombstones.set(instanceId, {
+        instanceId,
+        roomKey,
+        endedAt: now,
+        reason: "expired"
+      });
+      io.to(roomKey).emit("room-ended", { reason: "expired" });
+      io.in(roomKey).socketsLeave(roomKey);
       delete rooms[roomKey];
+    }
+  }
+
+  // Clean old tombstones
+  for (const [id, tomb] of roomTombstones.entries()) {
+    if (now - tomb.endedAt > TOMBSTONE_TTL_MS) {
+      roomTombstones.delete(id);
     }
   }
 
@@ -861,16 +1074,16 @@ setInterval(() => {
       const folders = fs.readdirSync(fileRoomsDir);
       for (const folder of folders) {
         const meta = getRoomMetadata(folder);
-        if (meta && (now - meta.lastActivity > thirtyMinutes)) {
-          console.log(`Deleting inactive file room: ${folder} (inactive for ${Math.round((now - meta.lastActivity) / 1000 / 60)} minutes)`);
-          deleteFileRoom(folder);
+        if (meta && (now - meta.lastActivity > VAULT_TTL_MS)) {
+          console.log(`Deleting inactive file room: ${folder}`);
+          deleteFileRoom(folder, "expired");
         }
       }
     }
   } catch (e) {
     console.error("Error during file room cleanup interval:", e);
   }
-}, 30 * 1000); // Check every 30 seconds
+}, CLEANUP_INTERVAL_MS);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
