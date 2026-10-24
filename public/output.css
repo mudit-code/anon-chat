@@ -583,6 +583,31 @@ html.light-mode,
   color: #1c1917;
 }
 
+/* Button active feedback & touch manipulation (Phase 3) */
+
+button, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+
+button:active:not([disabled]):not([aria-busy="true"]),
+  [role="button"]:active:not([disabled]):not([aria-busy="true"]) {
+  transform: scale(0.97);
+}
+
+button[aria-busy="true"],
+  [role="button"][aria-busy="true"] {
+  cursor: wait !important;
+  pointer-events: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active, [role="button"]:active {
+    transform: none !important;
+  }
+}
+
 /* Keyboard focus states */
 
 input:focus-visible,
@@ -742,8 +767,16 @@ input:focus-visible,
   z-index: 50;
 }
 
+.z-\[100\] {
+  z-index: 100;
+}
+
 .col-span-3 {
   grid-column: span 3 / span 3;
+}
+
+.m-1 {
+  margin: 0.25rem;
 }
 
 .mx-auto {
@@ -781,6 +814,10 @@ input:focus-visible,
 
 .ml-1 {
   margin-left: 0.25rem;
+}
+
+.ml-2 {
+  margin-left: 0.5rem;
 }
 
 .mr-1 {
@@ -827,6 +864,10 @@ input:focus-visible,
   display: inline-block;
 }
 
+.inline {
+  display: inline;
+}
+
 .flex {
   display: flex;
 }
@@ -835,12 +876,25 @@ input:focus-visible,
   display: inline-flex;
 }
 
+.table {
+  display: table;
+}
+
+.table-row {
+  display: table-row;
+}
+
 .grid {
   display: grid;
 }
 
 .hidden {
   display: none;
+}
+
+.size-1 {
+  width: 0.25rem;
+  height: 0.25rem;
 }
 
 .h-1\.5 {
@@ -853,6 +907,10 @@ input:focus-visible,
 
 .h-14 {
   height: 3.5rem;
+}
+
+.h-16 {
+  height: 4rem;
 }
 
 .h-2 {
@@ -931,12 +989,20 @@ input:focus-visible,
   min-height: 160px;
 }
 
+.min-h-full {
+  min-height: 100%;
+}
+
 .w-12 {
   width: 3rem;
 }
 
 .w-14 {
   width: 3.5rem;
+}
+
+.w-16 {
+  width: 4rem;
 }
 
 .w-2\.5 {
@@ -1003,6 +1069,10 @@ input:focus-visible,
   max-width: 24rem;
 }
 
+.max-w-xs {
+  max-width: 20rem;
+}
+
 .flex-1 {
   flex: 1 1 0%;
 }
@@ -1034,6 +1104,20 @@ input:focus-visible,
 
 .animate-bounce {
   animation: bounce 1s infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }
 
 @keyframes modal-in {
@@ -1370,6 +1454,11 @@ input:focus-visible,
 .bg-\[\#1e1e1e\] {
   --tw-bg-opacity: 1;
   background-color: rgb(30 30 30 / var(--tw-bg-opacity, 1));
+}
+
+.bg-\[\#1f1f1f\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(31 31 31 / var(--tw-bg-opacity, 1));
 }
 
 .bg-\[\#222\] {
@@ -1869,6 +1958,10 @@ input:focus-visible,
 .outline-none {
   outline: 2px solid transparent;
   outline-offset: 2px;
+}
+
+.outline {
+  outline-style: solid;
 }
 
 .blur {
@@ -5798,6 +5891,11 @@ html.loading-file-room #fileRoomScreen {
   border-color: rgb(255 182 130 / 0.6);
 }
 
+.hover\:bg-\[\#2a2a2a\]:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(42 42 42 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-\[\#2c2c2c\]:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(44 44 44 / var(--tw-bg-opacity, 1));
@@ -5868,6 +5966,11 @@ html.loading-file-room #fileRoomScreen {
 
 .hover\:opacity-80:hover {
   opacity: 0.8;
+}
+
+.hover\:brightness-110:hover {
+  --tw-brightness: brightness(1.1);
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
 .focus\:border-\[\#ffb682\]:focus {

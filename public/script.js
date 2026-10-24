@@ -136,10 +136,112 @@ function appConfirm(message, { title = "Confirm", okText = "Confirm", cancelText
 }
 window.appConfirm = appConfirm;
 
-// Override native window.alert to route into app dialog so nothing native leaks
-window.alert = function (msg) {
-    appAlert(msg);
-};
+// ======== BUTTON BUSY / PROCESSING STATE SYSTEM (Phase 3) ========
+function withBusy(button, asyncFn, options = {}) {
+    if (!button) return;
+    const {
+        minMs = 250,
+        timeoutMs = 15000,
+        connectingText = "Connecting…",
+        serverWakeupNotice = false
+    } = options;
+
+    if (button.dataset.isBusy === "true" || button.getAttribute("aria-busy") === "true") {
+        return; // Ignore duplicate taps while busy
+    }
+
+    button.dataset.isBusy = "true";
+    button.setAttribute("aria-busy", "true");
+
+    // Preserve exact dimensions to prevent layout shift
+    const rect = button.getBoundingClientRect();
+    if (rect.width > 0) button.style.minWidth = `${rect.width}px`;
+    if (rect.height > 0) button.style.minHeight = `${rect.height}px`;
+
+    const originalHTML = button.innerHTML;
+    const originalDisabled = button.disabled;
+
+    const existingIcon = button.querySelector("i.fas, i.far, i.fa-solid, i.fa-regular");
+    if (connectingText && button.textContent.trim().length > 0) {
+        button.innerHTML = `<i class="fas fa-circle-notch fa-spin mr-1.5 busy-spinner" aria-hidden="true"></i>${connectingText}`;
+    } else if (existingIcon) {
+        button.innerHTML = `<i class="fas fa-circle-notch fa-spin busy-spinner" aria-hidden="true"></i>`;
+    } else {
+        button.innerHTML = `<i class="fas fa-circle-notch fa-spin mr-1.5 busy-spinner" aria-hidden="true"></i>`;
+    }
+
+    let wakeupTimer = null;
+    if (serverWakeupNotice) {
+        wakeupTimer = setTimeout(() => {
+            if (button.dataset.isBusy === "true") {
+                showToast("Waking up the server, this can take up to a minute", 5000);
+            }
+        }, 5000);
+    }
+
+    let timeoutOccurred = false;
+    let timeoutTimer = setTimeout(() => {
+        timeoutOccurred = true;
+        showToast("Request timed out. Please try again.");
+        cleanup();
+    }, timeoutMs);
+
+    const startTime = Date.now();
+
+    function cleanup() {
+        if (wakeupTimer) clearTimeout(wakeupTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        button.innerHTML = originalHTML;
+        button.style.minWidth = "";
+        button.style.minHeight = "";
+        button.removeAttribute("aria-busy");
+        delete button.dataset.isBusy;
+        button.disabled = originalDisabled;
+    }
+
+    try {
+        const result = asyncFn();
+        if (result && typeof result.then === "function") {
+            return result
+                .then(res => {
+                    const elapsed = Date.now() - startTime;
+                    const remaining = Math.max(0, minMs - elapsed);
+                    if (remaining > 0) {
+                        return new Promise(r => setTimeout(r, remaining)).then(() => {
+                            if (!timeoutOccurred) cleanup();
+                            return res;
+                        });
+                    } else {
+                        if (!timeoutOccurred) cleanup();
+                        return res;
+                    }
+                })
+                .catch(err => {
+                    const elapsed = Date.now() - startTime;
+                    const remaining = Math.max(0, minMs - elapsed);
+                    setTimeout(() => {
+                        if (!timeoutOccurred) cleanup();
+                    }, remaining);
+                    throw err;
+                });
+        } else {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, minMs - elapsed);
+            setTimeout(() => {
+                if (!timeoutOccurred) cleanup();
+            }, remaining);
+            return result;
+        }
+    } catch (err) {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, minMs - elapsed);
+        setTimeout(() => {
+            if (!timeoutOccurred) cleanup();
+        }, remaining);
+        throw err;
+    }
+}
+window.withBusy = withBusy;
 
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io(API_BASE || undefined, { transports: ['websocket', 'polling'] });
@@ -2337,11 +2439,22 @@ document.addEventListener('DOMContentLoaded', () => {
             appAlert("Please enter a username and a room key.");
             return;
         }
-        window.currentRoomKey = roomKey;
-        socket.emit("create-room", {
-            roomKey,
-            username
-        });
+        withBusy(createRoomBtn, () => {
+            window.currentRoomKey = roomKey;
+            socket.emit("create-room", {
+                roomKey,
+                username
+            });
+            return new Promise((resolve) => {
+                const onDone = () => { cleanup(); resolve(); };
+                function cleanup() {
+                    socket.off("room-created", onDone);
+                    socket.off("room-exists", onDone);
+                }
+                socket.once("room-created", onDone);
+                socket.once("room-exists", onDone);
+            });
+        }, { serverWakeupNotice: true, connectingText: "Connecting…" });
     };
 
     joinRoomBtn.onclick = () => {
@@ -2351,11 +2464,26 @@ document.addEventListener('DOMContentLoaded', () => {
             appAlert("Please enter a username and a room key.");
             return;
         }
-        window.currentRoomKey = roomKey;
-        socket.emit("join-room", {
-            roomKey,
-            username
-        });
+        withBusy(joinRoomBtn, () => {
+            window.currentRoomKey = roomKey;
+            socket.emit("join-room", {
+                roomKey,
+                username
+            });
+            return new Promise((resolve) => {
+                const onDone = () => { cleanup(); resolve(); };
+                function cleanup() {
+                    socket.off("join-approved", onDone);
+                    socket.off("join-request-sent", onDone);
+                    socket.off("room-not-found", onDone);
+                    socket.off("join-rejected", onDone);
+                }
+                socket.once("join-approved", onDone);
+                socket.once("join-request-sent", onDone);
+                socket.once("room-not-found", onDone);
+                socket.once("join-rejected", onDone);
+            });
+        }, { serverWakeupNotice: true, connectingText: "Connecting…" });
     };
 
     // Direct join invite card elements & handlers
@@ -2388,11 +2516,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (usernameInput) usernameInput.value = username;
             if (roomKeyInput) roomKeyInput.value = roomKey;
 
-            if (inviteJoinStatus) inviteJoinStatus.classList.remove("hidden");
-            askJoinRoomBtn.disabled = true;
-            askJoinRoomBtn.classList.add("opacity-50", "pointer-events-none");
-
-            socket.emit("join-room", { roomKey, username });
+            withBusy(askJoinRoomBtn, () => {
+                if (inviteJoinStatus) inviteJoinStatus.classList.remove("hidden");
+                socket.emit("join-room", { roomKey, username });
+                return new Promise((resolve) => {
+                    const onDone = () => { cleanup(); resolve(); };
+                    function cleanup() {
+                        socket.off("join-approved", onDone);
+                        socket.off("join-request-sent", onDone);
+                        socket.off("room-not-found", onDone);
+                        socket.off("join-rejected", onDone);
+                    }
+                    socket.once("join-approved", onDone);
+                    socket.once("join-request-sent", onDone);
+                    socket.once("room-not-found", onDone);
+                    socket.once("join-rejected", onDone);
+                });
+            }, { serverWakeupNotice: true, connectingText: "Connecting…" });
         };
     }
 
@@ -2457,7 +2597,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Confirm leave chat
     confirmLeaveBtn.onclick = () => {
-        performLeaveRoom(true);
+        withBusy(confirmLeaveBtn, async () => {
+            performLeaveRoom(true);
+        }, { minMs: 300, connectingText: "Leaving…" });
     };
 
     // Cancel leave chat
@@ -2475,9 +2617,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Confirm end room - single confirmation, redirects directly to landing page
     confirmEndRoomBtn.onclick = () => {
-        const currentKey = roomKey;
-        socket.emit("kill-room", { roomKey: currentKey, roomInstanceId, sessionToken });
-        performLeaveRoom(false);
+        withBusy(confirmEndRoomBtn, async () => {
+            const currentKey = roomKey;
+            socket.emit("kill-room", { roomKey: currentKey, roomInstanceId, sessionToken });
+            performLeaveRoom(false);
+        }, { minMs: 300, connectingText: "Ending…" });
     };
 
     // Cancel end room
@@ -2513,11 +2657,10 @@ document.addEventListener('DOMContentLoaded', () => {
         copyRoomKeyBtn.onclick = () => {
             if (!roomKey) return;
             navigator.clipboard.writeText(roomKey).then(() => {
-                const originalText = copyRoomKeyBtn.textContent;
-                copyRoomKeyBtn.textContent = "Copied!";
-                setTimeout(() => {
-                    copyRoomKeyBtn.textContent = originalText;
-                }, 1500);
+                withBusy(copyRoomKeyBtn, () => new Promise(r => setTimeout(r, 1500)), {
+                    minMs: 1500,
+                    connectingText: '<i class="fas fa-check text-emerald-400 mr-1.5"></i>Copied!'
+                });
             }).catch(err => {
                 console.error("Failed to copy room key:", err);
             });
@@ -2869,6 +3012,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (message === "" && !hasMedia && !fileToSend) return;
 
         isSendingInProgress = true;
+        sendBtn.setAttribute('aria-busy', 'true');
+        sendBtn.dataset.isBusy = 'true';
         lastSendTime = now;
         pastedMedia.length = 0;
         renderMediaPreviews();
@@ -3138,6 +3283,8 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollMessagesToBottom(true);
         } finally {
             isSendingInProgress = false;
+            sendBtn.removeAttribute('aria-busy');
+            delete sendBtn.dataset.isBusy;
             hideUploadProgress();
             sendBtn.classList.remove('opacity-60', 'cursor-not-allowed');
             updateSendButtonState();
@@ -5425,11 +5572,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const landingTileOpenKeyBtn = document.getElementById("landingTileOpenKeyBtn");
         if (landingTileOpenKeyBtn && landingTileKeyInput) {
             landingTileOpenKeyBtn.addEventListener("click", () => {
-                openFileRoomByIdentifier(landingTileKeyInput.value);
+                const key = landingTileKeyInput.value.trim();
+                if (!key) {
+                    showToast("Please enter a room key or ID.");
+                    return;
+                }
+                withBusy(landingTileOpenKeyBtn, async () => {
+                    await openFileRoomByIdentifier(key);
+                }, { serverWakeupNotice: true, connectingText: "Opening…" });
             });
             landingTileKeyInput.addEventListener("keydown", (e) => {
                 if (e.key === "Enter") {
-                    openFileRoomByIdentifier(landingTileKeyInput.value);
+                    landingTileOpenKeyBtn.click();
                 }
             });
         }

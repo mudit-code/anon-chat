@@ -59,6 +59,30 @@
     color: #1c1917;
   }
 
+  /* Button active feedback & touch manipulation (Phase 3) */
+  button, [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s ease, opacity 0.15s ease, filter 0.15s ease;
+  }
+
+  button:active:not([disabled]):not([aria-busy="true"]),
+  [role="button"]:active:not([disabled]):not([aria-busy="true"]) {
+    transform: scale(0.97);
+  }
+
+  button[aria-busy="true"],
+  [role="button"][aria-busy="true"] {
+    cursor: wait !important;
+    pointer-events: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button:active, [role="button"]:active {
+      transform: none !important;
+    }
+  }
+
   /* Keyboard focus states */
   input:focus-visible,
   textarea:focus-visible,

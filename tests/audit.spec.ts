@@ -245,16 +245,22 @@ test.describe('Audit Suite - Current Behavior', () => {
   test('PHASE 3: Busy/processing state on buttons', async ({ page }) => {
     await page.goto('/');
     const btn = page.locator('#createRoomBtn');
+    const roomKey = 'key_p3_' + Math.random().toString(36).substring(2, 6);
     await page.fill('#username', 'UserP3');
-    await page.fill('#roomKey', 'key_p3_busy_test');
+    await page.fill('#roomKey', roomKey);
 
-    await page.click('#createRoomBtn');
+    await btn.click();
     // Take immediate screenshot within 100ms
     await page.screenshot({ path: 'verify/screenshots/phase3_busy_click.png' });
 
     const hasAriaBusy = await btn.getAttribute('aria-busy');
-    const isSpinnerPresent = await btn.locator('.fa-spinner, .animate-spin').count();
+    const isSpinnerPresent = await btn.locator('.busy-spinner, .fa-circle-notch, .fa-spinner, .animate-spin').count();
     console.log(`PHASE 3 Result: hasAriaBusy=${hasAriaBusy}, isSpinnerPresent=${isSpinnerPresent}`);
+    expect(hasAriaBusy).toBe('true');
+    expect(isSpinnerPresent).toBeGreaterThan(0);
+
+    // Wait for room to be created and chat screen to show (state clears on success)
+    await expect(page.locator('#chatScreen')).toBeVisible();
   });
 
   // PHASE 4: Composer layout (WhatsApp arrangement)

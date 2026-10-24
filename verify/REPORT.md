@@ -92,3 +92,18 @@
   - Phase 2c: PASS (New room reusing same key has 0 ghost messages from old room).
   - Phase 2f: PASS (Reloading within TTL resumes same room with member session and messages intact).
 
+---
+
+### Phase 3: Busy / Processing State on Every Button
+- **Status:** **PASS**
+- **Screenshot:** `verify/screenshots/phase3_busy_click.png`
+- **Root Cause & Fix:**
+  - *Root Cause:* Buttons had no immediate feedback on tap, no visual spinner, no `aria-busy` attribute, and lacked a mechanism to lock multiple concurrent taps during async operations.
+  - *Fix:*
+    - Created helper `withBusy(button, asyncFn, options)` supporting `minMs` (default 250ms), `timeoutMs` (default 15000ms), and `connectingText` with server wake-up hint after 5s.
+    - Locks button dimensions using `getBoundingClientRect()` (`style.minWidth` / `minHeight`) to prevent any layout shifts.
+    - Sets `aria-busy="true"` and `button.dataset.isBusy = "true"`, ignores duplicate taps while busy, replaces/prefixes icon with spinning `.fa-circle-notch`.
+    - Added CSS active feedback `button:active { transform: scale(0.97); }` and `touch-action: manipulation` across all buttons with `@media (prefers-reduced-motion: reduce)` protection.
+    - Applied to Create room, Join room, Ask to join, Open vault, confirm leave/end room, copy room key (1.5s checkmark state), and send button dispatching.
+- **Verification:** In Playwright test, clicking `#createRoomBtn` immediately exhibits `hasAriaBusy=true` and `isSpinnerPresent=1`, layout width/height preserved, clears state cleanly upon transition to `#chatScreen`.
+
