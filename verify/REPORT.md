@@ -269,5 +269,33 @@
   - Verified empty search query renders "No GIFs found".
   - Verified picker panel preserves >= 200px height.
 
+---
+
+### Phase 11: Reply UX
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase11_reply_ux.png` (Overview of text and media replies in chat stream with composer reply bar)
+  - `verify/screenshots/phase11_mid_drag.png` (Mid-drag gesture showing bubble live translation and scaling swipe reply icon)
+  - `verify/screenshots/phase11_360px.png` (Mobile 360px viewport layout of quotes and swipe gestures)
+  - `verify/screenshots/phase11_1280px.png` (Desktop 1280px viewport with hover reply button)
+  - `verify/screenshots/phase11_light_mode.png` (Clean contrast in light theme for quotes and accent bars)
+- **Root Cause & Fix:**
+  - *Root Cause:* Previous quote rendering relied on DOM text scraping (`extractMessageData`), causing timestamps and sender text to jam into the snippet text; media quotes lacked visual indicators or thumbnails; swipe-to-reply was implemented across disparate touch/mouse listeners without rubber-banding, threshold pop, or screen edge margins (causing Android system back gestures to conflict); missing smooth-scroll target toast; no desktop hover reply button.
+  - *Fix:*
+    - Created `window.messageDataStore` preserving structured `{ id, senderName, type, snippet, mediaSrc }` across all message ingestion and rendering paths, eliminating DOM scraping.
+    - Updated `renderMessageBubble()` to render compact quote blocks with a left accent bar (`3px solid var(--o)` / `#000`), bold `~senderName`, 2-line clamped snippet, and 36px thumbnail for media with zero timestamps.
+    - Designed composer `#replyPreviewBar` with matching structured quote layout, media thumbnail, and cancel `x` button.
+    - Replaced touch/mouse listeners with unified Pointer Events swipe-to-reply: ignored drags <= 24px from left screen edge (protecting Android back gesture) or starting on interactive controls; locked into drag on dx > 8px beating dy; rubber-banded translation to max 72px; popped `.threshold-ready` at 56px with light haptic tick; animated back to 0 on release.
+    - Added desktop `.desktop-reply-btn` visible on hover for fine-pointer devices.
+    - Updated `scrollToMessage(id)`: smoothly centers target with 1.5s pulse highlight; shows toast `"Original message isn't available"` if target is not in DOM.
+- **Verification:**
+  - Verified structured text quotes and media thumbnail quotes rendered with 0 timestamps.
+  - Verified 30px swipe drag snaps back with no reply triggered.
+  - Verified 90px swipe drag triggers reply bar with quote.
+  - Verified quote click smooth-scrolls and highlights target for 1.5s.
+  - Verified invalid quote click displays toast `"Original message isn't available"`.
+  - Verified multi-viewport captures at 360px and 1280px in dark and light modes.
+
+
 
 

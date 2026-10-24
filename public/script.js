@@ -1081,9 +1081,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 type: mediaItem.file.type,
                                 path: data.path
                             },
-                            seenBy: []
+                            seenBy: [],
+                            ...(mediaItem.replyTo && { replyTo: mediaItem.replyTo })
                         };
-                        displayFile(username, filePayload.file, clientMsgId, []);
+                        displayFile(username, filePayload.file, clientMsgId, [], mediaItem.replyTo);
                         socket.emit("file-message", filePayload);
                     } else {
                         const messagePayload = {
@@ -1100,14 +1101,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 size: mediaItem.file?.size,
                                 durationMs: mediaItem.durationMs || 0
                             },
-                            seenBy: []
+                            seenBy: [],
+                            ...(mediaItem.replyTo && { replyTo: mediaItem.replyTo })
                         };
                         renderMessageBubble({
                             username,
                             message: messagePayload.message,
                             id: clientMsgId,
                             clientMsgId,
-                            seenBy: []
+                            seenBy: [],
+                            replyTo: mediaItem.replyTo || null
                         });
                         socket.emit("chat-message", messagePayload);
                     }
@@ -1182,18 +1185,64 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.classList.add("consecutive");
         }
 
+        // Phase 11: Maintain structured messageDataStore
+        if (!window.messageDataStore) window.messageDataStore = new Map();
+        const storedId = id || clientMsgId || domId;
+        if (storedId) {
+            let sType = message?.type || (msgPayload.file ? 'file' : 'text');
+            let sSnippet = '';
+            let sMediaSrc = null;
+            if (sType === 'text') {
+                sSnippet = (message?.content || '').slice(0, 120);
+            } else if (sType === 'image') {
+                sSnippet = 'Photo';
+                sMediaSrc = resolveMediaUrl(message?.content);
+            } else if (sType === 'gif') {
+                sSnippet = 'GIF';
+                sMediaSrc = resolveMediaUrl(message?.content);
+            } else if (sType === 'video') {
+                sSnippet = 'Video';
+                sMediaSrc = resolveMediaUrl(message?.content);
+            } else if (sType === 'snap') {
+                sSnippet = 'Video message';
+                sMediaSrc = resolveMediaUrl(message?.content);
+            } else if (sType === 'audio') {
+                sSnippet = 'Voice message';
+            } else if (sType === 'sticker') {
+                sSnippet = 'Sticker';
+                sMediaSrc = resolveMediaUrl(message?.content);
+            } else if (sType === 'file') {
+                sSnippet = msgPayload.file?.name || message?.name || 'Document';
+            }
+            window.messageDataStore.set(storedId, {
+                id: storedId,
+                senderName: user || username,
+                type: sType,
+                snippet: sSnippet,
+                mediaSrc: sMediaSrc
+            });
+        }
+
         const messageRow = document.createElement("div");
-        messageRow.className = `flex flex-col w-full ${alignmentClass} message-row`;
+        messageRow.className = `flex flex-row items-center w-full ${alignmentClass} message-row relative group`;
 
         const messageBubble = document.createElement("div");
 
-        // Build quoted reply HTML if present
+        // Build quoted reply HTML if present (Phase 11: Structured data, NO timestamps)
         let quotedReplyHtml = '';
         if (replyTo) {
+            const replyId = replyTo.id || replyTo.messageId || '';
+            const replySender = replyTo.senderName || replyTo.sender || 'Anonymous';
+            const replySnippet = replyTo.snippet || replyTo.previewText || 'Message';
+            const replyMediaSrc = replyTo.mediaSrc || null;
+
             quotedReplyHtml = `
-                <div class="quoted-reply" onclick="scrollToMessage('${replyTo.messageId}')">
-                    <div class="quoted-sender">~${replyTo.sender}</div>
-                    <div class="quoted-preview">${replyTo.previewText || 'Message'}</div>
+                <div class="quoted-reply cursor-pointer select-none" data-reply-id="${replyId}" onclick="scrollToMessage('${replyId}')">
+                    ${replyMediaSrc ? `<img src="${replyMediaSrc}" class="quoted-thumb" alt="thumbnail" loading="lazy">` : ''}
+                    <div class="quoted-text-col">
+                        <div class="quoted-sender">~${escapeHtml(replySender)}</div>
+                        <div class="quoted-preview">${escapeHtml(replySnippet)}</div>
+                    </div>
                 </div>
             `;
         }
@@ -1280,7 +1329,26 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             messageBubble.innerHTML = senderHtml + quotedReplyHtml + contentHtml + msgTimeHtml;
         }
-        messageRow.appendChild(messageBubble);
+
+        // Desktop hover reply button (Phase 11)
+        const desktopReplyBtn = document.createElement("button");
+        desktopReplyBtn.type = "button";
+        desktopReplyBtn.className = "desktop-reply-btn";
+        desktopReplyBtn.title = `Reply to ~${user}`;
+        desktopReplyBtn.setAttribute("aria-label", `Reply to ~${user}`);
+        desktopReplyBtn.innerHTML = '<i class="fas fa-reply text-[11px]"></i>';
+        desktopReplyBtn.onclick = (e) => {
+            e.stopPropagation();
+            setReplyContext(storedId);
+        };
+
+        if (user === username) {
+            messageRow.appendChild(desktopReplyBtn);
+            messageRow.appendChild(messageBubble);
+        } else {
+            messageRow.appendChild(messageBubble);
+            messageRow.appendChild(desktopReplyBtn);
+        }
 
         if (message.type === 'audio') {
             const playerEl = messageBubble.querySelector('.voice-player');
@@ -2205,34 +2273,108 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ======== REPLY TO MESSAGE FUNCTIONS ========
+    // ======== REPLY TO MESSAGE FUNCTIONS (Phase 11) ========
 
-    // Set reply context (targets the selected message directly)
-    function setReplyContext(messageData) {
-        if (!messageData) return;
-        const targetMessageId = messageData.id;
-        const targetSender = messageData.username;
-        const targetMessage = messageData.message;
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+    window.escapeHtml = escapeHtml;
+
+    function formatReplyData(target) {
+        if (!target) return null;
+        let id = typeof target === 'string' ? target : (target.id || target.messageId);
+        if (!id) return null;
+
+        if (window.messageDataStore && window.messageDataStore.has(id)) {
+            return window.messageDataStore.get(id);
+        }
+
+        const sender = target.username || target.senderName || target.sender || username;
+        let type = target.type || target.message?.type || (target.file ? 'file' : 'text');
+        let snippet = '';
+        let mediaSrc = target.mediaSrc || null;
+
+        if (type === 'text') {
+            snippet = target.message?.content || target.content || target.snippet || 'Message';
+        } else if (type === 'image') {
+            snippet = 'Photo';
+            mediaSrc = mediaSrc || resolveMediaUrl(target.message?.content || target.content || target.path);
+        } else if (type === 'gif') {
+            snippet = 'GIF';
+            mediaSrc = mediaSrc || resolveMediaUrl(target.message?.content || target.content || target.path);
+        } else if (type === 'video') {
+            snippet = 'Video';
+            mediaSrc = mediaSrc || resolveMediaUrl(target.message?.content || target.content || target.path);
+        } else if (type === 'snap') {
+            snippet = 'Video message';
+            mediaSrc = mediaSrc || resolveMediaUrl(target.message?.content || target.content || target.path);
+        } else if (type === 'audio') {
+            snippet = 'Voice message';
+        } else if (type === 'sticker') {
+            snippet = 'Sticker';
+            mediaSrc = mediaSrc || resolveMediaUrl(target.message?.content || target.content || target.path);
+        } else if (type === 'file') {
+            snippet = target.file?.name || target.message?.name || target.name || 'Document';
+        } else {
+            snippet = target.snippet || 'Message';
+        }
+
+        const entry = {
+            id,
+            senderName: sender,
+            type,
+            snippet: String(snippet).slice(0, 120),
+            mediaSrc
+        };
+        if (!window.messageDataStore) window.messageDataStore = new Map();
+        window.messageDataStore.set(id, entry);
+        return entry;
+    }
+
+    // Set reply context (targets the selected message directly from structured data)
+    function setReplyContext(target) {
+        if (!target) return;
+        let targetData = null;
+        if (typeof target === 'string') {
+            targetData = window.messageDataStore?.get(target) || extractMessageData(document.getElementById(target)) || { id: target, senderName: username, snippet: 'Message', type: 'text' };
+        } else {
+            targetData = formatReplyData(target);
+        }
+
+        if (!targetData) return;
 
         replyContext = {
-            messageId: targetMessageId,
-            sender: targetSender,
-            previewText: getReplyPreview(targetMessage),
-            previewType: targetMessage?.type || 'text',
-            originalMessage: targetMessage
+            id: targetData.id,
+            messageId: targetData.id,
+            sender: targetData.senderName || targetData.username || 'Anonymous',
+            senderName: targetData.senderName || targetData.username || 'Anonymous',
+            snippet: targetData.snippet || 'Message',
+            previewText: targetData.snippet || 'Message',
+            type: targetData.type || 'text',
+            mediaSrc: targetData.mediaSrc || null
         };
+        window.replyContext = replyContext;
 
         showReplyPreview();
         if (messageInput) {
             messageInput.focus();
         }
     }
+    window.setReplyContext = setReplyContext;
 
     // Clear reply context
     function clearReplyContext() {
         replyContext = null;
+        window.replyContext = null;
         hideReplyPreview();
     }
+    window.clearReplyContext = clearReplyContext;
 
     // Get preview text from message object
     function getReplyPreview(message) {
@@ -2240,33 +2382,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (message.type === 'text') {
             const text = message.content || '';
-            return text.length > 60 ? text.substring(0, 60) + '...' : text;
+            return text.length > 80 ? text.substring(0, 80) + '...' : text;
         } else if (message.type === 'image') {
-            return '📷 Photo';
+            return 'Photo';
         } else if (message.type === 'video') {
-            return '🎥 Video';
+            return 'Video';
+        } else if (message.type === 'snap') {
+            return 'Video message';
         } else if (message.type === 'audio') {
-            return '🎙️ Audio';
+            return 'Voice message';
         } else if (message.type === 'gif') {
-            return '📺 GIF';
+            return 'GIF';
         } else if (message.type === 'sticker') {
-            return '🎨 Sticker';
+            return 'Sticker';
         } else if (message.type === 'file') {
-            return `📎 ${message.content || 'File'}`;
+            return message.content || message.name || 'Document';
         } else {
-            return '📎 File';
+            return 'Message';
         }
     }
 
-    // Show reply preview bar
+    // Show reply preview bar (compact block, left accent bar, thumbnail if media)
     function showReplyPreview() {
         if (!replyContext || !replyPreviewBar) return;
 
         const senderEl = replyPreviewBar.querySelector('.reply-sender');
         const previewEl = replyPreviewBar.querySelector('.reply-preview');
 
-        if (senderEl) senderEl.textContent = `Replying to ~${replyContext.sender}`;
-        if (previewEl) previewEl.textContent = replyContext.previewText;
+        if (senderEl) senderEl.textContent = `Replying to ~${replyContext.senderName || replyContext.sender}`;
+        if (previewEl) previewEl.textContent = replyContext.snippet || replyContext.previewText;
+
+        let thumbEl = replyPreviewBar.querySelector('.reply-preview-thumb');
+        if (replyContext.mediaSrc) {
+            if (!thumbEl) {
+                thumbEl = document.createElement('img');
+                thumbEl.className = 'reply-preview-thumb w-8 h-8 rounded object-cover flex-shrink-0';
+                const flexRow = replyPreviewBar.querySelector('.flex.items-center');
+                if (flexRow) {
+                    flexRow.insertBefore(thumbEl, flexRow.querySelector('.overflow-hidden'));
+                }
+            }
+            thumbEl.src = replyContext.mediaSrc;
+            thumbEl.classList.remove('hidden');
+        } else if (thumbEl) {
+            thumbEl.classList.add('hidden');
+        }
 
         replyPreviewBar.classList.remove('hidden');
     }
@@ -2275,24 +2435,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideReplyPreview() {
         if (replyPreviewBar) {
             replyPreviewBar.classList.add('hidden');
+            const thumbEl = replyPreviewBar.querySelector('.reply-preview-thumb');
+            if (thumbEl) thumbEl.classList.add('hidden');
         }
     }
 
-    // Scroll to original message (for clicking quoted replies)
+    // Scroll to original message and pulse highlight for 1.5s
     function scrollToMessage(messageId) {
-        if (!messageId) return;
-        const messageElement = document.getElementById(messageId);
+        if (!messageId) {
+            showToast("Original message isn't available");
+            return;
+        }
+        const domId = String(messageId).startsWith('msg-') ? String(messageId) : `msg-${messageId}`;
+        const messageElement = document.getElementById(domId) ||
+            document.getElementById(messageId) ||
+            document.querySelector(`[data-msg-id="${messageId}"]`) ||
+            document.querySelector(`[data-client-msg-id="${messageId}"]`);
         if (messageElement) {
             messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            // Highlight briefly with pulse glow animation
+            // Highlight briefly with pulse glow animation for 1.5s
+            messageElement.classList.remove('message-highlight');
+            void messageElement.offsetWidth;
             messageElement.classList.add('message-highlight');
             setTimeout(() => {
                 messageElement.classList.remove('message-highlight');
-            }, 2200);
+            }, 1500);
         } else {
-            // Message not found (deleted or not loaded)
-            displaySystemMessage('⚠️ Original message unavailable');
+            // Message not found in DOM
+            showToast("Original message isn't available");
         }
     }
     window.scrollToMessage = scrollToMessage;
@@ -3474,6 +3645,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof dispatchMediaUpload === 'function') {
                 const clientMsgId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                 const objectUrl = URL.createObjectURL(snapFile);
+                const activeReply = replyContext ? {
+                    id: replyContext.id,
+                    senderName: replyContext.senderName || replyContext.sender,
+                    type: replyContext.type || 'text',
+                    snippet: replyContext.snippet || replyContext.previewText,
+                    mediaSrc: replyContext.mediaSrc || null
+                } : null;
+                clearReplyContext();
+
                 createPendingMediaBubble({
                     file: snapFile,
                     objectUrl,
@@ -3487,14 +3667,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     onRetry: () => {
                         setPendingBubbleRetrying(clientMsgId);
-                        dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur });
+                        dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur, replyTo: activeReply });
                     },
                     onDelete: () => {
                         removePendingBubble(clientMsgId);
                         activeUploads.delete(clientMsgId);
                     }
                 });
-                dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur });
+                dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur, replyTo: activeReply });
             }
         };
     }
@@ -3928,8 +4108,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            const activeReply = replyContext ? {
+                id: replyContext.id,
+                senderName: replyContext.senderName || replyContext.sender,
+                type: replyContext.type || 'text',
+                snippet: replyContext.snippet || replyContext.previewText,
+                mediaSrc: replyContext.mediaSrc || null
+            } : null;
+
             // Send media items with instant pending bubbles in chat stream
             for (const mediaItem of mediaToSend) {
+                mediaItem.replyTo = activeReply;
                 const clientMsgId = mediaItem.clientMsgId || (crypto.randomUUID ? crypto.randomUUID() : `media-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
                 mediaItem.clientMsgId = clientMsgId;
 
@@ -3980,12 +4169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     seenBy: []
                 };
 
-                if (replyContext) {
-                    messagePayload.replyTo = {
-                        messageId: replyContext.messageId,
-                        sender: replyContext.sender,
-                        previewText: replyContext.previewText
-                    };
+                if (activeReply) {
+                    messagePayload.replyTo = activeReply;
                 }
 
                 renderMessageBubble({
@@ -3994,7 +4179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: messageId,
                     clientMsgId,
                     seenBy: [],
-                    replyTo: replyContext ? messagePayload.replyTo : null
+                    replyTo: activeReply
                 });
 
                 socket.emit("chat-message", messagePayload);
@@ -4746,25 +4931,28 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // Gesture state for swipe-to-reply & touch handling
-    let touchStartX = 0;
-    let touchStartY = 0;
+    // Unified Pointer Events Swipe-to-Reply (Phase 11)
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let activePointerId = null;
     let activeSwipeBubble = null;
     let activeSwipeWrapper = null;
     let activeSwipeRow = null;
     let activeSwipeIcon = null;
-    let isDraggingRight = false;
-    let longPressTimeout = null;
-    let lastClickTime = 0;
-    let lastClickedMessage = null;
+    let isSwipeLocked = false;
+    let currentClampedX = 0;
+    let swipeRafId = null;
 
     function resetSwipeVisuals(bubble, icon) {
         if (bubble) {
             bubble.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
-            bubble.style.transform = '';
+            bubble.style.transform = 'translateX(0px)';
             setTimeout(() => {
-                if (bubble) bubble.style.transition = '';
-            }, 250);
+                if (bubble) {
+                    bubble.style.transition = '';
+                    bubble.style.transform = '';
+                }
+            }, 240);
         }
         if (icon) {
             icon.classList.remove('visible', 'threshold-ready');
@@ -4787,11 +4975,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-        });
 
-        // Touch Start
-        messagesDiv.addEventListener('touchstart', (e) => {
-            const messageBubble = e.target.closest('.sent-message, .received-message, .message-bubble-media, .file-document-bubble');
+            // Swipe-to-reply pointerdown
+            if (e.isPrimary === false || (e.button && e.button !== 0)) return;
+
+            // Ignore drags within 24px of the left screen edge (Android back gesture safe zone)
+            if (e.clientX <= 24) return;
+
+            // Ignore interactive elements
+            if (e.target.closest('a, button, video, audio, input, textarea, .voice-player, .voice-seek-bar, .video-play-overlay, .file-action-btn, .reply-cancel-btn, #previewModal, .desktop-reply-btn, .quoted-reply')) {
+                return;
+            }
+
+            const messageBubble = e.target.closest('.sent-message, .received-message, .message-bubble, .message-bubble-media, .file-document-bubble, .sticker-bubble, .snap-container, .snap-bubble');
             if (!messageBubble) return;
 
             const messageWrapper = messageBubble.closest('.message');
@@ -4799,209 +4995,177 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const messageRow = messageBubble.closest('.message-row');
 
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
+            pointerStartX = e.clientX;
+            pointerStartY = e.clientY;
+            activePointerId = e.pointerId;
             activeSwipeBubble = messageBubble;
             activeSwipeWrapper = messageWrapper;
             activeSwipeRow = messageRow;
-            isDraggingRight = false;
+            activeSwipeIcon = null;
+            isSwipeLocked = false;
+            currentClampedX = 0;
 
-            longPressTimeout = setTimeout(() => {
-                if (!isDraggingRight && activeSwipeWrapper) {
-                    const messageData = extractMessageData(activeSwipeWrapper);
-                    if (messageData) {
-                        setReplyContext(messageData);
-                        if (navigator.vibrate) navigator.vibrate(30);
-                    }
+            try {
+                messageBubble.setPointerCapture(e.pointerId);
+            } catch (_) {}
+        });
+
+        // Delegated click handler for tapping quoted replies
+        messagesDiv.addEventListener('click', (e) => {
+            const quote = e.target.closest('.quoted-reply');
+            if (quote) {
+                const targetId = quote.getAttribute('data-reply-id');
+                if (targetId) {
+                    scrollToMessage(targetId);
                 }
-            }, 450);
-        }, { passive: true });
+            }
+        });
 
-        // Touch Move - Visual drag right with live translation
-        messagesDiv.addEventListener('touchmove', (e) => {
-            if (!activeSwipeBubble || !activeSwipeWrapper) return;
+        // Prevent native HTML5 text drag from interrupting pointer events
+        messagesDiv.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+        });
 
-            const touchX = e.touches[0].clientX;
-            const touchY = e.touches[0].clientY;
-            const deltaX = touchX - touchStartX; // Positive = Drag RIGHT
-            const deltaY = Math.abs(touchY - touchStartY);
+        const handlePointerMove = (e) => {
+            if (activePointerId === null || e.pointerId !== activePointerId || !activeSwipeBubble) return;
 
-            if (longPressTimeout) {
-                clearTimeout(longPressTimeout);
-                longPressTimeout = null;
+            const deltaX = e.clientX - pointerStartX;
+            const deltaY = Math.abs(e.clientY - pointerStartY);
+
+            if (!isSwipeLocked) {
+                // If vertical movement beats horizontal, user is scrolling vertically
+                if (deltaY > 10 && deltaY > Math.abs(deltaX)) {
+                    try {
+                        activeSwipeBubble.releasePointerCapture(activePointerId);
+                    } catch (_) {}
+                    activePointerId = null;
+                    activeSwipeBubble = null;
+                    activeSwipeWrapper = null;
+                    activeSwipeRow = null;
+                    return;
+                }
+
+                // Horizontal movement > 8px that beats vertical: lock into drag
+                if (deltaX > 8 && deltaX > deltaY) {
+                    isSwipeLocked = true;
+                } else {
+                    return;
+                }
             }
 
-            if (!isDraggingRight && deltaY > 10 && deltaY > Math.abs(deltaX)) {
-                return;
-            }
-
-            if (deltaX > 8) {
-                isDraggingRight = true;
+            if (isSwipeLocked) {
                 if (e.cancelable) e.preventDefault();
 
-                const moveX = Math.min(deltaX * 0.65, 68);
-                activeSwipeBubble.style.transition = 'none';
-                activeSwipeBubble.style.transform = `translateX(${moveX}px)`;
-
-                if (!activeSwipeIcon && activeSwipeRow) {
-                    activeSwipeIcon = activeSwipeRow.querySelector('.swipe-reply-icon');
-                    if (!activeSwipeIcon) {
-                        activeSwipeIcon = document.createElement('div');
-                        activeSwipeIcon.className = 'swipe-reply-icon';
-                        activeSwipeIcon.innerHTML = '<i class="fas fa-reply text-xs"></i>';
-                        activeSwipeRow.prepend(activeSwipeIcon);
-                    }
+                // Rubber-band calculation up to max ~72px
+                let moveX = 0;
+                if (deltaX > 0) {
+                    const raw = deltaX * 0.75;
+                    moveX = raw < 56 ? raw : 56 + (raw - 56) * 0.35;
+                    moveX = Math.min(Math.max(0, moveX), 72);
                 }
+                currentClampedX = moveX;
 
-                if (activeSwipeIcon) {
-                    activeSwipeIcon.classList.add('visible');
-                    if (moveX >= 42) {
-                        if (!activeSwipeIcon.classList.contains('threshold-ready')) {
-                            activeSwipeIcon.classList.add('threshold-ready');
-                            if (navigator.vibrate) navigator.vibrate(25);
+                if (swipeRafId) cancelAnimationFrame(swipeRafId);
+                swipeRafId = requestAnimationFrame(() => {
+                    if (!activeSwipeBubble) return;
+                    activeSwipeBubble.style.transition = 'none';
+                    activeSwipeBubble.style.transform = `translateX(${currentClampedX}px)`;
+
+                    if (!activeSwipeIcon && activeSwipeRow) {
+                        activeSwipeIcon = activeSwipeRow.querySelector('.swipe-reply-icon');
+                        if (!activeSwipeIcon) {
+                            activeSwipeIcon = document.createElement('div');
+                            activeSwipeIcon.className = 'swipe-reply-icon';
+                            activeSwipeIcon.innerHTML = '<i class="fas fa-reply text-xs"></i>';
+                            activeSwipeRow.prepend(activeSwipeIcon);
                         }
-                    } else {
-                        activeSwipeIcon.classList.remove('threshold-ready');
                     }
-                }
-            }
-        }, { passive: false });
 
-        // Touch End
-        messagesDiv.addEventListener('touchend', (e) => {
-            if (longPressTimeout) {
-                clearTimeout(longPressTimeout);
-                longPressTimeout = null;
-            }
+                    if (activeSwipeIcon) {
+                        activeSwipeIcon.classList.add('visible');
+                        const progress = Math.min(1, currentClampedX / 56);
+                        activeSwipeIcon.style.opacity = String(Math.min(1, currentClampedX / 30));
+                        activeSwipeIcon.style.transform = `translateY(-50%) scale(${0.5 + progress * 0.65})`;
 
-            if (isDraggingRight && activeSwipeWrapper && activeSwipeBubble) {
-                const isReady = activeSwipeIcon && activeSwipeIcon.classList.contains('threshold-ready');
-                if (isReady) {
-                    const messageData = extractMessageData(activeSwipeWrapper);
-                    if (messageData) {
-                        setReplyContext(messageData);
-                        if (navigator.vibrate) navigator.vibrate(40);
+                        if (currentClampedX >= 56) {
+                            if (!activeSwipeIcon.classList.contains('threshold-ready')) {
+                                activeSwipeIcon.classList.add('threshold-ready');
+                                if (window.Capacitor?.Plugins?.Haptics) {
+                                    window.Capacitor.Plugins.Haptics.impact({ style: 'LIGHT' });
+                                } else if (navigator.vibrate) {
+                                    navigator.vibrate(25);
+                                }
+                            }
+                        } else {
+                            activeSwipeIcon.classList.remove('threshold-ready');
+                        }
                     }
-                }
+                });
             }
+        };
 
-            resetSwipeVisuals(activeSwipeBubble, activeSwipeIcon);
-            activeSwipeBubble = null;
-            activeSwipeWrapper = null;
-            activeSwipeRow = null;
-            activeSwipeIcon = null;
-            isDraggingRight = false;
-        }, { passive: true });
-
-        // Touch Cancel
-        messagesDiv.addEventListener('touchcancel', () => {
-            if (longPressTimeout) {
-                clearTimeout(longPressTimeout);
-                longPressTimeout = null;
-            }
-            resetSwipeVisuals(activeSwipeBubble, activeSwipeIcon);
-            activeSwipeBubble = null;
-            activeSwipeWrapper = null;
-            activeSwipeRow = null;
-            activeSwipeIcon = null;
-            isDraggingRight = false;
-        }, { passive: true });
-
-        // Double click handler for desktop
-        messagesDiv.addEventListener('dblclick', (e) => {
-            const messageBubble = e.target.closest('.sent-message, .received-message, .message-bubble-media, .file-document-bubble');
-            if (!messageBubble) return;
-            const messageWrapper = messageBubble.closest('.message');
-            if (!messageWrapper || !messageWrapper.id) return;
-            const messageData = extractMessageData(messageWrapper);
-            if (messageData) {
-                setReplyContext(messageData);
-            }
-        });
-
-        // Mouse Drag to Reply (for Desktop users)
-        let mouseStartX = 0;
-        let isMouseDownOnBubble = false;
-        let mouseSwipeBubble = null;
-        let mouseSwipeWrapper = null;
-        let mouseSwipeRow = null;
-        let mouseSwipeIcon = null;
-        let isMouseDragging = false;
-
-        messagesDiv.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return;
-            if (e.target.closest('button, a, video, audio, input, .voice-player')) return;
-
-            const messageBubble = e.target.closest('.sent-message, .received-message, .message-bubble-media, .file-document-bubble');
-            if (!messageBubble) return;
-            const messageWrapper = messageBubble.closest('.message');
-            if (!messageWrapper || !messageWrapper.id) return;
-
-            mouseStartX = e.clientX;
-            isMouseDownOnBubble = true;
-            isMouseDragging = false;
-            mouseSwipeBubble = messageBubble;
-            mouseSwipeWrapper = messageWrapper;
-            mouseSwipeRow = messageBubble.closest('.message-row');
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isMouseDownOnBubble || !mouseSwipeBubble) return;
-            const deltaX = e.clientX - mouseStartX;
-            if (deltaX > 10) {
-                isMouseDragging = true;
-                const moveX = Math.min(deltaX * 0.65, 68);
-                mouseSwipeBubble.style.transition = 'none';
-                mouseSwipeBubble.style.transform = `translateX(${moveX}px)`;
-
-                if (!mouseSwipeIcon && mouseSwipeRow) {
-                    mouseSwipeIcon = mouseSwipeRow.querySelector('.swipe-reply-icon');
-                    if (!mouseSwipeIcon) {
-                        mouseSwipeIcon = document.createElement('div');
-                        mouseSwipeIcon.className = 'swipe-reply-icon';
-                        mouseSwipeIcon.innerHTML = '<i class="fas fa-reply text-xs"></i>';
-                        mouseSwipeRow.prepend(mouseSwipeIcon);
-                    }
-                }
-
-                if (mouseSwipeIcon) {
-                    mouseSwipeIcon.classList.add('visible');
-                    if (moveX >= 42) {
-                        mouseSwipeIcon.classList.add('threshold-ready');
-                    } else {
-                        mouseSwipeIcon.classList.remove('threshold-ready');
-                    }
-                }
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            if (isMouseDownOnBubble && mouseSwipeBubble) {
-                if (isMouseDragging && mouseSwipeWrapper) {
-                    const isReady = mouseSwipeIcon && mouseSwipeIcon.classList.contains('threshold-ready');
+        const handlePointerEnd = (e) => {
+            if (activePointerId !== null && e.pointerId === activePointerId) {
+                if (isSwipeLocked && activeSwipeWrapper && activeSwipeBubble) {
+                    const isReady = currentClampedX >= 56 || (activeSwipeIcon && activeSwipeIcon.classList.contains('threshold-ready'));
                     if (isReady) {
-                        const messageData = extractMessageData(mouseSwipeWrapper);
-                        if (messageData) {
-                            setReplyContext(messageData);
+                        const targetId = activeSwipeWrapper.id;
+                        setReplyContext(targetId);
+                        if (window.Capacitor?.Plugins?.Haptics) {
+                            window.Capacitor.Plugins.Haptics.impact({ style: 'MEDIUM' });
+                        } else if (navigator.vibrate) {
+                            navigator.vibrate(35);
                         }
                     }
                 }
-                resetSwipeVisuals(mouseSwipeBubble, mouseSwipeIcon);
+
+                try {
+                    if (activeSwipeBubble && activeSwipeBubble.hasPointerCapture(e.pointerId)) {
+                        activeSwipeBubble.releasePointerCapture(e.pointerId);
+                    }
+                } catch (_) {}
+
+                resetSwipeVisuals(activeSwipeBubble, activeSwipeIcon);
+                activePointerId = null;
+                activeSwipeBubble = null;
+                activeSwipeWrapper = null;
+                activeSwipeRow = null;
+                activeSwipeIcon = null;
+                isSwipeLocked = false;
+                currentClampedX = 0;
+                if (swipeRafId) {
+                    cancelAnimationFrame(swipeRafId);
+                    swipeRafId = null;
+                }
             }
-            isMouseDownOnBubble = false;
-            isMouseDragging = false;
-            mouseSwipeBubble = null;
-            mouseSwipeWrapper = null;
-            mouseSwipeRow = null;
-            mouseSwipeIcon = null;
-        });
+        };
+
+        window.addEventListener('pointermove', handlePointerMove, { passive: false });
+        window.addEventListener('pointerup', handlePointerEnd, { passive: true });
+        window.addEventListener('pointercancel', handlePointerEnd, { passive: true });
     }
 
-    // Extract message data from DOM element without leaking timestamps into reply description
+    // Extract message data: prefer window.messageDataStore, fallback to sanitized DOM
     function extractMessageData(messageWrapper) {
         if (!messageWrapper) return null;
         const messageId = messageWrapper.id;
-        
+
+        if (window.messageDataStore && window.messageDataStore.has(messageId)) {
+            const entry = window.messageDataStore.get(messageId);
+            return {
+                id: entry.id,
+                username: entry.senderName,
+                senderName: entry.senderName,
+                type: entry.type,
+                snippet: entry.snippet,
+                mediaSrc: entry.mediaSrc,
+                message: {
+                    type: entry.type,
+                    content: entry.snippet
+                }
+            };
+        }
+
         let sender = username;
         const senderEl = messageWrapper.querySelector('.msg-sender');
         const seenStatus = messageWrapper.querySelector('.seen-status');
@@ -5013,41 +5177,60 @@ document.addEventListener('DOMContentLoaded', () => {
             sender = username;
         }
 
-        const messageBubble = messageWrapper.querySelector('.sent-message, .received-message, .message-bubble-media, .file-document-bubble, .sticker-bubble');
+        const messageBubble = messageWrapper.querySelector('.sent-message, .received-message, .message-bubble, .message-bubble-media, .file-document-bubble, .sticker-bubble, .snap-container, .snap-bubble');
         if (!messageBubble) return null;
 
         let message = { type: 'text', content: '' };
+        let mediaSrc = null;
 
-        if (messageBubble.querySelector('.sticker-message')) {
-            message = { type: 'sticker', content: '' };
+        if (messageBubble.querySelector('.snap-video') || messageBubble.classList.contains('snap-bubble')) {
+            message = { type: 'snap', content: 'Video message' };
+            const v = messageBubble.querySelector('video');
+            if (v && v.src) mediaSrc = v.src;
+        } else if (messageBubble.querySelector('.sticker-message')) {
+            message = { type: 'sticker', content: 'Sticker' };
+            const img = messageBubble.querySelector('img');
+            if (img && img.src) mediaSrc = img.src;
         } else if (messageBubble.querySelector('video')) {
-            message = { type: 'video', content: '' };
+            message = { type: 'video', content: 'Video' };
+            const v = messageBubble.querySelector('video');
+            if (v && v.src) mediaSrc = v.src;
         } else if (messageBubble.querySelector('audio') || messageBubble.querySelector('.voice-player')) {
-            message = { type: 'audio', content: '' };
+            message = { type: 'audio', content: 'Voice message' };
         } else if (messageBubble.querySelector('.message-file-preview')) {
             const img = messageBubble.querySelector('img');
-            message = { type: (img && img.src?.includes('.gif')) ? 'gif' : 'image', content: '' };
+            const isGif = img && (img.src?.includes('.gif') || img.src?.includes('giphy'));
+            message = { type: isGif ? 'gif' : 'image', content: isGif ? 'GIF' : 'Photo' };
+            if (img && img.src) mediaSrc = img.src;
         } else if (messageBubble.querySelector('.file-card-content')) {
             const fileName = messageBubble.querySelector('.file-title')?.textContent?.trim() || 'Document';
             message = { type: 'file', content: fileName };
         } else {
-            // Text message: isolate text content from timestamp .msg-time
+            // Text message: isolate text content from timestamp .msg-time and reply elements
             const msgText = messageBubble.querySelector('.msg-text');
             if (msgText) {
                 message.content = msgText.textContent.trim();
             } else {
                 const clone = messageBubble.cloneNode(true);
-                clone.querySelectorAll('.msg-time, .msg-sender, .quoted-reply, .seen-status, .swipe-reply-icon, .file-action-btn')
+                clone.querySelectorAll('.msg-time, .msg-sender, .quoted-reply, .seen-status, .swipe-reply-icon, .file-action-btn, .desktop-reply-btn')
                      .forEach(el => el.remove());
                 message.content = clone.textContent.trim();
             }
         }
 
-        return {
+        const formatted = {
             id: messageId,
             username: sender,
-            message: message
+            senderName: sender,
+            type: message.type,
+            snippet: message.content,
+            mediaSrc,
+            message
         };
+
+        if (!window.messageDataStore) window.messageDataStore = new Map();
+        window.messageDataStore.set(messageId, formatted);
+        return formatted;
     }
 
     restoreSession();

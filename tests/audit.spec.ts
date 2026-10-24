@@ -868,21 +868,155 @@ test.describe('Audit Suite - Current Behavior', () => {
   // PHASE 11: Reply UX
   test('PHASE 11: Reply quote and swipe to reply', async ({ page }) => {
     await page.goto('/');
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
     const roomKey = 'key_p11_' + Math.random().toString(36).substring(2, 6);
     await page.fill('#username', 'UserP11');
     await page.fill('#roomKey', roomKey);
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
-    const input = page.locator('#messageInput');
-    await input.focus();
-    await input.fill('Message for reply test');
-    await page.click('#sendBtn');
-    await page.waitForTimeout(500);
+    // In-memory 1x1 image for testing media replies
+    const dummyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-    const bubble = page.locator('#messagesContainer .message-bubble, #messagesContainer > div').first();
+    // 1. Render original message and replied messages via renderMessageBubble
+    await page.evaluate(({ dummyPng }) => {
+      const render = (window as any).renderMessageBubble;
+      if (!render) return;
+
+      // Original message 1: Text from user Bob
+      render({
+        username: 'Bob',
+        id: 'msg-orig-1',
+        clientMsgId: 'msg-orig-1',
+        message: { type: 'text', content: 'Hello this is an original message from Bob' }
+      });
+
+      // Original message 2: Image from user Alice
+      render({
+        username: 'Alice',
+        id: 'msg-orig-2',
+        clientMsgId: 'msg-orig-2',
+        message: { type: 'image', content: dummyPng }
+      });
+
+      // Own replied message with structured replyTo targeting Bob's text
+      render({
+        username: 'UserP11',
+        id: 'msg-reply-1',
+        clientMsgId: 'msg-reply-1',
+        message: { type: 'text', content: 'I am replying to Bob' },
+        replyTo: {
+          id: 'msg-orig-1',
+          senderName: 'Bob',
+          type: 'text',
+          snippet: 'Hello this is an original message from Bob'
+        }
+      });
+
+      // Received replied message targeting Alice's image
+      render({
+        username: 'Bob',
+        id: 'msg-reply-2',
+        clientMsgId: 'msg-reply-2',
+        message: { type: 'text', content: 'Nice picture Alice!' },
+        replyTo: {
+          id: 'msg-orig-2',
+          senderName: 'Alice',
+          type: 'image',
+          snippet: 'Photo',
+          mediaSrc: dummyPng
+        }
+      });
+    }, { dummyPng });
+
+    await page.waitForTimeout(400);
+
+    // 2. Verify quote layouts: no timestamps inside quote, thumbnail present for media quote
+    const textQuote = page.locator('#msg-reply-1 .quoted-reply');
+    await expect(textQuote).toBeVisible();
+    await expect(textQuote.locator('.quoted-sender')).toHaveText('~Bob');
+    await expect(textQuote.locator('.quoted-preview')).toHaveText('Hello this is an original message from Bob');
+    expect(await textQuote.locator('.msg-time').count()).toBe(0);
+
+    const imageQuote = page.locator('#msg-reply-2 .quoted-reply');
+    await expect(imageQuote).toBeVisible();
+    await expect(imageQuote.locator('.quoted-sender')).toHaveText('~Alice');
+    await expect(imageQuote.locator('.quoted-preview')).toHaveText('Photo');
+    await expect(imageQuote.locator('.quoted-thumb')).toBeVisible();
+
+    // 3. Test tapping quote smooth-scrolls and highlights target
+    await textQuote.click();
+    await page.waitForTimeout(300);
+    const orig1 = page.locator('#msg-orig-1');
+    await expect(orig1).toHaveClass(/message-highlight/);
+
+    // Test missing message toast
+    await page.evaluate(() => {
+      (window as any).scrollToMessage('nonexistent-msg-id');
+    });
+    const toast = page.locator('#toastNotification');
+    await expect(toast).toContainText("Original message isn't available");
+
+    // 4. Test Swipe-to-reply: 30px drag snaps back with NO reply
+    const bubbleToDrag = page.locator('#msg-orig-1 .message-bubble').first();
+    const box = await bubbleToDrag.boundingBox();
+    expect(box).toBeTruthy();
+    const startX = box!.x + 40;
+    const startY = box!.y + box!.height / 2;
+
+    // Small drag (30px)
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 30, startY, { steps: 5 });
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+
+    // Reply bar should not be visible
+    expect(await page.locator('#replyPreviewBar').isVisible()).toBe(false);
+
+    // 5. Test Swipe-to-reply: 90px drag triggers reply bar with quote
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 90, startY, { steps: 12 });
+    await page.waitForTimeout(100);
+
+    // Mid-drag screenshot showing bubble offset & reply icon
+    await page.screenshot({ path: 'verify/screenshots/phase11_mid_drag.png' });
+
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    // Reply bar should now be visible with ~Bob
+    const replyBar = page.locator('#replyPreviewBar');
+    await expect(replyBar).toBeVisible();
+    await expect(replyBar.locator('.reply-sender')).toContainText('~Bob');
+    await expect(replyBar.locator('.reply-preview')).toContainText('Hello this is an original message from Bob');
+
+    // 6. Test cancel reply button
+    await page.click('#replyCancelBtn');
+    await expect(replyBar).toBeHidden();
+
+    // 7. Visual captures at 360px and 1280px in both themes
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: 'verify/screenshots/phase11_360px.png' });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: 'verify/screenshots/phase11_1280px.png' });
+
+    // Light mode
+    await page.evaluate(() => document.body.classList.add('light-mode'));
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: 'verify/screenshots/phase11_light_mode.png' });
+    await page.evaluate(() => document.body.classList.remove('light-mode'));
+
     await page.screenshot({ path: 'verify/screenshots/phase11_reply_ux.png' });
-    console.log(`PHASE 11 Result: bubble exists=${await bubble.count()}`);
+
+    // Reset viewport
+    await page.setViewportSize({ width: 390, height: 844 });
+    console.log('PHASE 11 Result: quote layout, media thumbnail, tap scroll, 30px snap-back, 90px trigger, and multi-viewport screenshots verified');
   });
 
   // PHASE 12: Share button placement + Ask to join page

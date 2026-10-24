@@ -1194,45 +1194,120 @@
   user-select: none;
 }
 
-/* Quoted reply inside bubble */
+/* Quoted reply inside bubble (Phase 11) */
 .quoted-reply {
-  padding: 5px 8px;
-  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.quoted-thumb {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.quoted-text-col {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .sent-message .quoted-reply {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.1);
   border-left: 3px solid #000000;
   color: #000000;
 }
 
 .sent-message .quoted-reply .quoted-sender {
   color: #000000;
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 11.5px;
+  line-height: 1.2;
+  margin-bottom: 2px;
 }
 
 .received-message .quoted-reply {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   border-left: 3px solid var(--o-light);
   color: #ffffff;
 }
 
 .received-message .quoted-reply .quoted-sender {
   color: var(--o-light);
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 11.5px;
+  line-height: 1.2;
+  margin-bottom: 2px;
 }
 
 .quoted-preview {
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0.85;
+  font-size: 12.5px;
+  line-height: 1.25;
+  opacity: 0.88;
 }
+
+/* Desktop Hover Reply Button */
+.desktop-reply-btn {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  transform: scale(0.85);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e0e0e0;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  align-self: center;
+  margin: 0 6px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .message-row:hover .desktop-reply-btn {
+    display: inline-flex;
+    opacity: 0.85;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+  .desktop-reply-btn:hover {
+    opacity: 1 !important;
+    background: var(--o) !important;
+    color: #000000 !important;
+    border-color: var(--o) !important;
+  }
+}
+
+body.light-mode .desktop-reply-btn {
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #333333;
+}
+
 
 /* Media bubbles with responsive dynamic sizing */
 /* Media bubbles with responsive dynamic sizing (Phase 7) */
@@ -2084,10 +2159,15 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
 }
 
 .sent-message,
-.received-message {
+.received-message,
+.message-bubble,
+.message-bubble-media,
+.file-document-bubble,
+.sticker-bubble,
+.snap-container {
   will-change: transform;
-  user-select: text;
   touch-action: pan-y;
+  -webkit-user-drag: none;
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2140,9 +2220,15 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
 }
 
 .message-highlight .sent-message,
-.message-highlight .received-message {
-  animation: messageHighlightGlow 2s ease-out;
+.message-highlight .received-message,
+.message-highlight .message-bubble,
+.message-highlight .message-bubble-media,
+.message-highlight .file-document-bubble,
+.message-highlight .sticker-bubble,
+.message-highlight .snap-container {
+  animation: messageHighlightGlow 1.5s ease-out;
 }
+
 
 /* ============================================================
    VOICE RECORDING OVERLAY (Preserves composer focus & keyboard)
