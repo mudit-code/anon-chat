@@ -107,3 +107,27 @@
     - Applied to Create room, Join room, Ask to join, Open vault, confirm leave/end room, copy room key (1.5s checkmark state), and send button dispatching.
 - **Verification:** In Playwright test, clicking `#createRoomBtn` immediately exhibits `hasAriaBusy=true` and `isSpinnerPresent=1`, layout width/height preserved, clears state cleanly upon transition to `#chatScreen`.
 
+---
+
+### Phase 4: Composer Layout (WhatsApp Arrangement)
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase4_composer_layout.png` (Default viewport)
+  - `verify/screenshots/phase4_composer_320px.png` (Narrow mobile 320px)
+  - `verify/screenshots/phase4_composer_light.png` (Light theme)
+- **Root Cause & Fix:**
+  - *Root Cause:* Prior layout had arbitrary button placement, a separate detached voice recording button that cluttered mobile viewports, and no dynamic mic/send mode switching based on composer input state.
+  - *Fix:*
+    - Re-arranged pill container `.composer-wrapper` to strict WhatsApp order: `[#fileBtn (paperclip)] [#messageInput] [#emojiBtn] [#cameraBtn]`.
+    - Placed round action button `#sendBtn` outside pill on the right (`.composer-round-btn`).
+    - Implemented reactive `updateSendButtonState()`:
+      - In empty state (no text, no media): `#cameraBtn` is visible, outside `#sendBtn` shows microphone icon with `data-mode="mic"` and title "Record voice note".
+      - When content is typed or media attached: `#cameraBtn` hides cleanly, outside `#sendBtn` transitions to paper-plane icon with `data-mode="send"` and title "Send message".
+    - Tapping outside button in `data-mode="mic"` triggers audio recording pipeline; tapping in `data-mode="send"` executes the message dispatching pipeline.
+    - Verified responsive layout down to 320px with zero horizontal scroll or clipping, in both dark and light modes.
+- **Verification:**
+  - Playwright test verified pill button IDs `["fileBtn", "emojiBtn", "cameraBtn"]`.
+  - Empty state verified `cameraBtn` visible, `data-mode="mic"`, and `fa-microphone` icon count = 1.
+  - Typing state verified `cameraBtn` hidden, `data-mode="send"`, and `fa-paper-plane` icon count = 1.
+  - Visual regression verified across 320px, 360px, 412px viewports and light theme.
+

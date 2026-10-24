@@ -2667,12 +2667,42 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // Send button disabled state helper
+    const cameraBtn = document.getElementById("cameraBtn");
+
+    // Send button & composer action state helper (WhatsApp arrangement)
     function updateSendButtonState() {
-        const hasText = messageInput && messageInput.value.trim().length > 0;
+        const hasText = messageInput && (messageInput.value || messageInput.innerText || "").trim().length > 0;
         const hasMedia = (typeof pastedMedia !== 'undefined' && pastedMedia.length > 0) || fileToSend !== null;
+        const hasDraft = (typeof mediaDraft !== 'undefined' && mediaDraft.items && mediaDraft.items.length > 0);
+        const hasContent = hasText || hasMedia || hasDraft;
+
+        if (cameraBtn) {
+            if (hasContent) {
+                cameraBtn.classList.add("hidden");
+            } else {
+                cameraBtn.classList.remove("hidden");
+            }
+        }
+
         if (sendBtn) {
-            sendBtn.disabled = !hasText && !hasMedia;
+            const sendBtnIcon = document.getElementById("sendBtnIcon") || sendBtn.querySelector("i");
+            if (hasContent) {
+                sendBtn.dataset.mode = "send";
+                sendBtn.title = "Send message";
+                sendBtn.classList.remove("mic-mode");
+                sendBtn.classList.add("send-mode");
+                if (sendBtnIcon) {
+                    sendBtnIcon.className = "fas fa-paper-plane text-base";
+                }
+            } else {
+                sendBtn.dataset.mode = "mic";
+                sendBtn.title = "Record voice note";
+                sendBtn.classList.remove("send-mode");
+                sendBtn.classList.add("mic-mode");
+                if (sendBtnIcon) {
+                    sendBtnIcon.className = "fas fa-microphone text-base";
+                }
+            }
         }
     }
 
@@ -2687,6 +2717,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (emojiBtn) {
         emojiBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+    if (fileBtn) {
+        fileBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        fileBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+    if (cameraBtn) {
+        cameraBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        cameraBtn.addEventListener('mousedown', (e) => e.preventDefault());
     }
     if (recordBtn) {
         recordBtn.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -2996,6 +3034,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     sendBtn.onclick = async () => {
+        // WhatsApp behavior: if in mic mode, tap starts voice recording
+        if (sendBtn.dataset.mode === "mic") {
+            if (typeof startAudioRecording === "function") {
+                startAudioRecording();
+            }
+            return;
+        }
+
         // Rate limiting & anti-duplicate protection
         if (isSendingInProgress) {
             return;
@@ -3315,13 +3361,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Record button toggles audio recording
-    recordBtn.onclick = () => {
-        if (isRecording) {
-            stopAudioRecording();
-        } else {
-            startAudioRecording();
-        }
-    };
+    if (recordBtn) {
+        recordBtn.onclick = () => {
+            if (isRecording) {
+                stopAudioRecording();
+            } else {
+                startAudioRecording();
+            }
+        };
+    }
     approveJoinBtn.onclick = () => {
         if (pendingJoinRequest) {
             socket.emit("approve-join", { roomKey, userId: pendingJoinRequest.userId });
@@ -6015,7 +6063,6 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on("connect", () => {
         console.log("Socket connected:", socket.id);
         if (socketReconnectBanner) socketReconnectBanner.classList.add("hidden");
-        try { if (socket.sendBuffer) socket.sendBuffer.length = 0; } catch (e) {}
 
         const raw = localStorage.getItem("anon_session");
         if (raw) {

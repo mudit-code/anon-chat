@@ -366,8 +366,9 @@
               <!-- Standard Input Bar + Send Button Row -->
               <div id="composerRow" class="flex items-end gap-3 w-full">
                 <div class="composer-wrapper flex-1 flex items-center gap-1">
-                  <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
-                    <i class="far fa-smile text-base"></i>
+                  <!-- Attach button (paperclip) on far left -->
+                  <button id="fileBtn" title="Attach file" type="button" class="composer-icon-btn">
+                    <i class="fas fa-paperclip text-sm"></i>
                   </button>
                   <div class="flex-1 min-w-0 py-1">
                     <div id="messageInput" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Type a message"
@@ -375,16 +376,20 @@
                       style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;" autocomplete="off"
                       autocorrect="off" autocapitalize="off" spellcheck="false"></div>
                   </div>
-                  <button id="fileBtn" title="Attach file" type="button" class="composer-icon-btn">
-                    <i class="fas fa-paperclip text-sm"></i>
+                  <!-- Emoji button -->
+                  <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
+                    <i class="far fa-smile text-base"></i>
                   </button>
-                  <button id="recordBtn" title="Record audio" type="button" class="composer-icon-btn">
-                    <i class="fas fa-microphone text-sm"></i>
+                  <!-- Camera button -->
+                  <button id="cameraBtn" title="Camera" type="button" class="composer-icon-btn">
+                    <i class="fas fa-camera text-base"></i>
                   </button>
                   <input type="file" id="fileInput" class="hidden" multiple>
+                  <input type="file" id="cameraPhotoInput" class="hidden" accept="image/*" capture="environment">
                 </div>
-                <button id="sendBtn" title="Send message" type="button" disabled>
-                  <i class="fas fa-paper-plane text-base"></i>
+                <!-- Round action button (mic when empty, send when content exists) -->
+                <button id="sendBtn" title="Record voice note" type="button" data-mode="mic" class="composer-round-btn mic-mode">
+                  <i class="fas fa-microphone text-base" id="sendBtnIcon"></i>
                 </button>
               </div>
 

@@ -3544,13 +3544,15 @@ body.light-mode #chat-input-container {
   background: rgba(255, 123, 123, 0.15) !important;
 }
 
-/* Send button */
+/* Send/Mic round action button */
 
-#sendBtn {
+#sendBtn, .composer-round-btn {
   width: 48px;
   height: 48px;
+  min-width: 48px;
+  min-height: 48px;
   border-radius: 9999px;
-  background: var(--o-light);
+  background: var(--o);
   color: #000000;
   border: none;
   display: flex;
@@ -3558,17 +3560,28 @@ body.light-mode #chat-input-container {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color 150ms ease;
+  transition: background-color 150ms ease, transform 0.08s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-#sendBtn:hover:not(:disabled) {
-  background: var(--o-pale);
+#sendBtn:hover, .composer-round-btn:hover {
+  background: var(--o-hi);
 }
 
-#sendBtn:disabled {
-  background: #262626 !important;
-  color: #666666 !important;
-  cursor: default !important;
+#sendBtn.mic-mode {
+  background: #ff7320;
+  color: #000000;
+}
+
+#sendBtn.send-mode {
+  background: #ff7320;
+  color: #000000;
+}
+
+body.light-mode #sendBtn,
+body.light-mode .composer-round-btn {
+  background: #ff7320;
+  color: #000000;
 }
 
 /* Contenteditable Composer Placeholder */

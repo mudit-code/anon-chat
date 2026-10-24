@@ -59,9 +59,9 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
-    // Check voice record elements
-    const recordBtn = page.locator('#recordBtn');
-    await expect(recordBtn).toBeVisible();
+    // Check voice record elements (WhatsApp round action button in mic mode)
+    const micBtn = page.locator('#sendBtn[data-mode="mic"]');
+    await expect(micBtn).toBeVisible();
     await page.screenshot({ path: 'verify/screenshots/reg2_voice_ui.png' });
   });
 
@@ -272,16 +272,51 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
-    // Check composer buttons order
-    const composerChildren = await page.evaluate(() => {
+    // 1. Check composer pill buttons order: [attach] [input] [emoji] [camera]
+    const pillChildIds = await page.evaluate(() => {
       const pill = document.querySelector('.composer-wrapper');
       if (!pill) return [];
-      return Array.from(pill.children).map(c => c.id || c.className);
+      return Array.from(pill.children).filter(c => c.tagName === 'BUTTON').map(c => c.id);
     });
+    console.log(`PHASE 4 Pill Buttons: ${JSON.stringify(pillChildIds)}`);
+    expect(pillChildIds[0]).toBe('fileBtn');
+    expect(pillChildIds[1]).toBe('emojiBtn');
+    expect(pillChildIds[2]).toBe('cameraBtn');
 
-    const cameraBtnExists = await page.locator('#cameraBtn').count();
+    // 2. Empty state: cameraBtn visible, sendBtn has mic icon and mode mic
+    const cameraVisibleBefore = await page.locator('#cameraBtn').isVisible();
+    const sendBtnModeBefore = await page.locator('#sendBtn').getAttribute('data-mode');
+    const micIconCount = await page.locator('#sendBtn .fa-microphone').count();
+    expect(cameraVisibleBefore).toBe(true);
+    expect(sendBtnModeBefore).toBe('mic');
+    expect(micIconCount).toBe(1);
+
+    // 3. Typing text state: cameraBtn hidden, sendBtn turns to paper-plane and mode send
+    await page.fill('#messageInput', 'Hello WhatsApp layout');
+    await page.waitForTimeout(100);
+    const cameraVisibleDuring = await page.locator('#cameraBtn').isVisible();
+    const sendBtnModeDuring = await page.locator('#sendBtn').getAttribute('data-mode');
+    const sendIconCount = await page.locator('#sendBtn .fa-paper-plane').count();
+    expect(cameraVisibleDuring).toBe(false);
+    expect(sendBtnModeDuring).toBe('send');
+    expect(sendIconCount).toBe(1);
+
+    // 4. Capture screenshots across sizes (320, 360, 412) in both themes
     await page.screenshot({ path: 'verify/screenshots/phase4_composer_layout.png' });
-    console.log(`PHASE 4 Result: pill children=${JSON.stringify(composerChildren)}, cameraBtnExists=${cameraBtnExists}`);
+
+    // Test at 320px
+    await page.setViewportSize({ width: 320, height: 600 });
+    await page.waitForTimeout(100);
+    await page.screenshot({ path: 'verify/screenshots/phase4_composer_320px.png' });
+
+    // Test light theme
+    await page.evaluate(() => document.body.classList.add('light-mode'));
+    await page.waitForTimeout(100);
+    await page.screenshot({ path: 'verify/screenshots/phase4_composer_light.png' });
+    await page.evaluate(() => document.body.classList.remove('light-mode'));
+
+    // Reset viewport
+    await page.setViewportSize({ width: 390, height: 844 });
   });
 
   // PHASE 5: Media draft tray
