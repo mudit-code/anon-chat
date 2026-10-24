@@ -598,10 +598,81 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
+    const dummyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FAAhKDveksOjuAAAAAElFTkSuQmCC';
+
+    // 1. Open preview
+    await page.evaluate(({ dummyPng }) => {
+      (window as any).openPreview(dummyPng, 'image');
+    }, { dummyPng });
+
     const modal = page.locator('#previewModal');
-    const isHidden = await modal.evaluate(el => el.classList.contains('hidden'));
+    await expect(modal).toBeVisible();
+    const activeImg = page.locator('#previewActiveImage');
+    await expect(activeImg).toBeVisible();
+
+    // 2. Wheel zoom toward cursor (1x to 5x)
+    await page.evaluate(() => {
+      const modalEl = document.getElementById('previewModal');
+      if (modalEl) {
+        const wheelEv = new WheelEvent('wheel', {
+          deltaY: -100,
+          clientX: window.innerWidth / 2,
+          clientY: window.innerHeight / 2,
+          bubbles: true,
+          cancelable: true
+        });
+        modalEl.dispatchEvent(wheelEv);
+      }
+    });
+
+    await page.waitForTimeout(100);
+    const indicatorText = await page.locator('#previewZoomIndicator').textContent();
+    expect(indicatorText).toMatch(/120%/);
     await page.screenshot({ path: 'verify/screenshots/phase8_lightbox.png' });
-    console.log(`PHASE 8 Result: modal exists=${await modal.count()}, isHidden=${isHidden}`);
+
+    // 3. Gesture (drag > 8px) does NOT close modal
+    await page.evaluate(() => {
+      const modalEl = document.getElementById('previewModal');
+      if (modalEl) {
+        modalEl.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 100, clientY: 100, bubbles: true }));
+        modalEl.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 150, clientY: 150, bubbles: true }));
+        modalEl.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 150, clientY: 150, bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(100);
+    await expect(modal).toBeVisible();
+
+    // 4. Tap anywhere (movement <= 8px) closes modal
+    await page.evaluate(() => {
+      const modalEl = document.getElementById('previewModal');
+      if (modalEl) {
+        modalEl.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 2, clientX: 100, clientY: 100, bubbles: true }));
+        modalEl.dispatchEvent(new PointerEvent('pointermove', { pointerId: 2, clientX: 102, clientY: 102, bubbles: true }));
+        modalEl.dispatchEvent(new PointerEvent('pointerup', { pointerId: 2, clientX: 102, clientY: 102, bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(100);
+    await expect(modal).toBeHidden();
+
+    // 5. Test Escape key close
+    await page.evaluate(({ dummyPng }) => {
+      (window as any).openPreview(dummyPng, 'image');
+    }, { dummyPng });
+    await expect(modal).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
+    await expect(modal).toBeHidden();
+
+    // 6. Test Close button
+    await page.evaluate(({ dummyPng }) => {
+      (window as any).openPreview(dummyPng, 'image');
+    }, { dummyPng });
+    await expect(modal).toBeVisible();
+    await page.click('#closePreview');
+    await page.waitForTimeout(100);
+    await expect(modal).toBeHidden();
+
+    console.log('PHASE 8 Result: zoom, pan gesture guard, tap-to-close, escape, and close button all passed');
   });
 
   // PHASE 9: Camera button: tap = photo, hold = circular snap

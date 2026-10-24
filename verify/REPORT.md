@@ -201,3 +201,26 @@
   - Verified 1:1, 16:9, and 9:16 aspect ratios: width <= 360px, portrait height <= 420px.
   - Verified video play overlay present and visible.
   - Tested 320px viewport: zero horizontal scroll (`scrollWidth === clientWidth`).
+
+---
+
+### Phase 8: Image Lightbox
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase8_lightbox.png` (Lightbox preview with 120% zoom indicator and safe-area margins)
+- **Root Cause & Fix:**
+  - *Root Cause:* Previous preview modal used disjoint touch/mouse listeners, had zoom capped at 4x instead of 5x, zoomed to center rather than toward the cursor on wheel events, lacked boundary clamping causing zoomed images to float off-screen, and clicking anywhere when zoomed reset zoom to 1 rather than closing.
+  - *Fix:*
+    - Standardized gesture handling with unified Pointer Events (`pointerdown`, `pointermove`, `pointerup`, `pointercancel`) and `touch-action: none`.
+    - Implemented clamped pan mathematics (`maxPanX = Math.max(0, (w * zoom - viewportW) / 2)`, `maxPanY = Math.max(0, (h * zoom - viewportH) / 2)`), keeping the image edges bound to the viewport.
+    - Updated wheel zoom to dynamically calculate cursor offset relative to center and preserve the invariant point under the cursor from 1x up to 5x.
+    - Added tap-to-close anywhere: single pointer touch/click with movement <= 8px immediately closes the modal, regardless of current zoom level. Pointer movements > 8px or multi-touch gestures are locked into pan/pinch and do not close on pointer release.
+    - Added Escape key listener and wired Android hardware back button via Capacitor `App.addListener('backButton')`.
+    - Added safe-area padding and 44x44 minimum touch targets on controls.
+- **Verification:**
+  - Verified wheel zoom increases scale and activates indicator (`120%`).
+  - Verified drag gesture (> 8px) pans image and does NOT close modal on release.
+  - Verified tap (movement <= 8px) anywhere closes modal.
+  - Verified Escape key closes modal.
+  - Verified close button (#closePreview) closes modal.
+

@@ -3958,31 +3958,47 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSendButtonState();
     }
 
-    // Lightbox modal elements & gesture state
+    // Lightbox modal elements & gesture state (PHASE 8)
     const previewZoomIndicator = document.getElementById("previewZoomIndicator");
     const previewZoomResetBtn = document.getElementById("previewZoomResetBtn");
 
-    function closePreviewModal() {
-        if (!previewModal) return;
-        previewModal.classList.add('hidden');
-        if (previewContent) previewContent.innerHTML = "";
-        previewZoom = 1;
-        previewPanX = 0;
-        previewPanY = 0;
-        isPanning = false;
-        hasPreviewDragged = false;
-        if (previewZoomIndicator) {
-            previewZoomIndicator.style.opacity = '0';
-            previewZoomIndicator.textContent = '100%';
+    previewZoom = 1;
+    previewPanX = 0;
+    previewPanY = 0;
+    isPanning = false;
+    startPanX = 0;
+    startPanY = 0;
+    let maxPointerMovement = 0;
+    let hadMultiTouch = false;
+    const activePointers = new Map();
+    let initialPinchDist = 0;
+    let initialPinchScale = 1;
+
+    function clampPreviewPan(img) {
+        if (!img || previewZoom <= 1) {
+            previewPanX = 0;
+            previewPanY = 0;
+            return;
         }
+        const imgW = img.offsetWidth || 300;
+        const imgH = img.offsetHeight || 300;
+        const scaledW = imgW * previewZoom;
+        const scaledH = imgH * previewZoom;
+        const vpW = window.innerWidth;
+        const vpH = window.innerHeight;
+
+        const maxPanX = Math.max(0, (scaledW - vpW) / 2);
+        const maxPanY = Math.max(0, (scaledH - vpH) / 2);
+
+        previewPanX = Math.max(-maxPanX, Math.min(maxPanX, previewPanX));
+        previewPanY = Math.max(-maxPanY, Math.min(maxPanY, previewPanY));
     }
 
     function applyPreviewTransform(img) {
         if (!img) return;
+        clampPreviewPan(img);
         if (previewZoom <= 1) {
             previewZoom = 1;
-            previewPanX = 0;
-            previewPanY = 0;
             img.classList.remove('zoomed');
         } else {
             img.classList.add('zoomed');
@@ -3994,30 +4010,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function openPreview(src, type) {
+    function closePreviewModal() {
+        if (!previewModal) return;
+        previewModal.classList.add('hidden');
+        if (previewContent) previewContent.innerHTML = "";
+        previewZoom = 1;
+        previewPanX = 0;
+        previewPanY = 0;
+        isPanning = false;
+        hadMultiTouch = false;
+        maxPointerMovement = 0;
+        activePointers.clear();
+        if (previewZoomIndicator) {
+            previewZoomIndicator.style.opacity = '0';
+            previewZoomIndicator.textContent = '100%';
+        }
+    }
+
+    function openPreview(src, type = 'image') {
         if (!previewModal || !previewContent) return;
         previewZoom = 1;
         previewPanX = 0;
         previewPanY = 0;
         isPanning = false;
-        hasPreviewDragged = false;
-        initialPinchDistance = null;
+        hadMultiTouch = false;
+        maxPointerMovement = 0;
+        activePointers.clear();
 
         if (previewZoomIndicator) {
             previewZoomIndicator.style.opacity = '0';
             previewZoomIndicator.textContent = '100%';
         }
 
-        const resolvedSrc = absUrl(src);
-        if (type.startsWith('image') || type === 'gif') {
-            previewContent.innerHTML = `<img id="previewActiveImage" src="${resolvedSrc}" class="preview-zoomable-img" draggable="false">`;
-            if (previewZoomResetBtn) previewZoomResetBtn.classList.remove('hidden');
-        } else if (type.startsWith('video')) {
-            previewContent.innerHTML = `<video src="${resolvedSrc}" controls autoplay class="max-w-[96vw] max-h-[92vh] object-contain rounded-lg"></video>`;
+        const resolvedSrc = (typeof absUrl === 'function') ? absUrl(src) : src;
+        const isVid = (typeof type === 'string' && type.startsWith('video'));
+        if (isVid) {
+            previewContent.innerHTML = `<video src="${resolvedSrc}" controls autoplay playsinline class="max-w-[96vw] max-h-[92vh] object-contain rounded-lg"></video>`;
             if (previewZoomResetBtn) previewZoomResetBtn.classList.add('hidden');
+        } else {
+            previewContent.innerHTML = `<img id="previewActiveImage" src="${resolvedSrc}" class="preview-zoomable-img" draggable="false" alt="Preview">`;
+            if (previewZoomResetBtn) previewZoomResetBtn.classList.remove('hidden');
         }
         previewModal.classList.remove('hidden');
     }
+    window.openPreview = openPreview;
+    window.closePreviewModal = closePreviewModal;
 
     if (closePreview) {
         closePreview.onclick = (e) => {
@@ -4038,139 +4075,115 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (previewModal) {
-        // Mouse Wheel Zoom (1x to 4x)
+        // Mouse Wheel Zoom toward cursor (1x to 5x)
         previewModal.addEventListener('wheel', (e) => {
             const img = document.getElementById("previewActiveImage");
             if (!img) return;
             e.preventDefault();
-            const delta = e.deltaY < 0 ? 0.25 : -0.25;
-            previewZoom = Math.min(4, Math.max(1, previewZoom + delta));
-            if (previewZoom <= 1) {
-                previewPanX = 0;
-                previewPanY = 0;
-            }
+
+            const oldScale = previewZoom;
+            const factor = e.deltaY < 0 ? 1.2 : 0.833;
+            const newScale = Math.min(5.0, Math.max(1.0, oldScale * factor));
+            if (newScale === oldScale) return;
+
+            // Viewport center
+            const cursorOffsetX = e.clientX - (window.innerWidth / 2);
+            const cursorOffsetY = e.clientY - (window.innerHeight / 2);
+
+            // Zoom toward cursor
+            const scaleRatio = newScale / oldScale;
+            previewPanX = cursorOffsetX - (cursorOffsetX - previewPanX) * scaleRatio;
+            previewPanY = cursorOffsetY - (cursorOffsetY - previewPanY) * scaleRatio;
+            previewZoom = newScale;
+
             applyPreviewTransform(img);
         }, { passive: false });
 
-        // Mouse Drag to Pan when zoomed
-        previewModal.addEventListener('mousedown', (e) => {
-            const img = document.getElementById("previewActiveImage");
-            if (!img || previewZoom <= 1) return;
-            if (e.target.closest('#previewZoomResetBtn') || e.target.closest('#closePreview')) return;
-            isPanning = true;
-            hasPreviewDragged = false;
-            startPanX = e.clientX - previewPanX;
-            startPanY = e.clientY - previewPanY;
-            img.classList.add('is-dragging');
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isPanning) return;
-            const img = document.getElementById("previewActiveImage");
-            if (!img) return;
-            const newPanX = e.clientX - startPanX;
-            const newPanY = e.clientY - startPanY;
-            if (Math.abs(newPanX - previewPanX) > 4 || Math.abs(newPanY - previewPanY) > 4) {
-                hasPreviewDragged = true;
-            }
-            previewPanX = newPanX;
-            previewPanY = newPanY;
-            applyPreviewTransform(img);
-        });
-
-        window.addEventListener('mouseup', () => {
-            if (isPanning) {
-                isPanning = false;
-                const img = document.getElementById("previewActiveImage");
-                if (img) img.classList.remove('is-dragging');
-            }
-        });
-
-        // Touch Pinch-to-zoom & Pan
-        previewModal.addEventListener('touchstart', (e) => {
+        // Pointer Events for Pinch, Pan, and Tap-to-Close
+        previewModal.addEventListener('pointerdown', (e) => {
             if (e.target.closest('#previewZoomResetBtn') || e.target.closest('#closePreview')) return;
             const img = document.getElementById("previewActiveImage");
-            if (!img) return;
 
-            if (e.touches.length === 2) {
-                // Pinch start
-                const dist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                initialPinchDistance = dist;
-                initialPinchZoom = previewZoom;
-                hasPreviewDragged = true;
-            } else if (e.touches.length === 1 && previewZoom > 1) {
-                // Pan start
-                isPanning = true;
-                hasPreviewDragged = false;
-                startPanX = e.touches[0].clientX - previewPanX;
-                startPanY = e.touches[0].clientY - previewPanY;
-                img.classList.add('is-dragging');
+            activePointers.set(e.pointerId, {
+                x: e.clientX,
+                y: e.clientY,
+                startX: e.clientX,
+                startY: e.clientY
+            });
+
+            if (activePointers.size === 1) {
+                maxPointerMovement = 0;
+                hadMultiTouch = false;
+                isPanning = previewZoom > 1;
+                startPanX = previewPanX;
+                startPanY = previewPanY;
+                if (img && isPanning) img.classList.add('is-dragging');
+            } else if (activePointers.size === 2) {
+                hadMultiTouch = true;
+                isPanning = false;
+                const pts = Array.from(activePointers.values());
+                initialPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                initialPinchScale = previewZoom;
             }
-        }, { passive: true });
+        });
 
-        previewModal.addEventListener('touchmove', (e) => {
+        previewModal.addEventListener('pointermove', (e) => {
+            if (!activePointers.has(e.pointerId)) return;
+            const ptr = activePointers.get(e.pointerId);
+            ptr.x = e.clientX;
+            ptr.y = e.clientY;
+
+            const dist = Math.hypot(ptr.x - ptr.startX, ptr.y - ptr.startY);
+            if (dist > maxPointerMovement) {
+                maxPointerMovement = dist;
+            }
+
             const img = document.getElementById("previewActiveImage");
             if (!img) return;
 
-            if (e.touches.length === 2 && initialPinchDistance) {
-                // Pinch zoom
-                if (e.cancelable) e.preventDefault();
-                const dist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                const scaleRatio = dist / initialPinchDistance;
-                previewZoom = Math.min(4, Math.max(1, initialPinchZoom * scaleRatio));
-                if (previewZoom <= 1) {
-                    previewPanX = 0;
-                    previewPanY = 0;
-                }
+            if (activePointers.size === 1 && isPanning && previewZoom > 1) {
+                const dx = ptr.x - ptr.startX;
+                const dy = ptr.y - ptr.startY;
+                previewPanX = startPanX + dx;
+                previewPanY = startPanY + dy;
                 applyPreviewTransform(img);
-                hasPreviewDragged = true;
-            } else if (e.touches.length === 1 && isPanning) {
-                // Pan move
-                if (e.cancelable) e.preventDefault();
-                const newPanX = e.touches[0].clientX - startPanX;
-                const newPanY = e.touches[0].clientY - startPanY;
-                if (Math.abs(newPanX - previewPanX) > 4 || Math.abs(newPanY - previewPanY) > 4) {
-                    hasPreviewDragged = true;
-                }
-                previewPanX = newPanX;
-                previewPanY = newPanY;
+            } else if (activePointers.size === 2 && initialPinchDist > 0) {
+                hadMultiTouch = true;
+                const pts = Array.from(activePointers.values());
+                const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                const scaleFactor = currentDist / initialPinchDist;
+                previewZoom = Math.min(5.0, Math.max(1.0, initialPinchScale * scaleFactor));
                 applyPreviewTransform(img);
             }
-        }, { passive: false });
+        });
 
-        previewModal.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                initialPinchDistance = null;
+        const handlePointerEnd = (e) => {
+            if (activePointers.has(e.pointerId)) {
+                activePointers.delete(e.pointerId);
             }
-            if (e.touches.length === 0) {
-                isPanning = false;
+            if (activePointers.size === 0) {
                 const img = document.getElementById("previewActiveImage");
                 if (img) img.classList.remove('is-dragging');
-            }
-        }, { passive: true });
+                isPanning = false;
 
-        // Click anywhere to close image modal (when not zoomed, or on video/backdrop)
-        previewModal.addEventListener('click', (e) => {
-            if (e.target.closest('#previewZoomResetBtn') || e.target.closest('#closePreview') || e.target.closest('#previewZoomIndicator')) {
-                return;
+                // Tap-to-close:
+                // "A tap/click ANYWHERE closes it (backdrop and image, also when zoomed).
+                // It's a gesture, not a tap, if the pointer moved more than ~8px or a second pointer was involved.
+                // Wheel zoom never closes it. Also close on Esc, the Android Back button and the x button."
+                if (!hadMultiTouch && maxPointerMovement <= 8) {
+                    if (!e.target.closest('#previewZoomResetBtn') && !e.target.closest('#closePreview')) {
+                        closePreviewModal();
+                    }
+                }
             }
-            if (hasPreviewDragged) {
-                hasPreviewDragged = false;
-                return;
-            }
-            if (previewZoom > 1) {
-                const img = document.getElementById("previewActiveImage");
-                previewZoom = 1;
-                previewPanX = 0;
-                previewPanY = 0;
-                applyPreviewTransform(img);
-            } else {
+        };
+
+        previewModal.addEventListener('pointerup', handlePointerEnd);
+        previewModal.addEventListener('pointercancel', handlePointerEnd);
+
+        // Escape key closes modal
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && previewModal && !previewModal.classList.contains('hidden')) {
                 closePreviewModal();
             }
         });
