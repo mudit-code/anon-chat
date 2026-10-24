@@ -1059,6 +1059,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let messageType = 'video';
                     if (mediaItem.type === 'snap' || mediaItem.isSnap) {
                         messageType = 'snap';
+                    } else if (mediaItem.type === 'sticker' || mediaItem.isSticker || (mediaItem.file && mediaItem.file.isSticker)) {
+                        messageType = 'sticker';
                     } else if (fType.startsWith('image')) {
                         messageType = 'image';
                     } else if (fType.startsWith('audio')) {
@@ -3816,6 +3818,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     messageInput.addEventListener("focus", () => {
         mediaPicker.style.display = "none";
+    });
+
+    // Phase 13: Handle keyboard content (stickers/GIFs from Gboard, etc.)
+    function dataUrlToFile(dataUrl, filename, mimeType) {
+        try {
+            const arr = dataUrl.split(',');
+            const mime = mimeType || (arr[0].match(/:(.*?);/) || [])[1] || 'image/png';
+            const bstr = atob(arr[1] || arr[0]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            const ext = mime.includes('gif') ? 'gif' : mime.includes('webp') ? 'webp' : (mime.includes('jpeg') || mime.includes('jpg')) ? 'jpg' : 'png';
+            const safeName = filename ? (filename.includes('.') ? filename : `${filename}.${ext}`) : `sticker_${Date.now()}.${ext}`;
+            const file = new File([u8arr], safeName, { type: mime, lastModified: Date.now() });
+            file.isSticker = true;
+            return file;
+        } catch (e) {
+            console.error('Failed to convert keyboard content dataUrl to File:', e);
+            return null;
+        }
+    }
+
+    function processKeyboardContent(detail) {
+        if (!detail || !detail.base64) return;
+        const file = dataUrlToFile(detail.base64, detail.name, detail.mimeType);
+        if (file) {
+            if (window.mediaDraft && typeof window.mediaDraft.add === 'function') {
+                window.mediaDraft.add([file]);
+            } else {
+                handleMediaFilesFromExternal([file]);
+            }
+        }
+    }
+
+    window.handleKeyboardContent = processKeyboardContent;
+    window.addEventListener('keyboardContent', (e) => {
+        if (e && e.detail) {
+            processKeyboardContent(e.detail);
+        }
     });
 
     // Helper to handle external media files from paste, drop, or keyboard insertion

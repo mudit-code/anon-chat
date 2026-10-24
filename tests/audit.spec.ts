@@ -1088,11 +1088,39 @@ test.describe('Audit Suite - Current Behavior', () => {
   // PHASE 13: Keyboard GIFs/stickers
   test('PHASE 13: Keyboard GIFs/stickers listener', async ({ page }) => {
     await page.goto('/');
+
+    const roomKey = `kbd-${Date.now().toString(36)}`;
+    await page.fill('#username', 'KbdUser');
+    await page.fill('#roomKey', roomKey);
+    await page.click('#createRoomBtn');
+    await expect(page.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
+
+    // 1. Verify window.handleKeyboardContent exists
     const hasKeyboardListener = await page.evaluate(() => {
       return typeof (window as any).handleKeyboardContent === 'function';
     });
+    expect(hasKeyboardListener).toBe(true);
+
+    // 2. Dispatch keyboardContent custom event with sample sticker data
+    const sampleSticker = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    await page.evaluate((stickerData) => {
+      window.dispatchEvent(new CustomEvent('keyboardContent', {
+        detail: {
+          mimeType: 'image/png',
+          base64: stickerData,
+          name: 'gboard_test_sticker.png'
+        }
+      }));
+    }, sampleSticker);
+
+    // 3. Verify mediaDraft received item and tray is visible
+    const draftTray = page.locator('#mediaPreviews');
+    await expect(draftTray).toBeVisible({ timeout: 3000 });
+    const draftCount = page.locator('#draftCounter');
+    await expect(draftCount).toContainText('1 / 10');
+
     await page.screenshot({ path: 'verify/screenshots/phase13_keyboard_stickers.png' });
-    console.log(`PHASE 13 Result: hasKeyboardListener=${hasKeyboardListener}`);
+    console.log(`PHASE 13 Result: hasKeyboardListener=${hasKeyboardListener}, draftTrayVisible=true, itemAdded=true`);
   });
 
 });

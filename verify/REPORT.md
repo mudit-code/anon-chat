@@ -325,3 +325,32 @@
   - Verified User C opening legacy `/?room=KEY` sees Ask to join screen with "2 people online".
   - Verified User D opening non-existent room sees `#roomUnavailableState`.
   - Screenshot saved: `verify/screenshots/phase12_share_ask.png`.
+
+---
+
+### Phase 13: Keyboard GIFs & Stickers (Android WebView Bridge & MediaDraft Pipeline)
+- **Status:** **PASS (Bridge & Harness Verified; Physical Hardware & Gboard UNVERIFIED per Rule 3 & 7)**
+- **Screenshots:**
+  - `verify/screenshots/phase13_keyboard_stickers.png` (MediaDraft attachment tray showing keyboard-injected sticker card with 1 / 10 count)
+- **Root Cause & Fix:**
+  - *Root Cause:* Default Android `WebView` and Capacitor's `CapacitorWebView` do not override `onCreateInputConnection` to declare image MIME type support (`image/gif`, `image/png`, `image/jpeg`, `image/webp`) in `EditorInfoCompat.setContentMimeTypes()`. Consequently, Google Keyboard (Gboard), Samsung Keyboard, and other modern IMEs declare "doesn't support GIFs here" and disable their sticker/GIF insertion tabs when focusing contenteditable or text input. Furthermore, there was no bridge to receive committed `InputContentInfoCompat` content URI streams and hand them to the web layer.
+  - *Fix:*
+    1. Created `CustomWebView.java` extending `CapacitorWebView` in package `com.mudit.anonchat`.
+    2. Overrode `onCreateInputConnection(EditorInfo outAttrs)`:
+       - Called `EditorInfoCompat.setContentMimeTypes(outAttrs, new String[]{"image/gif", "image/png", "image/jpeg", "image/webp"})`.
+       - Wrapped connection with `InputConnectionCompat.createWrapper(...)` using an `OnCommitContentListener`.
+       - Requested URI read permissions (`inputContentInfo.requestPermission()`).
+       - Streamed content into a byte buffer (capped at 10 MB).
+       - Converted byte array to Base64 data URL and evaluated JS to dispatch `keyboardContent` custom event and invoke `window.handleKeyboardContent`.
+    3. Overrode layout `android/app/src/main/res/layout/capacitor_bridge_layout_main.xml` and `activity_main.xml` to instantiate `com.mudit.anonchat.CustomWebView` with id `@+id/webview`.
+    4. Implemented `processKeyboardContent(detail)` in `public/script.js`:
+       - Converted Base64 data URL to a real `File` with `isSticker = true`.
+       - Fed `File` into `window.mediaDraft.add([file])`, adding it to the draft tray with progress and preview.
+       - Updated `dispatchMediaUpload` to send as `type: 'sticker'`, rendering transparent stickers borderless without a bubble background (`.sticker-bubble`).
+- **Physical Device Test Instructions for User:**
+  1. Deploy debug APK to Android device.
+  2. Enter any chat room and tap the message composer input field to display Gboard.
+  3. Tap the sticker or GIF icon in Gboard toolbar.
+  4. Select a GIF or sticker: verify that Gboard allows insertion and does NOT display "doesn't support GIFs here".
+  5. Verify the sticker thumbnail immediately appears in the `#mediaPreviews` draft tray above composer with `1 / 10` counter.
+  6. Tap Send: verify the sticker uploads with real progress and renders as a clean transparent sticker bubble without borders.
