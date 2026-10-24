@@ -1235,30 +1235,55 @@
 }
 
 /* Media bubbles with responsive dynamic sizing */
+/* Media bubbles with responsive dynamic sizing (Phase 7) */
 .message-bubble-media {
   padding: 4px !important;
-  max-width: min(74vw, 300px) !important;
-  border-radius: 14px !important;
+  width: auto;
+  max-width: min(78%, 360px) !important;
+  border-radius: 16px !important;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 768px) {
   .message-bubble-media {
-    max-width: min(68vw, 240px) !important;
+    max-width: min(78%, 420px) !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .message-bubble-media {
+    max-width: 260px !important;
   }
   .file-document-bubble {
-    max-width: min(72vw, 250px) !important;
+    max-width: 250px !important;
     min-width: 0 !important;
   }
 }
 
+.media-container {
+  position: relative;
+  width: 100%;
+  max-height: min(55dvh, 420px);
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
 .message-file-preview {
   display: block;
-  width: auto;
-  max-width: 100%;
-  max-height: min(260px, 42vh);
-  border-radius: 10px;
+  width: 100%;
+  max-height: min(55dvh, 420px);
   object-fit: cover;
+  border-radius: 12px;
+}
+
+.video-play-overlay {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.message-bubble-media:hover .video-play-overlay {
+  transform: scale(1.05);
 }
 
 /* Audio element in bubble */
@@ -1586,9 +1611,15 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   align-items: center;
   gap: 10px;
   padding: 4px 2px;
-  min-width: 220px;
-  max-width: 300px;
+  width: 240px;
+  max-width: 100%;
   user-select: none;
+}
+
+@media (min-width: 768px) {
+  .voice-player {
+    width: 280px;
+  }
 }
 
 .voice-play-btn {

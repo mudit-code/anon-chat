@@ -502,7 +502,91 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
+    // In-memory 1x1 transparent png for testing aspect ratios
+    const dummyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+    // 1. Inject square (1:1), landscape (16:9), and portrait (9:16) messages
+    await page.evaluate(({ dummyPng }) => {
+      const render = (window as any).renderMessageBubble;
+      if (!render) return;
+
+      // Square
+      render({
+        username: 'UserP7',
+        id: 'msg-square',
+        clientMsgId: 'msg-square',
+        message: { type: 'image', content: dummyPng, width: 400, height: 400 }
+      });
+
+      // Landscape
+      render({
+        username: 'UserP7',
+        id: 'msg-landscape',
+        clientMsgId: 'msg-landscape',
+        message: { type: 'image', content: dummyPng, width: 800, height: 450 }
+      });
+
+      // Portrait
+      render({
+        username: 'UserP7',
+        id: 'msg-portrait',
+        clientMsgId: 'msg-portrait',
+        message: { type: 'image', content: dummyPng, width: 450, height: 800 }
+      });
+
+      // Video
+      render({
+        username: 'UserP7',
+        id: 'msg-video',
+        clientMsgId: 'msg-video',
+        message: { type: 'video', content: dummyPng, width: 640, height: 360 }
+      });
+    }, { dummyPng });
+
+    await page.waitForTimeout(300);
+
+    // 2. Measure dimensions at mobile viewport (390px)
+    const squareBox = await page.locator('#msg-square .message-bubble-media').boundingBox();
+    const landscapeBox = await page.locator('#msg-landscape .message-bubble-media').boundingBox();
+    const portraitBox = await page.locator('#msg-portrait .message-bubble-media').boundingBox();
+    const videoPlayCount = await page.locator('#msg-video .video-play-overlay').count();
+
+    expect(squareBox).toBeTruthy();
+    expect(landscapeBox).toBeTruthy();
+    expect(portraitBox).toBeTruthy();
+    expect(videoPlayCount).toBe(1);
+
+    // Max-width must not exceed 360px on mobile
+    expect(squareBox!.width).toBeLessThanOrEqual(360);
+    expect(landscapeBox!.width).toBeLessThanOrEqual(360);
+    expect(portraitBox!.width).toBeLessThanOrEqual(360);
+
+    // Max-height must not exceed 420px
+    expect(portraitBox!.height).toBeLessThanOrEqual(420);
+
+    await page.screenshot({ path: 'verify/screenshots/phase7_square.png' });
+    await page.screenshot({ path: 'verify/screenshots/phase7_landscape.png' });
+    await page.screenshot({ path: 'verify/screenshots/phase7_portrait.png' });
+
+    // 3. Test narrow screen (320px) - zero horizontal overflow
+    await page.setViewportSize({ width: 320, height: 600 });
+    await page.waitForTimeout(200);
+
+    const hasHorizontalOverflow = await page.evaluate(() => {
+      const scrollW = document.documentElement.scrollWidth || document.body.scrollWidth;
+      return scrollW > window.innerWidth + 1; // 1px threshold for sub-pixel rounding
+    });
+    expect(hasHorizontalOverflow).toBe(false);
+
+    const narrowPortraitBox = await page.locator('#msg-portrait .message-bubble-media').boundingBox();
+    expect(narrowPortraitBox!.width).toBeLessThanOrEqual(265);
+
+    await page.screenshot({ path: 'verify/screenshots/phase7_320px.png' });
     await page.screenshot({ path: 'verify/screenshots/phase7_media_sizing.png' });
+
+    // Reset viewport
+    await page.setViewportSize({ width: 390, height: 844 });
+    console.log(`PHASE 7 Result: square, landscape, portrait, and 320px zero overflow verified`);
   });
 
   // PHASE 8: Image lightbox

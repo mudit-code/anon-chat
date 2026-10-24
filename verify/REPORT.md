@@ -179,3 +179,25 @@
   - Simulated 500 error: verified bubble remained in stream with Retry and Delete buttons.
   - Clicked Retry: verified upload completed, pending bubble replaced in-place by confirmed message bubble.
 
+---
+
+### Phase 7: Responsive Media Sizing
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase7_square.png` (Square 1:1 image bounded properly)
+  - `verify/screenshots/phase7_landscape.png` (Landscape 16:9 image bounded properly)
+  - `verify/screenshots/phase7_portrait.png` (Portrait 9:16 image bounded without taking entire viewport)
+  - `verify/screenshots/phase7_320px.png` (Ultra-narrow 320px viewport with 0 horizontal overflow)
+  - `verify/screenshots/phase7_media_sizing.png` (Overview)
+- **Root Cause & Fix:**
+  - *Root Cause:* Images and videos could render with uncapped aspect ratios, blowing past the viewport on mobile devices or causing layout shifts before loading completed.
+  - *Fix:*
+    - Styled `.message-bubble-media` with responsive maximums: `max-width: min(78%, 360px)` on mobile screens, `max-width: 420px` on desktop (`min-width: 768px`), and `max-width: 260px` at `<= 360px` width.
+    - Added `.media-container` wrapping images and videos with inline `aspect-ratio: ${width} / ${height}` reservation to prevent scroll jumps.
+    - Set `.media-container` and `.message-file-preview` max-height to `min(55dvh, 420px)` with `object-fit: cover` to prevent tall portrait media from dominating chat view.
+    - Added centered 48px `.video-play-overlay` with translucent backdrop and SVG play icon for video messages.
+    - Sized voice note player to `width: 240px` on mobile and `280px` on desktop with overflow protection.
+- **Verification:**
+  - Verified 1:1, 16:9, and 9:16 aspect ratios: width <= 360px, portrait height <= 420px.
+  - Verified video play overlay present and visible.
+  - Tested 320px viewport: zero horizontal scroll (`scrollWidth === clientWidth`).

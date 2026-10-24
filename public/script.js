@@ -1131,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const seenBy = msgPayload.seenBy || [];
         const replyTo = msgPayload.replyTo || null;
 
-        const domId = `msg-${id}`;
+        const domId = String(id).startsWith('msg-') ? String(id) : `msg-${id}`;
         let existingWrapper = document.getElementById(domId) ||
             document.querySelector(`[data-client-msg-id="${clientMsgId}"]`) ||
             document.getElementById(id);
@@ -1213,19 +1213,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     </a>
                 </div>`;
             } else if (message.type === 'image') {
+                const aspectStyle = (message.width && message.height) ? `style="aspect-ratio: ${message.width} / ${message.height};"` : '';
                 contentHtml = `
-                <div class="relative group">
-                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" onclick="openLightbox('${mediaSrc}')">
-                    <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
-                        <i class="fas fa-download"></i>
+                <div class="relative group media-container overflow-hidden rounded-xl" ${aspectStyle}>
+                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" ${message.width ? `width="${message.width}"` : ''} ${message.height ? `height="${message.height}"` : ''} onclick="openPreview('${mediaSrc}', 'image')" alt="Photo">
+                    <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <i class="fas fa-download text-xs"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'video') {
+                const aspectStyle = (message.width && message.height) ? `style="aspect-ratio: ${message.width} / ${message.height};"` : '';
                 contentHtml = `
-                <div class="relative group">
-                    <video src="${mediaSrc}" class="message-file-preview" controls></video>
-                    <a href="${mediaSrc}" download="video-${Date.now()}.mp4" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
-                        <i class="fas fa-download"></i>
+                <div class="relative group media-container overflow-hidden rounded-xl" ${aspectStyle}>
+                    <video src="${mediaSrc}" class="message-file-preview cursor-pointer" preload="metadata" playsinline onclick="openPreview('${mediaSrc}', 'video')"></video>
+                    <div class="video-play-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center shadow-lg text-white">
+                            <i class="fas fa-play text-base ml-0.5"></i>
+                        </div>
+                    </div>
+                    <a href="${mediaSrc}" download="video-${Date.now()}.mp4" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                        <i class="fas fa-download text-xs"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'audio') {
@@ -1286,6 +1293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastMessageUser = user;
         return wrapper;
     }
+    window.renderMessageBubble = renderMessageBubble;
 
     function displayMessage(user, message, id, seenBy = [], replyTo = null) {
         return renderMessageBubble({
