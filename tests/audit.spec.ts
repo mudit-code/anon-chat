@@ -778,11 +778,47 @@ test.describe('Audit Suite - Current Behavior', () => {
 
   // PHASE 10: Emoji and GIF pickers in native mode
   test('PHASE 10: Emoji and GIF pickers in native mode', async ({ page }) => {
+    // Inject native platform stub and point API_BASE to local test server
     await page.addInitScript(() => {
       (window as any).Capacitor = {
         isNativePlatform: () => true,
         getPlatform: () => 'android'
       };
+      (window as any).API_BASE = 'http://localhost:3000';
+    });
+
+    // Mock /api/gifs with Giphy-shaped response if needed
+    await page.route('**/api/gifs*', async (route) => {
+      const url = route.request().url();
+      if (url.includes('query=nonexistentgibberish12345')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [] })
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'gif1',
+              images: {
+                fixed_height: { url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' },
+                original: { url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }
+              }
+            },
+            {
+              id: 'gif2',
+              images: {
+                fixed_height: { url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' },
+                original: { url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }
+              }
+            }
+          ]
+        })
+      });
     });
 
     await page.goto('/');
@@ -792,14 +828,41 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
+    // 1. Open picker -> Emoji tab by default
     await page.click('#emojiBtn');
-    await page.waitForTimeout(500);
-
     const picker = page.locator('#media-picker');
-    const isVisible = await picker.isVisible();
-    const itemsCount = await picker.locator('img, .emoji-item, span').count();
+    await expect(picker).toBeVisible();
+
+    // Min-height check
+    const pickerBox = await picker.boundingBox();
+    expect(pickerBox).toBeTruthy();
+    expect(pickerBox!.height).toBeGreaterThanOrEqual(200);
+
+    // Emojis should be populated offline
+    const emojiCount = await picker.locator('button').count();
+    expect(emojiCount).toBeGreaterThan(40);
+
+    // 2. Switch to GIFs tab
+    const gifTab = picker.locator('button:has-text("GIFs"), button:has(.fa-film)');
+    await gifTab.first().click();
+    await page.waitForTimeout(300);
+
+    // Verify GIFs rendered
+    const gifImgs = picker.locator('#gif-results img');
+    await expect(gifImgs.first()).toBeVisible({ timeout: 5000 });
+    expect(await gifImgs.count()).toBeGreaterThanOrEqual(2);
+
     await page.screenshot({ path: 'verify/screenshots/phase10_native_pickers.png' });
-    console.log(`PHASE 10 Result: picker isVisible=${isVisible}, itemsCount=${itemsCount}`);
+
+    // 3. Test empty search state
+    const searchInput = picker.locator('input[type="text"]');
+    await searchInput.fill('nonexistentgibberish12345');
+    await page.waitForTimeout(400);
+
+    const emptyText = picker.locator('#gif-results');
+    await expect(emptyText).toContainText('No GIFs found');
+
+    console.log(`PHASE 10 Result: emoji grid (${emojiCount} items), GIF grid, and empty state all verified in native mode`);
   });
 
   // PHASE 11: Reply UX

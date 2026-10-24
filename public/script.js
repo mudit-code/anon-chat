@@ -2,7 +2,18 @@
 // The message scrolling is handled by the browser's default behavior with the new flexbox layout.
 
 // Backend URL configuration
-const API_BASE = window.Capacitor?.isNativePlatform?.() ? 'https://anon-chat-jtef.onrender.com' : '';
+function getApiBase() {
+    if (typeof window !== 'undefined' && typeof window.API_BASE === 'string') {
+        return window.API_BASE;
+    }
+    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+        return 'https://anon-chat-jtef.onrender.com';
+    }
+    return '';
+}
+window.getApiBase = getApiBase;
+
+const API_BASE = getApiBase();
 const PUBLIC_WEB_URL = 'https://anon-chat-jtef.onrender.com';
 
 function absUrl(path) {
@@ -11,8 +22,10 @@ function absUrl(path) {
         return path;
     }
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return API_BASE ? `${API_BASE}${cleanPath}` : cleanPath;
+    const base = getApiBase();
+    return base ? `${base}${cleanPath}` : cleanPath;
 }
+window.absUrl = absUrl;
 
 const resolveMediaUrl = absUrl;
 
@@ -4121,9 +4134,9 @@ document.addEventListener('DOMContentLoaded', () => {
             contentArea.innerHTML = "";
             renderEmojis();
 
-            // Enrich emoji list from emojis.json if not already loaded with full set
+            // Enrich emoji list from local emojis.json if not already loaded with full set
             if (emojis.length < 150) {
-                fetch(absUrl('emojis.json'))
+                fetch('emojis.json')
                     .then(res => res.json())
                     .then(data => {
                         if (Array.isArray(data) && data.length > 0) {
@@ -4132,7 +4145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     })
                     .catch(() => {
-                        // Standard built-in emojis are already rendered, so picker remains fully functional!
+                        // Standard built-in emojis are already rendered, so picker remains fully functional offline!
                     });
             }
         }
@@ -4171,6 +4184,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         const targetResults = document.getElementById("gif-results");
                         if (!targetResults) return;
                         targetResults.innerHTML = "";
+
+                        if (data && data.error) {
+                            const errContainer = document.createElement("div");
+                            errContainer.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
+                            errContainer.innerHTML = `
+                                <div class="mb-2 text-[#ff7b7b]">${data.error}</div>
+                                <button type="button" class="gif-retry-btn px-3 py-1 bg-[#261a12] text-[#ffb682] border border-[#ffb682]/40 rounded-lg text-xs hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">Retry</button>
+                            `;
+                            errContainer.querySelector('.gif-retry-btn').onclick = () => searchGifs(query);
+                            targetResults.appendChild(errContainer);
+                            return;
+                        }
+
                         if (data && data.data && data.data.length > 0) {
                             data.data.forEach(gif => {
                                 const img = document.createElement("img");
@@ -4184,8 +4210,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const messageId = `gif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
                                     const messagePayload = {
                                         roomKey,
+                                        roomInstanceId,
+                                        sessionToken,
                                         username,
                                         id: messageId,
+                                        clientMsgId: messageId,
                                         message: { type: 'gif', content: img.src },
                                         seenBy: []
                                     };
@@ -4212,95 +4241,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.warn('GIF search error:', err);
                         const targetResults = document.getElementById("gif-results");
                         if (targetResults) {
-                            targetResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]">Could not load GIFs. Check connection.</div>';
+                            const errContainer = document.createElement("div");
+                            errContainer.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
+                            errContainer.innerHTML = `
+                                <div class="mb-2 text-[#ff7b7b]">Couldn't load GIFs. Check connection.</div>
+                                <button type="button" class="gif-retry-btn px-3 py-1 bg-[#261a12] text-[#ffb682] border border-[#ffb682]/40 rounded-lg text-xs hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">Retry</button>
+                            `;
+                            errContainer.querySelector('.gif-retry-btn').onclick = () => searchGifs(query);
+                            targetResults.innerHTML = "";
+                            targetResults.appendChild(errContainer);
                         }
                     });
             }
 
             searchGifs("trending");
-        }
-
-        function showStickerPicker() {
-            activateTab(stickerTab);
-
-            contentArea.innerHTML = "";
-            const searchInput = document.createElement("input");
-            searchInput.type = "text";
-            searchInput.placeholder = "Search stickers...";
-            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] mb-3 text-sm flex-shrink-0";
-            let searchTimeout = null;
-            searchInput.oninput = () => {
-                if (searchTimeout) clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    searchStickers(searchInput.value.trim());
-                }, 300);
-            };
-            contentArea.appendChild(searchInput);
-
-            const resultsDiv = document.createElement("div");
-            resultsDiv.className = "mt-3 grid grid-cols-3 gap-3";
-            resultsDiv.id = "sticker-results";
-            contentArea.appendChild(resultsDiv);
-
-            function searchStickers(query) {
-                const stickerResults = document.getElementById("sticker-results");
-                if (stickerResults) {
-                    stickerResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]"><i class="fas fa-spinner fa-spin mr-1.5 text-sm text-[#ff7320]"></i>Loading stickers...</div>';
-                }
-                const fetchUrl = absUrl(`/api/stickers?query=${encodeURIComponent(query || "trending")}`);
-                fetch(fetchUrl)
-                    .then(res => res.json())
-                    .then(data => {
-                        const targetResults = document.getElementById("sticker-results");
-                        if (!targetResults) return;
-                        targetResults.innerHTML = "";
-                        if (data && data.data && data.data.length > 0) {
-                            data.data.forEach(stk => {
-                                const img = document.createElement("img");
-                                const imgUrl = stk.images?.fixed_height?.url || stk.images?.original?.url;
-                                if (!imgUrl) return;
-                                img.src = imgUrl;
-                                img.className = "cursor-pointer w-full h-24 object-contain rounded-lg hover:scale-105 transition-transform";
-                                img.loading = "lazy";
-                                img.addEventListener("pointerdown", (e) => e.preventDefault());
-                                img.onclick = () => {
-                                    const messageId = `stk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                                    const messagePayload = {
-                                        roomKey,
-                                        username,
-                                        id: messageId,
-                                        message: { type: 'sticker', content: img.src },
-                                        seenBy: []
-                                    };
-                                    if (replyContext) {
-                                        messagePayload.replyTo = {
-                                            messageId: replyContext.messageId,
-                                            sender: replyContext.sender,
-                                            previewText: replyContext.previewText
-                                        };
-                                        clearReplyContext();
-                                    }
-                                    displayMessage(username, messagePayload.message, messageId, [], messagePayload.replyTo);
-                                    socket.emit("chat-message", messagePayload);
-                                    mediaPicker.classList.add("hidden");
-                                    scrollMessagesToBottom(true);
-                                };
-                                targetResults.appendChild(img);
-                            });
-                        } else {
-                            targetResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]">No stickers found. Try another search.</div>';
-                        }
-                    })
-                    .catch(err => {
-                        console.warn('Sticker search error:', err);
-                        const targetResults = document.getElementById("sticker-results");
-                        if (targetResults) {
-                            targetResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]">Could not load stickers. Check connection.</div>';
-                        }
-                    });
-            }
-
-            searchStickers("trending");
         }
     }
 

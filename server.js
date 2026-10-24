@@ -173,6 +173,9 @@ app.post("/upload", (req, res, next) => {
 });
 
 app.get("/api/gifs", async (req, res) => {
+  if (!GIPHY_API_KEY || GIPHY_API_KEY.trim() === "") {
+    return res.status(500).json({ error: "Giphy API key is not configured" });
+  }
   const { query } = req.query;
   const url = (query && query.trim() !== "" && query !== "trending")
     ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=16`
@@ -180,6 +183,9 @@ app.get("/api/gifs", async (req, res) => {
   try {
     const response = await fetch(url);
     const json = await response.json();
+    if (json.meta && json.meta.status !== 200) {
+      return res.status(json.meta.status).json({ error: json.meta.msg || "Giphy API error" });
+    }
     res.json(json);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch GIFs" });

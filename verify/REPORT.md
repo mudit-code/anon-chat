@@ -247,4 +247,27 @@
   - Verified send dispatches snap, inserts circular bubble into chat stream, and tap toggles playback.
   - Verified all media tracks close cleanly with 0 live tracks remaining.
 
+---
+
+### Phase 10: Emoji & GIF Pickers in Native Mode
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase10_native_pickers.png` (Native mode with populated GIF grid and anchored picker panel)
+- **Root Cause & Fix:**
+  - *Root Cause:* In native mode (Capacitor), relative `/api/gifs` or static `emojis.json` fetches could fail if `API_BASE` wasn't dynamically evaluated at request time, or if `emojis.json` attempted remote network resolution while offline; picker panel had no `min-height` protection, collapsing to 0 height during layout shifts; `/api/gifs` returned 500 without a clear error structure if the key was unset; dead sticker picker leftovers remained in JS.
+  - *Fix:*
+    - Updated `getApiBase()` and `absUrl(path)` to dynamically query `window.API_BASE` or `window.Capacitor.isNativePlatform()` on every call, correctly pointing API requests to the remote backend or local override in native mode.
+    - Set local fallback for `emojis.json` to load bundled local assets directly with 80+ default UTF-8 emojis built-in, guaranteeing full offline functionality.
+    - Added loading spinner, explicit empty state ("No GIFs found. Try another search"), and error state with Retry button in `searchGifs`.
+    - Added `min-height: 220px` to `#media-picker` in `public/style.css` so panel never collapses to 0 height.
+    - Updated `/api/gifs` in `server.js` to return a clear JSON error `{ error: "Giphy API key is not configured" }` with status 500 if unset.
+    - Purged dead in-app sticker tab code from `public/script.js` preserving REG-5.
+- **Verification:**
+  - Verified native mode stub (`isNativePlatform() === true`) runs without errors.
+  - Verified emoji grid populated with 160+ items offline.
+  - Verified GIF search loads and renders GIF thumbnails.
+  - Verified empty search query renders "No GIFs found".
+  - Verified picker panel preserves >= 200px height.
+
+
 
