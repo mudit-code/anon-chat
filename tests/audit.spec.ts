@@ -1020,19 +1020,69 @@ test.describe('Audit Suite - Current Behavior', () => {
   });
 
   // PHASE 12: Share button placement + Ask to join page
-  test('PHASE 12: Share button placement and Ask to join page', async ({ page }) => {
-    await page.goto('/');
-    const headerShareBtn = page.locator('#chatScreen header #shareRoomBtn, #chatScreen header button:has(.fa-share-nodes)');
-    const headerShareCount = await headerShareBtn.count();
+  test('PHASE 12: Share button placement and Ask to join page', async ({ browser }) => {
+    const contextA = await browser.newContext();
+    const pageA = await contextA.newPage();
+    await pageA.goto('/');
 
-    // Check Ask to join page with #join=key
-    await page.goto('/#join=invite123');
-    await page.waitForTimeout(500);
+    const roomKey = `share-${Date.now().toString(36)}`;
+    await pageA.fill('#username', 'AliceHost');
+    await pageA.fill('#roomKey', roomKey);
+    await pageA.click('#createRoomBtn');
+    await expect(pageA.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
 
-    const askToJoinScreen = page.locator('#askToJoinScreen');
-    const askScreenCount = await askToJoinScreen.count();
-    await page.screenshot({ path: 'verify/screenshots/phase12_share_ask.png' });
-    console.log(`PHASE 12 Result: headerShareCount=${headerShareCount}, askScreenCount=${askScreenCount}`);
+    // 1. Verify header has NO share button
+    const headerShareBtn = pageA.locator('#chat-header #shareRoomBtn, #chat-header button:has(.fa-share-nodes)');
+    expect(await headerShareBtn.count()).toBe(0);
+
+    // 2. Verify people panel DOES have share button
+    const panelShareBtn = pageA.locator('#shareRoomCardBtn');
+    await expect(panelShareBtn).toBeAttached();
+
+    // 3. User B opens invite via #join=roomKey
+    const contextB = await browser.newContext();
+    const pageB = await contextB.newPage();
+    await pageB.goto(`/#join=${roomKey}`);
+
+    const askToJoinScreen = pageB.locator('#askToJoinScreen');
+    await expect(askToJoinScreen).toBeVisible({ timeout: 5000 });
+    const onlineCountText = pageB.locator('#askRoomOnlineText');
+    await expect(onlineCountText).toContainText('1 person online');
+
+    await pageB.screenshot({ path: 'verify/screenshots/phase12_share_ask.png' });
+
+    // B enters name and clicks Ask to join
+    await pageB.fill('#inviteUsername', 'BobGuest');
+    await pageB.click('#askJoinRoomBtn');
+
+    // On host pageA, approve join request modal
+    const approveBtn = pageA.locator('#approveJoinBtn');
+    await expect(approveBtn).toBeVisible({ timeout: 5000 });
+    await approveBtn.click();
+
+    // Page B enters room
+    await expect(pageB.locator('#chatScreen')).toBeVisible({ timeout: 5000 });
+    await expect(pageA.locator('#chatScreen')).toBeVisible();
+
+    // 4. User C opens legacy ?room=roomKey
+    const contextC = await browser.newContext();
+    const pageC = await contextC.newPage();
+    await pageC.goto(`/?room=${roomKey}`);
+    await expect(pageC.locator('#askToJoinScreen')).toBeVisible({ timeout: 5000 });
+    await expect(pageC.locator('#askRoomOnlineText')).toContainText('2 people online');
+
+    // 5. User D opens link to non-existent dead room
+    const contextD = await browser.newContext();
+    const pageD = await contextD.newPage();
+    await pageD.goto('/#join=dead-room-xyz');
+    await expect(pageD.locator('#roomUnavailableState')).toBeVisible({ timeout: 5000 });
+    await expect(pageD.locator('#roomUnavailableReason')).toContainText('not exist');
+
+    await contextA.close();
+    await contextB.close();
+    await contextC.close();
+    await contextD.close();
+    console.log('PHASE 12 Result: Header share removed, people panel share present, #join and ?room routes tested, peek-room count verified, approval flow passed, dead room handled');
   });
 
   // PHASE 13: Keyboard GIFs/stickers

@@ -214,13 +214,17 @@
           </div>
         </div>
 
-        <!-- Direct Join Invite Card (shown when visiting via shared link ?room=KEY) -->
-        <div id="panelJoinInvite" class="hidden">
+        <!-- Dedicated Ask to Join Screen (Phase 12) -->
+        <div id="askToJoinScreen" class="hidden">
           <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ff7320]/15 text-[#ff7320] text-xs font-semibold mb-3">
             <i class="fas fa-envelope-open-text"></i> Room Invitation
           </div>
-          <h2 class="landing-form-title font-heading font-bold tracking-tight">You're invited to join</h2>
-          <p class="landing-form-subtitle">Enter your codename to request entry to this private room.</p>
+          <h2 class="landing-form-title font-heading font-bold tracking-tight">You've been invited to a private room</h2>
+          <div id="askRoomOnlineCount" class="text-xs text-[#9a9a9a] mb-3 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+            <span id="askRoomOnlineText">1 person online</span>
+          </div>
+          <p class="landing-form-subtitle mb-4">Enter your codename to request entry to this room.</p>
 
           <div class="p-3.5 mb-4 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-between">
             <span class="text-xs text-[#888888] font-medium">Room key:</span>
@@ -235,7 +239,7 @@
 
           <button id="askJoinRoomBtn" type="button" class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
             <i class="fas fa-paper-plane text-sm"></i>
-            <span>Ask to join room</span>
+            <span>Ask to join</span>
           </button>
 
           <div id="inviteJoinStatus" class="hidden mt-3 p-3 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/30 text-xs text-center text-[#ffb682]">
@@ -247,9 +251,23 @@
 
           <div class="mt-4 text-center">
             <button id="cancelInviteBtn" type="button" class="text-xs text-[#888888] hover:text-[#ffb682] transition-colors underline cursor-pointer">
-              Or create your own room instead
+              Cancel
             </button>
           </div>
+        </div>
+
+        <!-- Room Unavailable State (Phase 12) -->
+        <div id="roomUnavailableState" class="hidden">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-xs font-semibold mb-3">
+            <i class="fas fa-triangle-exclamation"></i> Unavailable
+          </div>
+          <h2 class="landing-form-title font-heading font-bold tracking-tight">This room is no longer available</h2>
+          <p class="landing-form-subtitle mb-6" id="roomUnavailableReason">The room you were invited to has expired, ended, or does not exist.</p>
+
+          <button id="roomUnavailableHomeBtn" type="button" class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
+            <i class="fas fa-home text-sm"></i>
+            <span>Go to Home</span>
+          </button>
         </div>
 
       </div>
@@ -274,10 +292,6 @@
         <button id="themeToggleBtn" title="Switch to light mode" class="header-btn" aria-label="Toggle theme">
           <i id="themeToggleIcon" class="fas fa-sun text-xs"></i>
           <span class="header-btn-text" id="themeToggleText">Light</span>
-        </button>
-        <button id="shareRoomBtn" title="Share room" class="header-btn" aria-label="Share room">
-          <i class="fas fa-share-nodes text-xs"></i>
-          <span class="header-btn-text">Share</span>
         </button>
         <button id="mobileUsersBtn" title="View users" class="md:hidden header-btn relative">
           <i class="fas fa-users text-sm"></i>

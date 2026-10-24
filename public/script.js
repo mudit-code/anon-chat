@@ -329,17 +329,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const closePreview = document.getElementById("closePreview");
     const userCount = document.getElementById("userCount");
 
-    // Room Share elements & handler
+    // Room Share elements & handler (Phase 12: header share removed, people panel only)
     const shareRoomBtn = document.getElementById("shareRoomBtn");
     const shareRoomCardBtn = document.getElementById("shareRoomCardBtn");
     const mobileShareRoomBtn = document.getElementById("mobileShareRoomBtn");
 
     async function shareRoomLink() {
         if (!roomKey) return;
-        const PUBLIC_WEB_URL = (window.location.origin && window.location.origin.startsWith('http') && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1'))
+        const PUBLIC_WEB_URL = (window.location.origin && window.location.origin.startsWith('http'))
             ? window.location.origin
             : 'https://anon-chat-jtef.onrender.com';
-        const shareUrl = `${PUBLIC_WEB_URL}/?room=${encodeURIComponent(roomKey)}`;
+        const shareUrl = `${PUBLIC_WEB_URL}/#join=${encodeURIComponent(roomKey)}`;
         const shareTitle = 'Join my Anon Chat room';
         const shareText = `Join my private encrypted room on Anon Chat: ${roomKey}`;
 
@@ -400,7 +400,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                shareRoomLink();
+                withBusy(btn, async () => {
+                    await shareRoomLink();
+                });
             });
         }
     });
@@ -507,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // State
-    let roomKey = null, username = null, isAdmin = false;
+    let roomKey = null, username = null, isAdmin = false, pendingInviteKey = null;
     let roomInstanceId = null;
     let sessionToken = null;
     let memberId = null;
@@ -3082,15 +3084,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { serverWakeupNotice: true, connectingText: "Connecting…" });
     };
 
-    joinRoomBtn.onclick = () => {
-        roomKey = roomKeyInput.value.trim();
-        username = usernameInput.value.trim();
-        if (!roomKey || !username) {
+    function performJoinRoom(targetKey, targetUsername, triggerBtn) {
+        const key = (targetKey || "").trim();
+        const uname = (targetUsername || "").trim();
+        if (!key || !uname) {
             appAlert("Please enter a username and a room key.");
             return;
         }
-        withBusy(joinRoomBtn, () => {
-            window.currentRoomKey = roomKey;
+
+        roomKey = key;
+        username = uname;
+        window.currentRoomKey = roomKey;
+        if (roomKeyInput) roomKeyInput.value = roomKey;
+        if (usernameInput) usernameInput.value = username;
+
+        const btn = triggerBtn || joinRoomBtn;
+        withBusy(btn, () => {
+            const inviteJoinStatus = document.getElementById("inviteJoinStatus");
+            if (inviteJoinStatus && triggerBtn && (triggerBtn.id === "askJoinRoomBtn" || triggerBtn.id === "askToJoinBtn")) {
+                inviteJoinStatus.classList.remove("hidden");
+            }
             socket.emit("join-room", {
                 roomKey,
                 username
@@ -3109,66 +3122,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 socket.once("join-rejected", onDone);
             });
         }, { serverWakeupNotice: true, connectingText: "Connecting…" });
+    }
+
+    joinRoomBtn.onclick = () => {
+        performJoinRoom(roomKeyInput ? roomKeyInput.value : "", usernameInput ? usernameInput.value : "", joinRoomBtn);
     };
 
-    // Direct join invite card elements & handlers
-    const askJoinRoomBtn = document.getElementById("askJoinRoomBtn");
+    // Dedicated Ask to Join screen elements & handlers (Phase 12)
+    const askToJoinScreen = document.getElementById("askToJoinScreen") || document.getElementById("panelJoinInvite");
+    const roomUnavailableState = document.getElementById("roomUnavailableState");
+    const askJoinRoomBtn = document.getElementById("askJoinRoomBtn") || document.getElementById("askToJoinBtn");
     const cancelInviteBtn = document.getElementById("cancelInviteBtn");
+    const roomUnavailableHomeBtn = document.getElementById("roomUnavailableHomeBtn");
     const inviteUsername = document.getElementById("inviteUsername");
     const inviteRoomKeyDisplay = document.getElementById("inviteRoomKeyDisplay");
+    const askRoomOnlineText = document.getElementById("askRoomOnlineText");
     const inviteJoinStatus = document.getElementById("inviteJoinStatus");
     const panelChatRoom = document.getElementById("panelChatRoom");
-    const panelJoinInvite = document.getElementById("panelJoinInvite");
 
     if (askJoinRoomBtn) {
         askJoinRoomBtn.onclick = () => {
             const codename = (inviteUsername ? inviteUsername.value.trim() : "") || (usernameInput ? usernameInput.value.trim() : "");
-            const key = (inviteRoomKeyDisplay ? inviteRoomKeyDisplay.textContent.trim() : "") || (roomKeyInput ? roomKeyInput.value.trim() : "");
-
-            if (!codename) {
-                showToast("Please enter your codename first");
-                if (inviteUsername) inviteUsername.focus();
-                return;
-            }
-            if (!key) {
-                showToast("Missing room key");
-                return;
-            }
-
-            username = codename;
-            roomKey = key;
-            window.currentRoomKey = roomKey;
-            if (usernameInput) usernameInput.value = username;
-            if (roomKeyInput) roomKeyInput.value = roomKey;
-
-            withBusy(askJoinRoomBtn, () => {
-                if (inviteJoinStatus) inviteJoinStatus.classList.remove("hidden");
-                socket.emit("join-room", { roomKey, username });
-                return new Promise((resolve) => {
-                    const onDone = () => { cleanup(); resolve(); };
-                    function cleanup() {
-                        socket.off("join-approved", onDone);
-                        socket.off("join-request-sent", onDone);
-                        socket.off("room-not-found", onDone);
-                        socket.off("join-rejected", onDone);
-                    }
-                    socket.once("join-approved", onDone);
-                    socket.once("join-request-sent", onDone);
-                    socket.once("room-not-found", onDone);
-                    socket.once("join-rejected", onDone);
-                });
-            }, { serverWakeupNotice: true, connectingText: "Connecting…" });
+            const key = pendingInviteKey || (inviteRoomKeyDisplay ? inviteRoomKeyDisplay.textContent.trim() : "") || (roomKeyInput ? roomKeyInput.value.trim() : "");
+            performJoinRoom(key, codename, askJoinRoomBtn);
         };
     }
 
+    function returnToJoinScreen() {
+        if (askToJoinScreen) askToJoinScreen.classList.add("hidden");
+        if (roomUnavailableState) roomUnavailableState.classList.add("hidden");
+        if (panelChatRoom) panelChatRoom.classList.remove("hidden");
+        pendingInviteKey = null;
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }
+
     if (cancelInviteBtn) {
-        cancelInviteBtn.onclick = () => {
-            if (panelJoinInvite) panelJoinInvite.classList.add("hidden");
-            if (panelChatRoom) panelChatRoom.classList.remove("hidden");
-            if (window.history && window.history.replaceState) {
-                window.history.replaceState(null, '', window.location.pathname);
-            }
-        };
+        cancelInviteBtn.onclick = returnToJoinScreen;
+    }
+    if (roomUnavailableHomeBtn) {
+        roomUnavailableHomeBtn.onclick = returnToJoinScreen;
     }
 
     function performLeaveRoom(emitLeave = true) {
@@ -6759,11 +6753,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (searchParams.has("room")) {
-                const roomCode = searchParams.get("room").trim();
-                if (roomCode) {
-                    handleRoomParamPrefill(roomCode);
+            function extractInviteKey() {
+                const hash = window.location.hash || "";
+                if (hash.startsWith("#join=")) {
+                    return decodeURIComponent(hash.substring(6).trim());
                 }
+                if (searchParams.has("room")) {
+                    return decodeURIComponent(searchParams.get("room").trim());
+                }
+                return null;
+            }
+
+            const inviteKeyOnLoad = extractInviteKey();
+            if (inviteKeyOnLoad) {
+                handleInviteLink(inviteKeyOnLoad);
+                document.documentElement.classList.remove("loading-file-room");
+                return;
             }
 
             let savedSession = null;
@@ -6790,47 +6795,109 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.classList.remove("loading-file-room");
         }
 
-        function handleRoomParamPrefill(code) {
+        function handleInviteLink(code) {
             if (!code) return;
             const cleanCode = code.trim();
+            if (!cleanCode) return;
+            pendingInviteKey = cleanCode;
+
+            // Clear URL fragment or query so room key is not retained in browser address bar
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname);
+            }
+
             const panelChatRoom = document.getElementById("panelChatRoom");
-            const panelJoinInvite = document.getElementById("panelJoinInvite");
+            const askToJoinScreen = document.getElementById("askToJoinScreen") || document.getElementById("panelJoinInvite");
+            const roomUnavailableState = document.getElementById("roomUnavailableState");
             const inviteRoomKeyDisplay = document.getElementById("inviteRoomKeyDisplay");
+            const askRoomOnlineText = document.getElementById("askRoomOnlineText");
             const inviteUsername = document.getElementById("inviteUsername");
             const inviteJoinStatus = document.getElementById("inviteJoinStatus");
-            const askJoinRoomBtn = document.getElementById("askJoinRoomBtn");
+            const askJoinRoomBtn = document.getElementById("askJoinRoomBtn") || document.getElementById("askToJoinBtn");
 
-            if (panelJoinInvite && inviteRoomKeyDisplay) {
-                inviteRoomKeyDisplay.textContent = cleanCode;
-                if (panelChatRoom) panelChatRoom.classList.add("hidden");
-                panelJoinInvite.classList.remove("hidden");
-                if (inviteJoinStatus) inviteJoinStatus.classList.add("hidden");
-                if (askJoinRoomBtn) {
-                    askJoinRoomBtn.disabled = false;
-                    askJoinRoomBtn.classList.remove("opacity-50", "pointer-events-none");
-                }
+            function applyPeek(res) {
+                if (res && res.exists && !res.full) {
+                    if (roomUnavailableState) roomUnavailableState.classList.add("hidden");
+                    if (panelChatRoom) panelChatRoom.classList.add("hidden");
+                    if (askToJoinScreen) askToJoinScreen.classList.remove("hidden");
+                    if (inviteRoomKeyDisplay) inviteRoomKeyDisplay.textContent = cleanCode;
+                    if (askRoomOnlineText) {
+                        const count = res.onlineCount || 0;
+                        askRoomOnlineText.textContent = `${count} ${count === 1 ? 'person' : 'people'} online`;
+                    }
+                    if (inviteJoinStatus) inviteJoinStatus.classList.add("hidden");
+                    if (askJoinRoomBtn) {
+                        askJoinRoomBtn.disabled = false;
+                        askJoinRoomBtn.classList.remove("opacity-50", "pointer-events-none");
+                    }
 
-                // Prefill saved username if available
-                const savedUser = localStorage.getItem("username") || (usernameInput ? usernameInput.value : "");
-                if (inviteUsername) {
-                    if (savedUser) inviteUsername.value = savedUser;
-                    setTimeout(() => inviteUsername.focus(), 250);
-                }
-            } else if (roomKeyInput) {
-                roomKeyInput.value = cleanCode;
-                if (usernameInput) {
-                    setTimeout(() => usernameInput.focus(), 250);
+                    const savedUser = localStorage.getItem("username") || (usernameInput ? usernameInput.value : "");
+                    if (inviteUsername) {
+                        if (savedUser) inviteUsername.value = savedUser;
+                        setTimeout(() => inviteUsername.focus(), 250);
+                    }
+                } else {
+                    if (panelChatRoom) panelChatRoom.classList.add("hidden");
+                    if (askToJoinScreen) askToJoinScreen.classList.add("hidden");
+                    if (roomUnavailableState) {
+                        roomUnavailableState.classList.remove("hidden");
+                        const reasonEl = document.getElementById("roomUnavailableReason");
+                        if (reasonEl) {
+                            reasonEl.textContent = (res && res.full)
+                                ? "This room has reached its maximum member limit."
+                                : "The room you were invited to has expired, ended, or does not exist.";
+                        }
+                    }
                 }
             }
+
+            function queryPeek() {
+                let peeked = false;
+                const onPeekResponse = (res) => {
+                    if (peeked) return;
+                    peeked = true;
+                    socket.off("peek-room-response", onPeekResponse);
+                    applyPeek(res);
+                };
+                socket.once("peek-room-response", onPeekResponse);
+                socket.emit("peek-room", { roomKey: cleanCode }, (res) => {
+                    if (peeked) return;
+                    peeked = true;
+                    socket.off("peek-room-response", onPeekResponse);
+                    applyPeek(res);
+                });
+                setTimeout(() => {
+                    if (!peeked) {
+                        peeked = true;
+                        socket.off("peek-room-response", onPeekResponse);
+                        applyPeek({ exists: false });
+                    }
+                }, 6000);
+            }
+
+            if (socket.connected) {
+                queryPeek();
+            } else {
+                socket.once("connect", queryPeek);
+            }
         }
+
+        window.addEventListener("hashchange", () => {
+            const hash = window.location.hash || "";
+            if (hash.startsWith("#join=")) {
+                handleInviteLink(decodeURIComponent(hash.substring(6).trim()));
+            }
+        });
 
         if (window.Capacitor?.Plugins?.App) {
             window.Capacitor.Plugins.App.addListener('appUrlOpen', (data) => {
                 if (data && data.url) {
                     try {
                         const parsed = new URL(data.url);
-                        if (parsed.searchParams.has('room')) {
-                            handleRoomParamPrefill(parsed.searchParams.get('room'));
+                        if (parsed.hash && parsed.hash.startsWith('#join=')) {
+                            handleInviteLink(decodeURIComponent(parsed.hash.substring(6)));
+                        } else if (parsed.searchParams.has('room')) {
+                            handleInviteLink(parsed.searchParams.get('room'));
                         }
                     } catch (e) {
                         console.warn('appUrlOpen error:', e);

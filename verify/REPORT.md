@@ -296,6 +296,32 @@
   - Verified invalid quote click displays toast `"Original message isn't available"`.
   - Verified multi-viewport captures at 360px and 1280px in dark and light modes.
 
+---
 
-
-
+### Phase 12: Share Button Placement & Dedicated "Ask to Join" Page
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase12_share_ask.png` (Dedicated "Ask to join" screen with live online count, room key badge, and codename input)
+- **Root Cause & Fix:**
+  - *Root Cause:*
+    1. Header contained `#shareRoomBtn`, cluttering top navigation while people/room panel already had share actions.
+    2. Room share URL generated query parameter format `/?room=KEY` which leaks the secret room key to server logs, proxy access logs, and referrer headers in cleartext HTTP GET requests, instead of client-only URL fragments (`/#join=KEY`).
+    3. Opening invite links directly loaded the app without room validation (`peek-room`), potentially restoring stale sessions or falling back to room creation, joining isolated rooms or unapproved sessions.
+    4. Join button and invite card had duplicated join invocation and validation paths.
+  - *Fix:*
+    1. Removed `#shareRoomBtn` from `#chat-header` in `public/index.html`. Retained share buttons solely in people/room panel (`#shareRoomCardBtn` and `#mobileShareRoomBtn`).
+    2. Generated share URLs using URL fragment: `${PUBLIC_WEB_URL}/#join=${encodeURIComponent(roomKey)}`. Supported legacy `?room=KEY` links seamlessly.
+    3. Wrapped share buttons in Phase 3 `withBusy` state and prioritized `@capacitor/share`, falling back to `navigator.share` and clipboard copy with toast.
+    4. Built dedicated `#askToJoinScreen` in `public/index.html` displaying branding, "You've been invited to a private room", live online count (`#askRoomOnlineText`), room key preview card, codename input, primary "Ask to join" button with busy feedback, and "Cancel" button.
+    5. Created `#roomUnavailableState` container displaying clear notice if room expired, ended, or does not exist.
+    6. Integrated `socket.emit("peek-room")` on incoming invite links, pre-validating existence and online count non-destructively without joining or creating rooms.
+    7. Unified join invocation into `performJoinRoom()` called by both `#joinRoomBtn` and `#askJoinRoomBtn` with identical validation, busy spinner state, and socket event responses.
+    8. Cleaned URL fragment/query immediately after parsing via `window.history.replaceState`.
+- **Verification:**
+  - Verified header share button count is 0.
+  - Verified people panel share button is present and functional.
+  - Verified User B opening `/#join=KEY` sees the Ask to join screen with "1 person online".
+  - Verified User B clicking "Ask to join" triggers join request, User A approves, and both enter the room.
+  - Verified User C opening legacy `/?room=KEY` sees Ask to join screen with "2 people online".
+  - Verified User D opening non-existent room sees `#roomUnavailableState`.
+  - Screenshot saved: `verify/screenshots/phase12_share_ask.png`.
