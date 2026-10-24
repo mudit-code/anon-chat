@@ -594,6 +594,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const replyPreviewBar = document.getElementById("replyPreviewBar");
     const replyCancelBtn = document.getElementById("replyCancelBtn");
 
+    function scrollMessagesToBottom(instant = false) {
+        if (!messagesDiv) return;
+        requestAnimationFrame(() => {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    }
+
     // Stable hash helper for sender name color
     function getSenderColor(name) {
         const isLight = document.body.classList.contains('light-mode');
@@ -784,6 +791,335 @@ document.addEventListener('DOMContentLoaded', () => {
         lastMessageUser = null;
     }
 
+    // ======== PHASE 6: PENDING BUBBLES WITH PROGRESS, CANCEL, RETRY ========
+    const activeUploads = new Map(); // clientMsgId -> { xhr, mediaItem, roomInstanceId }
+
+    function createPendingMediaBubble({ file, objectUrl, clientMsgId, roomInstanceId, onCancel, onRetry, onDelete }) {
+        const isVideo = file && file.type && file.type.startsWith('video');
+        const isImage = file && file.type && file.type.startsWith('image');
+        const isAudio = file && file.type && file.type.startsWith('audio');
+
+        const domId = `msg-${clientMsgId}`;
+        let wrapper = document.getElementById(domId);
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.id = domId;
+            wrapper.setAttribute('data-msg-id', clientMsgId);
+            wrapper.setAttribute('data-client-msg-id', clientMsgId);
+            wrapper.setAttribute('data-pending', 'true');
+            wrapper.setAttribute('data-room-instance-id', roomInstanceId || '');
+            wrapper.className = "message flex flex-col items-end new-user pending-message";
+
+            const messageRow = document.createElement("div");
+            messageRow.className = "flex flex-col w-full justify-end message-row";
+
+            const messageBubble = document.createElement("div");
+            messageBubble.className = "sent-message message-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30";
+            messageBubble.style.minWidth = "180px";
+
+            let mediaPreviewHtml = '';
+            if (isImage) {
+                mediaPreviewHtml = `
+                    <div class="relative w-full max-h-[260px] overflow-hidden rounded-lg bg-black/40">
+                        <img src="${objectUrl}" class="w-full h-auto object-cover opacity-75 blur-[0.5px]" alt="Sending...">
+                        <div class="pending-overlay absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 p-3">
+                            <div class="pending-progress-ring flex items-center justify-center relative w-12 h-12">
+                                <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#333333]" stroke-width="3"></circle>
+                                    <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#ff7320] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                                </svg>
+                                <span class="pending-progress-text absolute font-mono text-[10px] font-bold text-white">0%</span>
+                            </div>
+                            <button type="button" class="pending-cancel-btn text-xs text-white/80 hover:text-white bg-black/60 hover:bg-black/80 px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors cursor-pointer" title="Cancel upload">
+                                <i class="fas fa-times text-[10px]"></i>
+                                <span>Cancel</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (isVideo) {
+                mediaPreviewHtml = `
+                    <div class="relative w-full max-h-[260px] overflow-hidden rounded-lg bg-black/40">
+                        <video src="${objectUrl}" class="w-full h-auto object-cover opacity-75" muted></video>
+                        <div class="pending-overlay absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 p-3">
+                            <div class="pending-progress-ring flex items-center justify-center relative w-12 h-12">
+                                <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#333333]" stroke-width="3"></circle>
+                                    <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#ff7320] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                                </svg>
+                                <span class="pending-progress-text absolute font-mono text-[10px] font-bold text-white">0%</span>
+                            </div>
+                            <button type="button" class="pending-cancel-btn text-xs text-white/80 hover:text-white bg-black/60 hover:bg-black/80 px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors cursor-pointer" title="Cancel upload">
+                                <i class="fas fa-times text-[10px]"></i>
+                                <span>Cancel</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                mediaPreviewHtml = `
+                    <div class="flex items-center gap-3 p-2 rounded-lg bg-black/30">
+                        <i class="fas ${isAudio ? 'fa-microphone-lines' : 'fa-file'} text-2xl text-[#ffb682]"></i>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs font-medium text-white truncate">${file ? file.name : 'attachment'}</div>
+                            <div class="text-[10px] text-[#888888] font-mono">${formatBytes(file ? file.size : 0)}</div>
+                        </div>
+                        <div class="pending-progress-ring flex items-center justify-center relative w-9 h-9">
+                            <svg class="w-9 h-9 transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#333333]" stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#ff7320] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                            </svg>
+                            <span class="pending-progress-text absolute font-mono text-[9px] font-bold text-white">0%</span>
+                        </div>
+                        <button type="button" class="pending-cancel-btn w-7 h-7 rounded-full bg-black/50 hover:bg-black/80 text-white/80 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Cancel upload">
+                            <i class="fas fa-times text-[10px]"></i>
+                        </button>
+                    </div>
+                `;
+            }
+
+            const statusRowHtml = `
+                <div class="pending-status-bar flex items-center justify-between gap-2 mt-1.5 pt-1 border-t border-white/10 text-[11px] text-[#ffb682]">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fas fa-arrow-up animate-bounce text-[10px]"></i>
+                        <span class="pending-status-label">Sending…</span>
+                    </div>
+                    <div class="pending-actions hidden flex items-center gap-2">
+                        <button type="button" class="pending-retry-btn px-2 py-0.5 rounded bg-[#ff7320] text-black font-semibold text-[10px] hover:bg-[#ff9150] transition-colors cursor-pointer">Retry</button>
+                        <button type="button" class="pending-delete-btn px-2 py-0.5 rounded bg-white/10 text-white/80 font-medium text-[10px] hover:bg-white/20 transition-colors cursor-pointer">Delete</button>
+                    </div>
+                </div>
+            `;
+
+            messageBubble.innerHTML = mediaPreviewHtml + statusRowHtml;
+            messageRow.appendChild(messageBubble);
+            wrapper.appendChild(messageRow);
+
+            getMessagesTarget().appendChild(wrapper);
+            if (typeof scrollMessagesToBottom === 'function') {
+                scrollMessagesToBottom(true);
+            } else if (messagesDiv) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        }
+
+        // Bind event handlers
+        const cancelBtn = wrapper.querySelector('.pending-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (onCancel) onCancel();
+            };
+        }
+
+        const retryBtn = wrapper.querySelector('.pending-retry-btn');
+        if (retryBtn) {
+            retryBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (onRetry) onRetry();
+            };
+        }
+
+        const deleteBtn = wrapper.querySelector('.pending-delete-btn');
+        if (deleteBtn) {
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (onDelete) onDelete();
+            };
+        }
+
+        return wrapper;
+    }
+
+    function updatePendingBubbleProgress(clientMsgId, percent) {
+        const wrapper = document.getElementById(`msg-${clientMsgId}`);
+        if (!wrapper) return;
+        const circle = wrapper.querySelector('.pending-progress-circle');
+        const text = wrapper.querySelector('.pending-progress-text');
+        if (circle) {
+            const offset = 94.2 - (94.2 * Math.min(100, Math.max(0, percent))) / 100;
+            circle.style.strokeDashoffset = offset;
+        }
+        if (text) {
+            text.textContent = `${Math.round(percent)}%`;
+        }
+    }
+
+    function setPendingBubbleFailed(clientMsgId, errorMsg) {
+        const wrapper = document.getElementById(`msg-${clientMsgId}`);
+        if (!wrapper) return;
+        wrapper.classList.add('pending-failed');
+        const bubble = wrapper.querySelector('.pending-bubble');
+        if (bubble) {
+            bubble.classList.remove('border-[#ff7320]/30');
+            bubble.classList.add('border-red-500/60', 'bg-red-950/20');
+        }
+        const label = wrapper.querySelector('.pending-status-label');
+        if (label) {
+            label.innerHTML = '<span class="text-red-400 font-medium"><i class="fas fa-exclamation-circle mr-1"></i>Failed to send</span>';
+        }
+        const bounceIcon = wrapper.querySelector('.pending-status-bar i.fa-arrow-up');
+        if (bounceIcon) bounceIcon.classList.add('hidden');
+
+        const actions = wrapper.querySelector('.pending-actions');
+        if (actions) actions.classList.remove('hidden');
+
+        const ring = wrapper.querySelector('.pending-progress-ring');
+        if (ring) ring.classList.add('hidden');
+
+        const cancelBtn = wrapper.querySelector('.pending-cancel-btn');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+    }
+
+    function setPendingBubbleRetrying(clientMsgId) {
+        const wrapper = document.getElementById(`msg-${clientMsgId}`);
+        if (!wrapper) return;
+        wrapper.classList.remove('pending-failed');
+        const bubble = wrapper.querySelector('.pending-bubble');
+        if (bubble) {
+            bubble.classList.remove('border-red-500/60', 'bg-red-950/20');
+            bubble.classList.add('border-[#ff7320]/30');
+        }
+        const label = wrapper.querySelector('.pending-status-label');
+        if (label) {
+            label.textContent = 'Retrying…';
+        }
+        const bounceIcon = wrapper.querySelector('.pending-status-bar i.fa-arrow-up');
+        if (bounceIcon) bounceIcon.classList.remove('hidden');
+
+        const actions = wrapper.querySelector('.pending-actions');
+        if (actions) actions.classList.add('hidden');
+
+        const ring = wrapper.querySelector('.pending-progress-ring');
+        if (ring) ring.classList.remove('hidden');
+
+        const cancelBtn = wrapper.querySelector('.pending-cancel-btn');
+        if (cancelBtn) cancelBtn.classList.remove('hidden');
+
+        updatePendingBubbleProgress(clientMsgId, 0);
+    }
+
+    function removePendingBubble(clientMsgId) {
+        const wrapper = document.getElementById(`msg-${clientMsgId}`);
+        if (wrapper) {
+            wrapper.remove();
+        }
+    }
+
+    function dispatchMediaUpload(mediaItem) {
+        const clientMsgId = mediaItem.clientMsgId;
+        const currentInstance = roomInstanceId;
+
+        const xhr = new XMLHttpRequest();
+        activeUploads.set(clientMsgId, { xhr, mediaItem, roomInstanceId: currentInstance });
+
+        const formData = new FormData();
+        formData.append('file', mediaItem.file);
+        formData.append('roomInstanceId', currentInstance || '');
+        formData.append('sessionToken', sessionToken || '');
+        formData.append('clientMsgId', clientMsgId);
+
+        xhr.open('POST', `${API_BASE}/upload`, true);
+        xhr.setRequestHeader('x-room-instance-id', currentInstance || '');
+        xhr.setRequestHeader('x-client-msg-id', clientMsgId);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                updatePendingBubbleProgress(clientMsgId, percent);
+            }
+        };
+
+        xhr.onload = () => {
+            if (roomInstanceId !== currentInstance) {
+                removePendingBubble(clientMsgId);
+                activeUploads.delete(clientMsgId);
+                return;
+            }
+
+            if (xhr.status === 200) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    const fType = (mediaItem.file && mediaItem.file.type) ? mediaItem.file.type : '';
+                    let messageType = 'video';
+                    if (fType.startsWith('image')) {
+                        messageType = 'image';
+                    } else if (fType.startsWith('audio')) {
+                        messageType = 'audio';
+                    } else if (fType.startsWith('video')) {
+                        messageType = 'video';
+                    } else {
+                        messageType = 'file';
+                    }
+
+                    if (messageType === 'file') {
+                        const filePayload = {
+                            roomKey,
+                            roomInstanceId: currentInstance,
+                            sessionToken,
+                            clientMsgId,
+                            username,
+                            id: clientMsgId,
+                            file: {
+                                name: mediaItem.file.name,
+                                size: mediaItem.file.size,
+                                type: mediaItem.file.type,
+                                path: data.path
+                            },
+                            seenBy: []
+                        };
+                        displayFile(username, filePayload.file, clientMsgId, []);
+                        socket.emit("file-message", filePayload);
+                    } else {
+                        const messagePayload = {
+                            roomKey,
+                            roomInstanceId: currentInstance,
+                            sessionToken,
+                            clientMsgId,
+                            username,
+                            id: clientMsgId,
+                            message: {
+                                type: messageType,
+                                content: data.path,
+                                name: mediaItem.file?.name,
+                                size: mediaItem.file?.size
+                            },
+                            seenBy: []
+                        };
+                        renderMessageBubble({
+                            username,
+                            message: messagePayload.message,
+                            id: clientMsgId,
+                            clientMsgId,
+                            seenBy: []
+                        });
+                        socket.emit("chat-message", messagePayload);
+                    }
+
+                    if (mediaItem.objectUrl) {
+                        try { URL.revokeObjectURL(mediaItem.objectUrl); } catch (e) {}
+                    }
+                    activeUploads.delete(clientMsgId);
+                } catch (err) {
+                    setPendingBubbleFailed(clientMsgId, 'Failed to parse response');
+                }
+            } else {
+                setPendingBubbleFailed(clientMsgId, `Server error ${xhr.status}`);
+            }
+        };
+
+        xhr.onerror = () => {
+            if (roomInstanceId !== currentInstance) {
+                removePendingBubble(clientMsgId);
+                activeUploads.delete(clientMsgId);
+                return;
+            }
+            setPendingBubbleFailed(clientMsgId, 'Network error');
+        };
+
+        xhr.send(formData);
+    }
+
     function renderMessageBubble(msgPayload) {
         if (!msgPayload) return null;
         const user = msgPayload.username || msgPayload.user;
@@ -801,16 +1137,19 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById(id);
 
         if (existingWrapper) {
-            // Update seen status if needed
-            const seenStatus = existingWrapper.querySelector('.seen-status');
-            if (seenStatus) {
-                const otherViewers = seenBy.filter(u => u !== username);
-                if (otherViewers.length > 0) {
-                    seenStatus.textContent = `Seen by ${otherViewers.join(", ")}`;
-                    seenStatus.classList.add('visible');
+            const isPending = existingWrapper.getAttribute('data-pending') === 'true' || existingWrapper.classList.contains('pending-message');
+            if (!isPending) {
+                // Update seen status if needed
+                const seenStatus = existingWrapper.querySelector('.seen-status');
+                if (seenStatus) {
+                    const otherViewers = seenBy.filter(u => u !== username);
+                    if (otherViewers.length > 0) {
+                        seenStatus.textContent = `Seen by ${otherViewers.join(", ")}`;
+                        seenStatus.classList.add('visible');
+                    }
                 }
+                return existingWrapper;
             }
-            return existingWrapper;
         }
 
         const isConsecutive = lastMessageUser === user;
@@ -929,7 +1268,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        getMessagesTarget().appendChild(wrapper);
+        if (existingWrapper && (existingWrapper.getAttribute('data-pending') === 'true' || existingWrapper.classList.contains('pending-message'))) {
+            existingWrapper.replaceWith(wrapper);
+        } else {
+            getMessagesTarget().appendChild(wrapper);
+        }
 
         if (user === username && seenBy && seenBy.length > 0) {
             updateSeenStatusDisplay(user, seenBy);
@@ -2639,6 +2982,14 @@ document.addEventListener('DOMContentLoaded', () => {
             window.cleanupMobileKeyboard();
         }
 
+        // Cleanup active uploads
+        if (typeof activeUploads !== 'undefined') {
+            activeUploads.forEach(({ xhr }) => {
+                try { xhr.abort(); } catch (e) {}
+            });
+            activeUploads.clear();
+        }
+
         if (emitLeave && roomKey && username) {
             socket.emit("leave-room", { roomKey, username });
         }
@@ -3148,133 +3499,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Helper function to upload a single media file with progress tracking
-            const uploadMediaFile = async (mediaItem, index, onProgress) => {
-                return new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    const formData = new FormData();
-                    formData.append('file', mediaItem.file);
+            // Send media items with instant pending bubbles in chat stream
+            for (const mediaItem of mediaToSend) {
+                const clientMsgId = mediaItem.clientMsgId || (crypto.randomUUID ? crypto.randomUUID() : `media-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+                mediaItem.clientMsgId = clientMsgId;
 
-                    const clientMsgId = mediaItem.clientMsgId || (crypto.randomUUID ? crypto.randomUUID() : `cmsg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-                    mediaItem.clientMsgId = clientMsgId;
-
-                    formData.append('roomInstanceId', roomInstanceId || '');
-                    formData.append('sessionToken', sessionToken || '');
-                    formData.append('clientMsgId', clientMsgId);
-
-                    const startTime = Date.now();
-                    xhr.open('POST', `${API_BASE}/upload`, true);
-                    xhr.setRequestHeader('x-room-instance-id', roomInstanceId || '');
-                    xhr.setRequestHeader('x-client-msg-id', clientMsgId);
-
-                    // Track upload progress
-                    xhr.upload.onprogress = (e) => {
-                        if (e.lengthComputable && onProgress) {
-                            const percent = Math.round((e.loaded / e.total) * 100);
-                            const elapsed = (Date.now() - startTime) / 1000;
-                            const speed = elapsed > 0 ? e.loaded / elapsed : 0;
-
-                            onProgress(index, {
-                                loaded: e.loaded,
-                                total: e.total,
-                                percent: percent,
-                                speed: speed
-                            });
+                createPendingMediaBubble({
+                    file: mediaItem.file,
+                    objectUrl: mediaItem.objectUrl,
+                    clientMsgId,
+                    roomInstanceId,
+                    onCancel: () => {
+                        const active = activeUploads.get(clientMsgId);
+                        if (active && active.xhr) {
+                            try { active.xhr.abort(); } catch (e) {}
                         }
-                    };
-
-                    xhr.onload = () => {
-                        if (xhr.status === 200) {
-                            try {
-                                const data = JSON.parse(xhr.responseText);
-                                resolve({ success: true, path: data.path, file: mediaItem.file, clientMsgId });
-                            } catch (error) {
-                                reject({ success: false, error: 'Failed to parse response' });
-                            }
-                        } else if (xhr.status === 410) {
-                            showToast("Room has ended");
-                            reject({ success: false, error: 'Room ended' });
-                        } else if (xhr.status === 429) {
-                            showToast("You're sending too fast");
-                            reject({ success: false, error: 'Rate limited' });
-                        } else {
-                            reject({ success: false, error: `Upload failed with status ${xhr.status}` });
+                        removePendingBubble(clientMsgId);
+                        if (mediaItem.objectUrl) {
+                            try { URL.revokeObjectURL(mediaItem.objectUrl); } catch (e) {}
                         }
-                    };
-
-                    xhr.onerror = () => {
-                        reject({ success: false, error: 'Network error during upload' });
-                    };
-
-                    xhr.send(formData);
+                        activeUploads.delete(clientMsgId);
+                    },
+                    onRetry: () => {
+                        setPendingBubbleRetrying(clientMsgId);
+                        dispatchMediaUpload(mediaItem);
+                    },
+                    onDelete: () => {
+                        removePendingBubble(clientMsgId);
+                        if (mediaItem.objectUrl) {
+                            try { URL.revokeObjectURL(mediaItem.objectUrl); } catch (e) {}
+                        }
+                        activeUploads.delete(clientMsgId);
+                    }
                 });
-            };
 
-            // Upload media with concurrency limit (2 at a time as specified in Phase 1)
-            const uploadWithConcurrency = async (items, limit = 2) => {
-                const results = [];
-                const executing = [];
-
-                // Progress handler to update UI
-                const handleProgress = (index, progressData) => {
-                    showUploadProgress(`Sending media (${index + 1}/${items.length})...`, progressData.percent);
-                    const card = document.querySelector(`#mediaPreviews .draft-card[data-index="${index}"]`);
-                    if (card) {
-                        const track = card.querySelector('.draft-card-progress');
-                        const fill = card.querySelector('.draft-card-progress-bar');
-                        if (track) track.classList.remove('hidden');
-                        if (fill) fill.style.width = `${progressData.percent}%`;
-                    }
-                };
-
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    const promise = uploadMediaFile(item, i, handleProgress).then(result => {
-                        const card = document.querySelector(`#mediaPreviews .draft-card[data-index="${i}"]`);
-                        if (card) {
-                            const track = card.querySelector('.draft-card-progress');
-                            if (track) track.classList.add('hidden');
-                        }
-                        executing.splice(executing.indexOf(promise), 1);
-                        return result;
-                    }).catch(error => {
-                        const card = document.querySelector(`#mediaPreviews .draft-card[data-index="${i}"]`);
-                        if (card) {
-                            const track = card.querySelector('.draft-card-progress');
-                            if (track) track.classList.add('hidden');
-                        }
-                        executing.splice(executing.indexOf(promise), 1);
-                        return error;
-                    });
-
-                    results.push(promise);
-                    executing.push(promise);
-
-                    if (executing.length >= limit) {
-                        await Promise.race(executing);
-                    }
-                }
-
-                return Promise.allSettled(results);
-            };
-
-            // Upload all media files
-            let uploadedMedia = [];
-
-            if (mediaToSend.length > 0) {
-                showUploadProgress(`Sending ${mediaToSend.length} file(s)...`, 10);
-                const uploadResults = await uploadWithConcurrency(mediaToSend, 2);
-
-                // Process results - only keep successful uploads
-                uploadedMedia = uploadResults
-                    .filter(result => result.status === 'fulfilled' && result.value && result.value.success)
-                    .map(result => result.value);
-
-                // Show warning if some uploads failed
-                const failedCount = uploadResults.length - uploadedMedia.length;
-                if (failedCount > 0) {
-                    showToast(`${failedCount} upload(s) failed`);
-                }
+                dispatchMediaUpload(mediaItem);
             }
 
             // Send text message if present
@@ -3311,87 +3570,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 socket.emit("chat-message", messagePayload);
             }
-
-            // Send uploaded media files
-            for (const media of uploadedMedia) {
-                const fType = (media.file && media.file.type) ? media.file.type : '';
-                let messageType = 'video';
-
-                if (fType.startsWith('image')) {
-                    messageType = 'image';
-                } else if (fType.startsWith('audio')) {
-                    messageType = 'audio';
-                } else if (fType.startsWith('video')) {
-                    messageType = 'video';
-                } else {
-                    messageType = 'file';
-                }
-
-                const clientMsgId = media.clientMsgId || (crypto.randomUUID ? crypto.randomUUID() : `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-                const messageId = clientMsgId;
-
-                if (messageType === 'file') {
-                    const filePayload = {
-                        roomKey,
-                        roomInstanceId,
-                        sessionToken,
-                        clientMsgId,
-                        username,
-                        id: messageId,
-                        file: {
-                            name: media.file.name,
-                            size: media.file.size,
-                            type: media.file.type,
-                            path: media.path
-                        },
-                        seenBy: []
-                    };
-                    displayFile(username, filePayload.file, messageId, []);
-                    socket.emit("file-message", filePayload);
-                } else {
-                    const messagePayload = {
-                        roomKey,
-                        roomInstanceId,
-                        sessionToken,
-                        clientMsgId,
-                        username,
-                        id: messageId,
-                        message: {
-                            type: messageType,
-                            content: media.path,
-                            name: media.file?.name,
-                            size: media.file?.size
-                        },
-                        seenBy: []
-                    };
-
-                    if (replyContext) {
-                        messagePayload.replyTo = {
-                            messageId: replyContext.messageId,
-                            sender: replyContext.sender,
-                            previewText: replyContext.previewText
-                        };
-                    }
-
-                    renderMessageBubble({
-                        username,
-                        message: messagePayload.message,
-                        id: messageId,
-                        clientMsgId,
-                        seenBy: [],
-                        replyTo: replyContext ? messagePayload.replyTo : null
-                    });
-
-                    socket.emit("chat-message", messagePayload);
-                }
-            }
-
-            // Revoke object URLs
-            mediaToSend.forEach(item => {
-                if (item.objectUrl) {
-                    try { URL.revokeObjectURL(item.objectUrl); } catch (e) {}
-                }
-            });
 
             // Clear draft state
             clearReplyContext();

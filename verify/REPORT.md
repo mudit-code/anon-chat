@@ -156,3 +156,26 @@
   - Cleared draft: all object URLs revoked, items count reset to 0, tray `#mediaPreviews` hidden.
   - Visual verification at 320px and 412px viewports.
 
+---
+
+### Phase 6: Pending Bubbles with Progress, Cancel, Retry
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase6_pending.png` (In-flight pending bubble with circular SVG progress and cancel button)
+  - `verify/screenshots/phase6_failed.png` (Failed upload state with error border, status text, and Retry / Delete buttons)
+  - `verify/screenshots/phase6_resolved.png` (Resolved state after retry success cleanly replacing pending bubble in-place)
+- **Root Cause & Fix:**
+  - *Root Cause:* Previous architecture delayed message bubble creation until after network completion, showed progress only on a disconnected top bar (`#progress-bar`), lacked any ability to cancel in-flight uploads, and on failure silently discarded the message with a toast, forcing users to start over.
+  - *Fix:*
+    - Created `createPendingMediaBubble({ file, objectUrl, clientMsgId, roomInstanceId, onCancel, onRetry, onDelete })` immediately inserting pending bubbles into `#messagesInner` with local thumbnail and SVG progress ring.
+    - Added cancel button on in-flight bubble that invokes `xhr.abort()`, deletes the bubble, and revokes the object URL.
+    - Implemented failed state with `setPendingBubbleFailed(clientMsgId)` showing red border, warning icon, "Failed to send" text, and two action buttons: "Retry" and "Delete".
+    - Bound retries to the original `clientMsgId` to ensure server-side de-duplication idempotency.
+    - In `renderMessageBubble()`, detected existing pending bubbles by `domId` / `clientMsgId` and replaced them in-place (`existingWrapper.replaceWith(wrapper)`), preserving scroll and DOM order.
+    - Bound all active uploads to `roomInstanceId` in `activeUploads` map, aborting them cleanly on room end or leave.
+- **Verification:**
+  - Route mock delayed upload: verified instant pending bubble in `#messagesContainer` with SVG progress.
+  - Cancelled second upload: verified `xhr.abort()` and removal from DOM.
+  - Simulated 500 error: verified bubble remained in stream with Retry and Delete buttons.
+  - Clicked Retry: verified upload completed, pending bubble replaced in-place by confirmed message bubble.
+

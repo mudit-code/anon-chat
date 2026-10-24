@@ -397,7 +397,41 @@ test.describe('Audit Suite - Current Behavior', () => {
   });
 
   // PHASE 6: Pending bubbles with progress, cancel, retry
-  test('PHASE 6: Pending bubbles with progress', async ({ page }) => {
+  test('PHASE 6: Pending bubbles with progress, cancel, retry', async ({ page }) => {
+    let uploadCallCount = 0;
+    let delayResolver: (() => void) | null = null;
+
+    await page.route('**/upload', async route => {
+      uploadCallCount++;
+      if (uploadCallCount === 1) {
+        // Delayed upload to inspect pending bubble
+        await new Promise(r => setTimeout(r, 1000));
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, path: '/uploads/mock-delayed.png', clientMsgId: 'mock-1' })
+        });
+      } else if (uploadCallCount === 2) {
+        // Will be cancelled by user, hold indefinitely until aborted
+        await new Promise(r => { delayResolver = r; });
+        await route.abort();
+      } else if (uploadCallCount === 3) {
+        // Simulated 500 failure
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Internal Server Error' })
+        });
+      } else {
+        // Retry success
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, path: '/uploads/mock-retry-success.png', clientMsgId: 'mock-retry' })
+        });
+      }
+    });
+
     await page.goto('/');
     const roomKey = 'key_p6_' + Math.random().toString(36).substring(2, 6);
     await page.fill('#username', 'UserP6');
@@ -405,9 +439,58 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.click('#createRoomBtn');
     await expect(page.locator('#chatScreen')).toBeVisible();
 
-    const pendingBubbles = await page.locator('.pending-bubble, [data-pending]').count();
-    await page.screenshot({ path: 'verify/screenshots/phase6_pending_bubbles.png' });
-    console.log(`PHASE 6 Result: pendingBubbles=${pendingBubbles}`);
+    // 1. Send delayed image -> verify pending bubble appears immediately
+    await page.evaluate(() => {
+      const blob = new Blob(['mock-delayed'], { type: 'image/png' });
+      const file = new File([blob], 'delayed.png', { type: 'image/png', lastModified: Date.now() });
+      (window as any).mediaDraft.add([file]);
+    });
+    await page.click('#sendBtn');
+
+    const pendingBubble = page.locator('.pending-bubble');
+    await expect(pendingBubble).toBeVisible();
+    await page.screenshot({ path: 'verify/screenshots/phase6_pending.png' });
+
+    // Wait for upload 1 to complete and replace in-place
+    await page.waitForTimeout(1400);
+
+    // 2. Test cancel button on pending bubble
+    await page.evaluate(() => {
+      const blob = new Blob(['mock-cancel'], { type: 'image/png' });
+      const file = new File([blob], 'to_cancel.png', { type: 'image/png', lastModified: Date.now() + 1 });
+      (window as any).mediaDraft.add([file]);
+    });
+    await page.click('#sendBtn');
+
+    const cancelPending = page.locator('.pending-bubble .pending-cancel-btn');
+    await expect(cancelPending).toBeVisible();
+    await cancelPending.click();
+    await page.waitForTimeout(300);
+    if (delayResolver) delayResolver();
+
+    // 3. Test 500 failure -> shows Retry/Delete buttons
+    await page.evaluate(() => {
+      const blob = new Blob(['mock-fail'], { type: 'image/png' });
+      const file = new File([blob], 'will_fail.png', { type: 'image/png', lastModified: Date.now() + 2 });
+      (window as any).mediaDraft.add([file]);
+    });
+    await page.click('#sendBtn');
+
+    const retryBtn = page.locator('.pending-retry-btn');
+    await expect(retryBtn).toBeVisible({ timeout: 5000 });
+    const deleteBtn = page.locator('.pending-delete-btn');
+    await expect(deleteBtn).toBeVisible();
+    await page.screenshot({ path: 'verify/screenshots/phase6_failed.png' });
+
+    // 4. Test Retry success
+    await retryBtn.click();
+    await page.waitForTimeout(800);
+
+    // Verify resolved state
+    const failedText = page.locator('.pending-status-label');
+    await expect(failedText).not.toBeVisible();
+    await page.screenshot({ path: 'verify/screenshots/phase6_resolved.png' });
+    console.log(`PHASE 6 Result: verified pending progress, cancel, error state with Retry/Delete, and retry success`);
   });
 
   // PHASE 7: Responsive media sizing
