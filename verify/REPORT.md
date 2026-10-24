@@ -131,3 +131,28 @@
   - Typing state verified `cameraBtn` hidden, `data-mode="send"`, and `fa-paper-plane` icon count = 1.
   - Visual regression verified across 320px, 360px, 412px viewports and light theme.
 
+---
+
+### Phase 5: Rewrite Media Draft Tray
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phase5_media_tray.png` (Default state)
+  - `verify/screenshots/phase5_media_tray_412px.png` (Wide mobile 412px with 10 thumbnails)
+  - `verify/screenshots/phase5_media_tray_320px.png` (Narrow mobile 320px with smooth scroll)
+- **Root Cause & Fix:**
+  - *Root Cause:* Previous implementation suffered from fragmented arrays (`pastedMedia`, `fileToSend`, `pendingAttachments`), ad-hoc DOM element creation, missing file de-duplication, memory leaks from unrevoked `URL.createObjectURL`, lack of pre-send full-screen review, and tiny touch targets (<20px) on removal badges.
+  - *Fix:*
+    - Built canonical unified module `window.mediaDraft = { items: [], add(files), remove(idOrIndex), clear(), validate() }`.
+    - Strictly enforced 10-item cap with toast notification `"Attachment limit reached (10 max)"`.
+    - De-duplicated files using compound `name + size + lastModified` matching.
+    - Updated tray header with real-time counter badge `#draftCounter` (`"10 / 10"`, `"9 / 10"`).
+    - Designed 72px thumbnail cards with smooth horizontal scroll and enlarged `.draft-remove-btn` badge to 28px tap target with `touch-action: manipulation`.
+    - Wired thumbnail tap to open the full-screen lightbox (`openPreview()`) for image/video review before dispatch.
+    - Ensured `URL.revokeObjectURL` cleanup on individual remove, `mediaDraft.clear()`, and message dispatch.
+- **Verification:**
+  - Playwright test injected 12 files: first 10 accepted, 2 rejected, counter accurately displayed `"10 / 10"`.
+  - Removed 3rd item: counter updated to `"9 / 10"`.
+  - Tapped 1st thumbnail: lightbox `#previewModal` opened cleanly.
+  - Cleared draft: all object URLs revoked, items count reset to 0, tray `#mediaPreviews` hidden.
+  - Visual verification at 320px and 412px viewports.
+

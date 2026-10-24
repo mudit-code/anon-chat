@@ -4086,21 +4086,22 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
 
 .draft-remove-btn {
   position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  right: 2px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: 11px;
   cursor: pointer;
   z-index: 10;
   transition: all 0.15s ease;
+  touch-action: manipulation;
 }
 
 .draft-remove-btn:hover {

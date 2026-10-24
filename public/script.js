@@ -1109,7 +1109,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (banner) banner.classList.add("hidden");
     }
 
-    // ======== REWRITTEN MODERN MEDIA DRAFT SYSTEM ========
+    // ======== REWRITTEN UNIFIED MEDIA DRAFT MODULE (PHASE 5) ========
+    window.mediaDraft = {
+        items: pastedMedia,
+        add(files) {
+            const list = Array.isArray(files) ? files : Array.from(files || []);
+            let addedCount = 0;
+            let limitToastShown = false;
+
+            for (const file of list) {
+                if (pastedMedia.length >= MAX_MEDIA_ITEMS) {
+                    if (!limitToastShown) {
+                        showToast("Attachment limit reached (10 max)");
+                        limitToastShown = true;
+                    }
+                    break;
+                }
+
+                // De-duplicate check: name + size + lastModified
+                const isDuplicate = pastedMedia.some(it => {
+                    const f = it.file;
+                    if (!f) return false;
+                    return f.name === file.name && f.size === file.size && f.lastModified === file.lastModified;
+                });
+                if (isDuplicate) {
+                    continue;
+                }
+
+                const id = 'draft-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+                const objectUrl = URL.createObjectURL(file);
+                pastedMedia.push({
+                    id,
+                    file,
+                    objectUrl,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || 'application/octet-stream',
+                    lastModified: file.lastModified
+                });
+                addedCount++;
+            }
+
+            renderMediaPreviews();
+            if (typeof updateSendButtonState === 'function') updateSendButtonState();
+            return addedCount;
+        },
+        remove(idOrIndex) {
+            let index = -1;
+            if (typeof idOrIndex === 'number') {
+                index = idOrIndex;
+            } else {
+                index = pastedMedia.findIndex(it => it.id === idOrIndex);
+            }
+            if (index >= 0 && index < pastedMedia.length) {
+                removeMediaPreview(index);
+            }
+        },
+        clear() {
+            clearAllMediaDrafts();
+        },
+        validate() {
+            return pastedMedia.length <= MAX_MEDIA_ITEMS;
+        }
+    };
+
     function renderMediaPreviews() {
         const previewContainer = document.getElementById('mediaPreviews');
         if (!previewContainer) return;
@@ -1128,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="draft-tray-title">
                     <i class="fas fa-paperclip text-[#ffb682] text-xs"></i>
                     <span>Attachments</span>
-                    <span class="draft-count-badge font-mono">${pastedMedia.length} / ${MAX_MEDIA_ITEMS}</span>
+                    <span class="draft-count-badge font-mono" id="draftCounter">${pastedMedia.length} / ${MAX_MEDIA_ITEMS}</span>
                     ${pastedMedia.length >= MAX_MEDIA_ITEMS ? '<span class="text-[11px] text-[#ff7b7b] ml-1">Limit reached</span>' : ''}
                 </div>
                 <button type="button" class="draft-clear-all-btn" id="draftClearAllBtn" title="Remove all attachments">
@@ -1154,6 +1217,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'draft-card';
             card.dataset.index = index;
+            if (mediaItem.id) card.dataset.id = mediaItem.id;
 
             const isVideo = mediaItem.file && mediaItem.file.type && mediaItem.file.type.startsWith('video');
             const isImage = mediaItem.file && mediaItem.file.type && mediaItem.file.type.startsWith('image');
@@ -1187,13 +1251,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 ${cardContent}
-                <button type="button" class="draft-remove-btn" title="Remove attachment">
+                <button type="button" class="draft-remove-btn" title="Remove attachment" aria-label="Remove attachment">
                     <i class="fas fa-times"></i>
                 </button>
                 <div class="draft-card-progress ${mediaItem.status === 'uploading' ? '' : 'hidden'}">
                     <div class="draft-card-progress-bar" style="width: ${mediaItem.progress || 0}%;"></div>
                 </div>
             `;
+
+            // Tap thumbnail opens lightbox preview
+            card.onclick = (e) => {
+                if (e.target.closest('.draft-remove-btn')) return;
+                if (isImage || isVideo) {
+                    openPreview(mediaItem.objectUrl, isImage ? 'image' : 'video');
+                }
+            };
 
             const removeBtn = card.querySelector('.draft-remove-btn');
             if (removeBtn) {
@@ -1217,7 +1289,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function removeMediaPreview(index) {
         if (index >= 0 && index < pastedMedia.length) {
             try {
-                URL.revokeObjectURL(pastedMedia[index].objectUrl);
+                if (pastedMedia[index].objectUrl) {
+                    URL.revokeObjectURL(pastedMedia[index].objectUrl);
+                }
             } catch (e) {}
             pastedMedia.splice(index, 1);
             renderMediaPreviews();
@@ -3340,18 +3414,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.onchange = () => {
         const files = Array.from(fileInput.files || []);
         if (files.length === 0) return;
-
-        for (const file of files) {
-            if (pastedMedia.length >= MAX_MEDIA_ITEMS) {
-                showToast('Attachment limit reached (10 max)');
-                break;
-            }
-            const objectUrl = URL.createObjectURL(file);
-            pastedMedia.push({ file, objectUrl });
+        if (window.mediaDraft) {
+            window.mediaDraft.add(files);
         }
-
-        renderMediaPreviews();
-        updateSendButtonState();
         fileInput.value = "";
     };
 
