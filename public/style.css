@@ -143,7 +143,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url('/doodle-tile-light.svg') !important;
+  background-image: url('/doodle-tile-chat-dark.svg') !important;
   background-size: 420px 420px;
   background-repeat: repeat;
   opacity: 0.95;
@@ -2662,7 +2662,7 @@ body.light-mode #messages {
 }
 
 body.light-mode .landing-doodle-bg {
-  background-image: url('/doodle-tile-light.svg') !important;
+  background-image: url('/doodle-tile-chat-light.svg') !important;
 }
 
 body.light-mode .custom-scrollbar::-webkit-scrollbar-thumb {
