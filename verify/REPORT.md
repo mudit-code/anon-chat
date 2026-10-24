@@ -354,3 +354,133 @@
   4. Select a GIF or sticker: verify that Gboard allows insertion and does NOT display "doesn't support GIFs here".
   5. Verify the sticker thumbnail immediately appears in the `#mediaPreviews` draft tray above composer with `1 / 10` counter.
   6. Tap Send: verify the sticker uploads with real progress and renders as a clean transparent sticker bubble without borders.
+
+---
+
+## 4. Final Consolidated Pass/Fail Matrix (Before vs After)
+
+| Test / Feature Area | Initial Audit | Final Status | Verification Method & Artifacts |
+|---|---|---|---|
+| **REG-1**: Send keeps keyboard focus | PASS | **PASS** | `verify/screenshots/reg1_focus.png` (verified `isFocusedBefore=true, isFocusedAfter=true`) |
+| **REG-2**: Voice recorder UI | PASS | **PASS** | `verify/screenshots/reg2_voice_ui.png` (waveform, in-place timer, mic button) |
+| **REG-3**: Status bar & top safe area | PASS | **PASS** | `verify/screenshots/reg3_safe_area.png` (CSS safe-area-inset vars intact) |
+| **REG-4**: App-styled dialogs (no native alert) | PASS | **PASS** | `verify/screenshots/reg4_dialogs.png` (`appAlert`, `appConfirm`, native alert suppressed) |
+| **REG-5**: No in-app Stickers tab | PASS | **PASS** | `verify/screenshots/reg5_no_stickers.png` (stickersTab count = 0, Emoji & GIF only) |
+| **Phase 1**: One render path + reliable sending | FAIL | **PASS** | `verify/screenshots/phase1_rapid_send.png` (20 rapid taps produce exactly 1 message bubble) |
+| **Phase 2a**: Stale room restore on cold reload | FAIL | **PASS** | `verify/screenshots/phase2a_stale_restore.png` (neutral splash, `#chatScreen` never shown, notice on join screen) |
+| **Phase 2b**: Stale vault restore on cold reload | FAIL | **PASS** | `verify/screenshots/phase2b_stale_vault.png` (`#fileRoomScreen` never shown, notice on join screen) |
+| **Phase 2c**: Ghost message isolation | FAIL | **PASS** | `verify/screenshots/phase2c_ghost_isolation.png` (reusing room key creates new instance, 0 ghost messages) |
+| **Phase 2f**: Resume session within TTL | FAIL | **PASS** | `verify/screenshots/phase2f_resume_session.png` (resumes same room as same member without rejoining) |
+| **Phase 3**: Busy/processing state on buttons | FAIL | **PASS** | `verify/screenshots/phase3_busy_click.png` (`withBusy`, aria-busy, inline spinner, tap lock) |
+| **Phase 4**: Composer layout (WhatsApp arrangement) | FAIL | **PASS** | `verify/screenshots/phase4_composer_layout.png` (pill `[attach] [input] [emoji] [camera]` + round mic/send button) |
+| **Phase 5**: Media draft tray rewrite | FAIL | **PASS** | `verify/screenshots/phase5_media_tray.png` (`window.mediaDraft`, 10-cap, de-duplication, lightbox tap) |
+| **Phase 6**: Pending bubbles with progress, cancel, retry | FAIL | **PASS** | `verify/screenshots/phase6_pending.png` (XHR upload progress, cancel, error state with Retry/Delete, retry success) |
+| **Phase 7**: Responsive media sizing | FAIL | **PASS** | `verify/screenshots/phase7_media_sizing.png` (`max-width: min(78%, 360px)`, aspect-ratio reservation, 320px zero overflow) |
+| **Phase 8**: Image lightbox zoom & pan | FAIL | **PASS** | `verify/screenshots/phase8_lightbox.png` (wheel/pinch zoom, clamped pan, tap-anywhere-to-close with gesture guard) |
+| **Phase 9**: Camera button (tap=photo, hold=snap) | FAIL | **PASS** | `verify/screenshots/phase9_camera_snap.png` (tap photo to draft, hold 30s circular snap with review overlay and circular bubbles) |
+| **Phase 10**: Emoji and GIF pickers in native mode | FAIL | **PASS** | `verify/screenshots/phase10_native_pickers.png` (evaluates `API_BASE` dynamically, offline `emojis.json` fallback, min-height 220px) |
+| **Phase 11**: Reply UX (quote layout + swipe-to-reply) | FAIL | **PASS** | `verify/screenshots/phase11_reply_ux.png` (structured `messageDataStore`, zero timestamps in quote, 30px snap-back, 90px reply trigger, desktop hover button) |
+| **Phase 12**: Share button placement + Ask to join page | FAIL | **PASS** | `verify/screenshots/phase12_share_ask.png` (header share removed, people panel share present, `#join=KEY` / `?room=KEY` routes to Ask to join with live online count, approval flow, dead room handled) |
+| **Phase 13**: Keyboard GIFs & stickers (Android bridge) | FAIL | **PASS** (Hardware unverified) | `verify/screenshots/phase13_keyboard_stickers.png` (`handleKeyboardContent` function and `keyboardContent` event adding sticker to draft tray) |
+| **Phase 14**: Full regression, build, deploy, final report | FAIL | **PASS** | 21/21 Playwright tests pass (54.4s), `npm run build` succeeds, `cap sync android` succeeds, `gradlew assembleDebug` succeeds |
+
+---
+
+## 5. Summary of Files Changed Across Entire Project
+
+- **`server.js`**:
+  - Added configurable environment expiry constants (`ROOM_TTL_MS`, `VAULT_TTL_MS`, `DEDUPE_TTL_MS`, `SOCKET_BUCKET_CAPACITY`, `SOCKET_BUCKET_REFILL_MS`).
+  - Added room instance UUIDs (`roomInstanceId`), member session tokens (`sessionToken`), and `roomTombstones`.
+  - Added token-bucket rate limiting per socket (10 msgs / 5s) and per-IP upload concurrency limits.
+  - Implemented `resume-session` socket handler and extended `peek-room` handler (`{ exists, onlineCount, full }`).
+  - Added `/upload` room instance validation, deduplication map integration, and 410 Gone responses on ended instances.
+  - Updated `/api/gifs` error handling returning clear JSON error if Giphy key is missing.
+- **`public/index.html`**:
+  - Added Eruda 5-tap developer console toggle on header logo (Rule 6).
+  - Added neutral reconnect splash overlay (`#reconnectSplash`) and inline dismissible session notice (`#sessionNotice`).
+  - Re-arranged composer layout into WhatsApp arrangement: pill `[attach] [input] [emoji] [camera]` with external round mic/send button.
+  - Added `#snapRecordingOverlay` and `#snapReviewOverlay` for circular video snaps.
+  - Removed `#shareRoomBtn` from `#chat-header`; kept share buttons exclusively in people/room panel (`#shareRoomCardBtn`, `#mobileShareRoomBtn`).
+  - Replaced legacy invite card with dedicated `#askToJoinScreen` (app branding, "You've been invited to a private room", live online count `#askRoomOnlineText`, room key display, codename field, "Ask to join" button with busy state, and "Cancel" button).
+  - Added `#roomUnavailableState` container with "Go to Home" button.
+- **`public/script.js`**:
+  - Replaced ad-hoc session persistence with unified `anon_session` format; implemented cold-load neutral splash and `resume-session` validation.
+  - Implemented `withBusy(button, asyncFn, options)` helper providing instant spinner, aria-busy, and tap lock.
+  - Implemented unified single render path `renderMessageBubble(msg)` with DOM deduplication.
+  - Rewrote media draft tray into modular `window.mediaDraft` (10-cap, de-duplication, horizontal scroll, lightbox preview).
+  - Implemented XHR upload pipeline with real-time pending progress bubbles, cancel hooks, retry triggers, and replacement on confirmation.
+  - Implemented image lightbox with clamped pan, wheel/pinch zoom, and tap-to-close with 8px gesture threshold.
+  - Built camera button: tap triggers `@capacitor/camera` / file capture into draft; hold triggers circular front-camera MediaRecorder with circular progress ring, duration timer, slide-to-cancel, and review dialog.
+  - Fixed native emoji and GIF pickers: dynamic `getApiBase()`, bundled offline emojis fallback, empty and error retry states.
+  - Implemented structured reply data in `window.messageDataStore`, compact quote blocks with accent bar and 0 timestamps, and unified Pointer Events swipe-to-reply with 24px screen edge back-gesture guard.
+  - Updated room sharing to generate `${PUBLIC_WEB_URL}/#join=KEY`, wrapped with `withBusy`, and implemented `peek-room` non-destructive inspection.
+  - Implemented `window.handleKeyboardContent` and `keyboardContent` event listener converting base64 data URLs to `File` and inserting into `mediaDraft` as transparent borderless stickers (`.sticker-bubble`).
+- **`public/style.css`**:
+  - Added responsive media sizing rules: `max-width: min(78%, 360px)`, `max-height: min(55dvh, 420px)`, and 320px viewport overflow protection.
+  - Added `.sticker-bubble` borderless transparent styling.
+  - Added swipe-to-reply drag animations, quote accent bar styling, composer reply bar, and snap video bubbles.
+  - Added `.desktop-reply-btn` hover style and `min-height: 220px` for media picker.
+- **`android/app/src/main/java/com/mudit/anonchat/CustomWebView.java`**:
+  - Created custom WebView subclassing `CapacitorWebView`.
+  - Overrode `onCreateInputConnection(EditorInfo outAttrs)` to advertise `image/gif`, `image/png`, `image/jpeg`, `image/webp`.
+  - Wrapped connection with `InputConnectionCompat.createWrapper` and `OnCommitContentListener` to read committed content streams (10 MB cap) and evaluate JS to dispatch `keyboardContent`.
+- **`android/app/src/main/res/layout/capacitor_bridge_layout_main.xml` & `activity_main.xml`**:
+  - Configured layout to inflate `com.mudit.anonchat.CustomWebView` with id `@+id/webview`.
+- **`android/app/src/main/AndroidManifest.xml`**:
+  - Added camera permissions and features (`android.permission.CAMERA`, `android.hardware.camera`).
+- **`tests/audit.spec.ts`**:
+  - Implemented comprehensive 21-test Playwright test harness covering all 14 phases and 5 regressions.
+
+---
+
+## 6. Android Debug APK Output
+
+- **File Path:** `android/app/build/outputs/apk/debug/app-debug.apk` (Absolute: `D:\anon-chat\anon-chat\android\app\build\outputs\apk\debug\app-debug.apk`)
+- **File Size:** 10,589,510 bytes (~10.1 MB)
+- **Compilation Tool:** Gradle 8.11.1 / Android Gradle Plugin 8.7.2 with JDK 21
+- **Build Command:** `.\gradlew.bat assembleDebug`
+- **Build Status:** `BUILD SUCCESSFUL in 5m 40s` (247 actionable tasks)
+
+---
+
+## 7. On-Device Physical Hardware Testing Checklist
+
+1. **Send Button & Keyboard (REG-1):**
+   - Tap message input to bring up the soft keyboard.
+   - Type a message and tap the orange send button: verify the keyboard stays open and focus is preserved without flashing or dismissing.
+2. **Voice Recorder UI (REG-2):**
+   - When input is empty, tap the round mic button: verify the recording bar slides into view with live waveform and elapsed timer.
+3. **Safe Area & Status Bar (REG-3):**
+   - Inspect top header and bottom composer on phones with punch-hole cameras or navigation pills: verify no content overlaps the notch or bottom navigation gesture bar.
+4. **WhatsApp Composer Arrangement (Phase 4):**
+   - Inspect composer row: `[paperclip] [input field] [emoji/sticker] [camera]` with external round mic/send button.
+   - Typing text smoothly swaps the round mic icon for the orange send icon.
+5. **Camera & Circular Snap (Phase 9):**
+   - Tap camera icon: verify device camera opens for a photo, which drops into the draft tray.
+   - Long-press camera icon: verify front-camera circular viewfinder opens with circular progress ring and timer.
+   - Slide left to cancel, or release to enter circular review overlay; test Delete and Send.
+6. **Native Emoji & GIF Pickers (Phase 10):**
+   - Tap emoji button: verify emojis appear instantly offline.
+   - Switch to GIFs: verify trending GIFs load and search queries work.
+7. **Swipe to Reply (Phase 11):**
+   - Swipe right on any message bubble: verify the bubble follows finger with resistance, pops at threshold with a haptic tick, and opens the reply bar above the composer.
+   - Tap the quoted reply in a message: verify it smoothly scrolls to and highlights the target message.
+8. **Share Link & Dedicated Ask to Join Screen (Phase 12):**
+   - Open people panel and tap "Share link": verify native share sheet appears.
+   - Open the copied `/#join=KEY` link in another phone browser: verify the dedicated "Ask to join" screen displays "1 person online", room key card, and codename input.
+   - Tap "Ask to join": verify host receives modal request, approves, and guest enters room.
+9. **Gboard Keyboard Stickers & GIFs (Phase 13):**
+   - Tap message input to display Gboard.
+   - Tap Gboard's sticker/GIF tab: verify Gboard does NOT display "doesn't support GIFs here".
+   - Tap any sticker or GIF: verify it commits into the media draft tray and sends as a transparent sticker bubble.
+
+---
+
+## 8. ISSUES AND LIMITATIONS
+
+1. **Physical Camera Hardware Feel & Audio-Video Latency (Unverified on Physical Device per Rule 3 & 7):**
+   - While the MediaRecorder pipeline, canvas constraints, circular crop CSS, and timers passed all automated tests in Chromium with simulated media streams (`--use-fake-device-for-media-stream`), physical Android camera hardware initialization latency (camera driver startup and permission handshakes) can vary between low-end and flagship devices. This must be evaluated on the physical device.
+2. **Gboard & Third-Party Keyboard Content Insertion (Unverified on Physical Device per Rule 3 & 7):**
+   - The Android bridge (`CustomWebView.java`) implements the official AndroidX `InputConnectionCompat` and `EditorInfoCompat.setContentMimeTypes()` pattern. However, Android keyboards (such as Gboard, Samsung Keyboard, SwiftKey) behave differently across Android OS versions (Android 11 vs 14) and custom OEM ROMs (MIUI, OneUI). Because Playwright runs in headless Chromium on desktop without an Android IME, physical insertion of animated GIFs and WebP stickers from Gboard is marked **UNVERIFIED on physical hardware** per Rule 3 & 7 and must be confirmed on an actual device using the checklist above.
+3. **In-Memory Ephemeral Storage (Render Free Tier):**
+   - The server maintains rooms and upload maps in memory (`let rooms = {}`). Render's free tier spins down idle web services after 15 minutes of inactivity. When spun down, any active in-memory rooms are reset. Phase 2's session resumption and cold-load splash correctly handle this by detecting that the instance ended and showing "Your last room has ended" rather than freezing or crashing.
