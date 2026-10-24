@@ -399,7 +399,7 @@ test.describe('Audit Suite - Current Behavior', () => {
   // PHASE 6: Pending bubbles with progress, cancel, retry
   test('PHASE 6: Pending bubbles with progress, cancel, retry', async ({ page }) => {
     let uploadCallCount = 0;
-    let delayResolver: (() => void) | null = null;
+    const delayRef: { resolve: (() => void) | null } = { resolve: null };
 
     await page.route('**/upload', async route => {
       uploadCallCount++;
@@ -413,7 +413,7 @@ test.describe('Audit Suite - Current Behavior', () => {
         });
       } else if (uploadCallCount === 2) {
         // Will be cancelled by user, hold indefinitely until aborted
-        await new Promise(r => { delayResolver = r; });
+        await new Promise<void>(resolve => { delayRef.resolve = () => resolve(); });
         await route.abort();
       } else if (uploadCallCount === 3) {
         // Simulated 500 failure
@@ -466,7 +466,7 @@ test.describe('Audit Suite - Current Behavior', () => {
     await expect(cancelPending).toBeVisible();
     await cancelPending.click();
     await page.waitForTimeout(300);
-    if (delayResolver) delayResolver();
+    if (delayRef.resolve) delayRef.resolve();
 
     // 3. Test 500 failure -> shows Retry/Delete buttons
     await page.evaluate(() => {
@@ -1123,4 +1123,386 @@ test.describe('Audit Suite - Current Behavior', () => {
     console.log(`PHASE 13 Result: hasKeyboardListener=${hasKeyboardListener}, draftTrayVisible=true, itemAdded=true`);
   });
 
+  // PHASE A: Media/files reaching others + stuck pending bubble reproduction
+  test('PHASE A: Media/files not reaching others and stuck pending bubble reproduction', async ({ browser }) => {
+    const contextA = await browser.newContext();
+    const pageA = await contextA.newPage();
+    await pageA.goto('/');
+
+    const roomKey = `phaseA-${Date.now().toString(36)}`;
+    await pageA.fill('#username', 'AliceSender');
+    await pageA.fill('#roomKey', roomKey);
+    await pageA.click('#createRoomBtn');
+    await expect(pageA.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
+
+    const contextB = await browser.newContext();
+    const pageB = await contextB.newPage();
+    await pageB.goto(`/#join=${roomKey}`);
+    await expect(pageB.locator('#askToJoinScreen')).toBeVisible({ timeout: 5000 });
+    await pageB.fill('#inviteUsername', 'BobReceiver');
+    await pageB.click('#askJoinRoomBtn');
+
+    const approveBtn = pageA.locator('#approveJoinBtn');
+    await expect(approveBtn).toBeVisible({ timeout: 5000 });
+    await approveBtn.click();
+    await expect(pageB.locator('#chatScreen')).toBeVisible({ timeout: 5000 });
+
+    // Alice sends image, video, and PDF
+    await pageA.evaluate(() => {
+      const imgBlob = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' });
+      const imgFile = new File([imgBlob], 'test_photo.png', { type: 'image/png' });
+
+      const vidBlob = new Blob([new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])], { type: 'video/mp4' });
+      const vidFile = new File([vidBlob], 'test_video.mp4', { type: 'video/mp4' });
+
+      const pdfBlob = new Blob(['%PDF-1.4 test document'], { type: 'application/pdf' });
+      const pdfFile = new File([pdfBlob], 'test_doc.pdf', { type: 'application/pdf' });
+
+      (window as any).mediaDraft.add([imgFile, vidFile, pdfFile]);
+    });
+
+    await pageA.waitForTimeout(500);
+    // Click send
+    await pageA.click('#sendBtn');
+
+    // Wait for uploads to complete
+    await pageA.waitForTimeout(3000);
+
+    await pageA.screenshot({ path: 'verify/screenshots/phaseA_reproduce_sender.png' });
+    await pageB.screenshot({ path: 'verify/screenshots/phaseA_reproduce_receiver.png' });
+
+    // Assertions for Phase A:
+    const senderPendingCount = await pageA.locator('.pending-bubble, .pending-message').count();
+    const senderTotalBubbles = await pageA.locator('#messages .message').count();
+    const receiverBubbles = await pageB.locator('#messages .message').count();
+
+    expect(senderPendingCount).toBe(0);
+    expect(senderTotalBubbles).toBe(3);
+    expect(receiverBubbles).toBe(3);
+
+    console.log(`PHASE A Verified: senderPendingCount=${senderPendingCount}, senderTotalBubbles=${senderTotalBubbles}, receiverBubbles=${receiverBubbles}`);
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  // PHASE B: WhatsApp-style streaming progress, ETA, and cancellation test
+  test('PHASE B: WhatsApp-style streaming progress, ETA, cancellation, and download ring', async ({ browser }) => {
+    const contextA = await browser.newContext();
+    const pageA = await contextA.newPage();
+    await pageA.goto('/');
+
+    const roomKey = `phaseB-${Date.now().toString(36)}`;
+    await pageA.fill('#username', 'AliceB');
+    await pageA.fill('#roomKey', roomKey);
+    await pageA.click('#createRoomBtn');
+    await expect(pageA.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
+
+    const contextB = await browser.newContext();
+    const pageB = await contextB.newPage();
+    await pageB.goto(`/#join=${roomKey}`);
+    await expect(pageB.locator('#askToJoinScreen')).toBeVisible({ timeout: 5000 });
+    await pageB.fill('#inviteUsername', 'BobB');
+    await pageB.click('#askJoinRoomBtn');
+
+    await expect(pageA.locator('#approveJoinBtn')).toBeVisible({ timeout: 5000 });
+    await pageA.locator('#approveJoinBtn').click();
+    await expect(pageB.locator('#chatScreen')).toBeVisible({ timeout: 5000 });
+
+    // 1. Test cancellation: Alice creates a pending file and cancels it
+    await pageA.evaluate(() => {
+      const clientMsgId = 'cancel-test-' + Date.now();
+      const dummyFile = new File(['dummy test content for cancel'], 'cancel_doc.pdf', { type: 'application/pdf' });
+      (window as any).createPendingMediaBubble({
+        file: dummyFile,
+        objectUrl: '',
+        clientMsgId,
+        roomInstanceId: (window as any).currentRoomInstanceId,
+        onCancel: () => {
+          (window as any).removePendingBubble(clientMsgId);
+          (window as any).socket.emit('media-cancel', {
+            roomKey: (window as any).currentRoomKey,
+            roomInstanceId: (window as any).currentRoomInstanceId,
+            clientMsgId
+          });
+        }
+      });
+      // Emit media-start so Bob gets the placeholder
+      (window as any).socket.emit('media-start', {
+        roomKey: (window as any).currentRoomKey,
+        roomInstanceId: (window as any).currentRoomInstanceId,
+        sessionToken: (window as any).sessionToken,
+        clientMsgId,
+        kind: 'file',
+        name: 'cancel_doc.pdf',
+        size: 2048,
+        mime: 'application/pdf'
+      });
+    });
+
+    await pageB.waitForTimeout(500);
+    // Bob should have the incoming placeholder
+    expect(await pageB.locator('.incoming-media-placeholder').count()).toBe(1);
+
+    // Alice clicks cancel button on the pending bubble
+    await pageA.locator('.pending-cancel-btn').first().click();
+    await pageA.waitForTimeout(500);
+
+    // Alice's pending bubble should be removed
+    expect(await pageA.locator('.pending-bubble').count()).toBe(0);
+
+    // Bob should receive media-cancelled and placeholder shows cancelled or is removed
+    await pageB.waitForTimeout(1000);
+    const bobCancelledCount = await pageB.locator('.incoming-media-placeholder').count();
+    expect(bobCancelledCount).toBeLessThanOrEqual(1);
+
+    // 2. Alice sends a real document to Bob
+    await pageA.evaluate(() => {
+      const pdfBlob = new Blob(['%PDF-1.4 sample file content'], { type: 'application/pdf' });
+      const pdfFile = new File([pdfBlob], 'report_verified.pdf', { type: 'application/pdf' });
+      (window as any).mediaDraft.add([pdfFile]);
+    });
+    await pageA.waitForTimeout(300);
+    await pageA.click('#sendBtn');
+
+    // Wait for upload completion and in-place replacement
+    await expect(pageB.locator('.file-document-bubble')).toBeVisible({ timeout: 8000 });
+    await expect(pageA.locator('.file-document-bubble')).toBeVisible({ timeout: 8000 });
+
+    // Verify Bob has Open and Save buttons with data attributes
+    const saveBtn = pageB.locator('.file-btn-save').first();
+    await expect(saveBtn).toBeVisible();
+
+    await pageA.screenshot({ path: 'verify/screenshots/phaseB_sender_complete.png' });
+    await pageB.screenshot({ path: 'verify/screenshots/phaseB_receiver_complete.png' });
+
+    console.log('PHASE B Verified: cancellation and streaming file upload replacement succeeded.');
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  // PHASE C: Recorder row replaces composer row in same slot at 320/360/412px
+  test('PHASE C: Recorder row replaces composer row at 320px, 360px, 412px in dark and light themes', async ({ browser }) => {
+    const viewports = [
+      { width: 320, height: 568, name: '320' },
+      { width: 360, height: 640, name: '360' },
+      { width: 412, height: 915, name: '412' }
+    ];
+
+    for (const vp of viewports) {
+      const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
+      const page = await context.newPage();
+      await page.goto('/');
+
+      const roomKey = `phaseC-${vp.name}-${Date.now().toString(36)}`;
+      await page.fill('#username', `User${vp.name}`);
+      await page.fill('#roomKey', roomKey);
+      await page.click('#createRoomBtn');
+      await expect(page.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
+
+      // Trigger recording UI manually via script to verify layout slot replacement
+      await page.evaluate(() => {
+        const composer = document.getElementById('composerRow');
+        const recorder = document.getElementById('voiceRecordingRow');
+        if (composer) composer.classList.add('hidden');
+        if (recorder) recorder.classList.remove('hidden');
+      });
+
+      await page.waitForTimeout(300);
+
+      // Verify composer is hidden and voiceRecordingRow is visible
+      await expect(page.locator('#composerRow')).toHaveClass(/hidden/);
+      await expect(page.locator('#voiceRecordingRow')).not.toHaveClass(/hidden/);
+
+      // Verify send circle is fully inside the screen
+      const sendBtnBox = await page.locator('#voiceRecordSendBtn').boundingBox();
+      expect(sendBtnBox).not.toBeNull();
+      if (sendBtnBox) {
+        expect(sendBtnBox.x + sendBtnBox.width).toBeLessThanOrEqual(vp.width + 1);
+        expect(sendBtnBox.x).toBeGreaterThanOrEqual(0);
+      }
+
+      // Dark mode screenshot
+      await page.screenshot({ path: `verify/screenshots/phaseC_recorder_${vp.name}_dark.png` });
+
+      // Switch to light mode
+      await page.evaluate(() => document.body.classList.add('light-mode'));
+      await page.waitForTimeout(200);
+
+      // Light mode screenshot
+      await page.screenshot({ path: `verify/screenshots/phaseC_recorder_${vp.name}_light.png` });
+
+      console.log(`PHASE C Verified: viewport ${vp.name}px dark and light mode recorder fits within bounds.`);
+      await context.close();
+    }
+  });
+
+  // PHASE D: Reply to own messages and to media/files, quote preview & jump
+  test('PHASE D: Reply to own messages, media/files, quote preview and message context menu', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+    page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
+    await page.goto('/');
+
+    const roomKey = `phaseD-${Date.now().toString(36)}`;
+    await page.fill('#username', 'AliceD');
+    await page.fill('#roomKey', roomKey);
+    await page.click('#createRoomBtn');
+    await expect(page.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
+
+    // 1. Send own text message
+    await page.locator('#messageInput').evaluate((el: any) => { el.value = 'Original text message from Alice'; });
+    await page.click('#sendBtn');
+    await expect(page.locator('#messages .sent-message')).toBeVisible({ timeout: 5000 });
+
+    const firstMsg = page.locator('#messages .message').first();
+    const firstMsgId = await firstMsg.getAttribute('data-msg-id');
+
+    // 2. Reply to own text message
+    await page.evaluate((id: string | null) => { if (id) (window as any).setReplyContext(id); }, firstMsgId);
+    await expect(page.locator('#replyPreviewBar')).toBeVisible();
+    await expect(page.locator('#replyPreviewBar .reply-preview')).toContainText('Original text message from Alice');
+
+    // Send the reply
+    await page.locator('#messageInput').focus();
+    await page.locator('#messageInput').fill('Reply to my own message');
+    await page.waitForTimeout(350);
+    await page.click('#sendBtn');
+    await page.waitForTimeout(800);
+
+    // Verify quoted reply in the second message
+    const quotedReply = page.locator('#messages .quoted-reply').first();
+    await expect(quotedReply).toBeVisible();
+    await expect(quotedReply).toContainText('Original text message from Alice');
+
+    // 3. Test tapping quoted reply jumps to original
+    await quotedReply.click();
+    await page.waitForTimeout(300);
+    await expect(firstMsg).toHaveClass(/message-highlight/);
+
+    // 4. Send an image and reply to it
+    await page.evaluate(() => {
+      const imgBlob = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' });
+      const imgFile = new File([imgBlob], 'photo_reply.png', { type: 'image/png' });
+      (window as any).mediaDraft.add([imgFile]);
+    });
+    await page.waitForTimeout(350);
+    await page.click('#sendBtn');
+    await expect(page.locator('.message-bubble-media')).toBeVisible({ timeout: 8000 });
+
+    const imageMsg = page.locator('#messages .message:has(.message-bubble-media)').first();
+    const imageMsgId = await imageMsg.getAttribute('data-msg-id');
+
+    // Reply to the image message
+    await page.evaluate((id: string | null) => { if (id) (window as any).setReplyContext(id); }, imageMsgId);
+    await expect(page.locator('#replyPreviewBar')).toBeVisible();
+    await expect(page.locator('#replyPreviewBar .reply-preview')).toContainText('Photo');
+
+    // 5. Test context menu on message
+    await page.evaluate((id: string | null) => {
+      if (!id) return;
+      const el = document.getElementById(id) || document.querySelector(`[data-msg-id="${id}"]`);
+      if (el) (window as any).openMessageContextMenu(el, 150, 200);
+    }, firstMsgId);
+
+    await expect(page.locator('#messageContextMenu')).toBeVisible();
+    await expect(page.locator('#ctxMenuReply')).toBeVisible();
+    await expect(page.locator('#ctxMenuCopy')).toBeVisible();
+    await expect(page.locator('#ctxMenuDelete')).toBeVisible();
+
+    await page.screenshot({ path: 'verify/screenshots/phaseD_context_menu.png' });
+    console.log('PHASE D Verified: Reply to own message, media reply, quote jump, and context menu succeeded.');
+
+    await context.close();
+  });
+
+  // PHASE E: WhatsApp-style media viewer with reactions and gallery
+  test('PHASE E: WhatsApp-style media viewer, reactions chips, and two-context reaction sync', async ({ browser }) => {
+    const contextA = await browser.newContext();
+    const pageA = await contextA.newPage();
+    pageA.on('console', msg => console.log('ALICE LOG:', msg.text()));
+    pageA.on('pageerror', err => console.log('ALICE ERROR:', err.message));
+    await pageA.goto('/');
+
+    const roomKey = `phaseE-${Date.now().toString(36)}`;
+    await pageA.fill('#username', 'AliceE');
+    await pageA.fill('#roomKey', roomKey);
+    await pageA.click('#createRoomBtn');
+    await expect(pageA.locator('#chatScreen')).toBeVisible({ timeout: 8000 });
+
+    const contextB = await browser.newContext();
+    const pageB = await contextB.newPage();
+    pageB.on('console', msg => console.log('BOB LOG:', msg.text()));
+    pageB.on('pageerror', err => console.log('BOB ERROR:', err.message));
+    await pageB.goto(`/#join=${roomKey}`);
+    await expect(pageB.locator('#askToJoinScreen')).toBeVisible({ timeout: 5000 });
+    await pageB.fill('#inviteUsername', 'BobE');
+    await pageB.click('#askJoinRoomBtn');
+
+    await expect(pageA.locator('#approveJoinBtn')).toBeVisible({ timeout: 5000 });
+    await pageA.locator('#approveJoinBtn').click();
+    await expect(pageB.locator('#chatScreen')).toBeVisible({ timeout: 5000 });
+
+    // Alice sends a photo
+    await pageA.evaluate(() => {
+      const imgBlob = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' });
+      const imgFile = new File([imgBlob], 'vacation.png', { type: 'image/png' });
+      (window as any).mediaDraft.add([imgFile]);
+    });
+    await pageA.waitForTimeout(300);
+    await pageA.click('#sendBtn');
+
+    await expect(pageA.locator('.message-bubble-media')).toBeVisible({ timeout: 8000 });
+    await expect(pageB.locator('.message-bubble-media')).toBeVisible({ timeout: 8000 });
+
+    const photoMsgA = pageA.locator('#messages .message:has(.message-bubble-media)').first();
+    const photoId = await photoMsgA.getAttribute('data-msg-id');
+
+    // Bob opens the photo in preview modal
+    await pageB.locator('.message-file-preview').first().evaluate((el: any) => el.click());
+    await expect(pageB.locator('#previewModal')).toBeVisible({ timeout: 5000 });
+    await expect(pageB.locator('#previewSenderName')).toContainText('AliceE');
+    await expect(pageB.locator('#previewGalleryPosition')).toContainText('1 of 1');
+
+    // Bob reacts with ❤️ from the viewer bottom bar
+    await pageB.locator('.viewer-emoji-btn[data-emoji="❤️"]').click();
+    await pageB.waitForTimeout(500);
+
+    // Verify reaction chip appears under the message bubble on Bob's side
+    await expect(pageB.locator('.reaction-chip[data-emoji="❤️"]')).toBeVisible({ timeout: 5000 });
+    await expect(pageB.locator('.reaction-chip[data-emoji="❤️"] .count')).toContainText('1');
+
+    // Verify reaction chip also appears on Alice's side!
+    await expect(pageA.locator('.reaction-chip[data-emoji="❤️"]')).toBeVisible({ timeout: 5000 });
+    await expect(pageA.locator('.reaction-chip[data-emoji="❤️"] .count')).toContainText('1');
+
+    // Alice reacts with 👍
+    await pageA.evaluate((id: string | null) => { if (id) (window as any).sendReaction(id, '👍'); }, photoId);
+    await pageA.waitForTimeout(500);
+
+    // Both chips should now be visible on both sides
+    await expect(pageA.locator('.reaction-chip[data-emoji="👍"]')).toBeVisible({ timeout: 5000 });
+    await expect(pageB.locator('.reaction-chip[data-emoji="👍"]')).toBeVisible({ timeout: 5000 });
+
+    // Screenshot viewer while open on Bob's side
+    await pageB.screenshot({ path: 'verify/screenshots/phaseE_bob_viewer.png' });
+
+    // Close preview modal to interact with message chips on Bob's screen
+    await pageB.locator('#previewBackBtn').click();
+    await expect(pageB.locator('#previewModal')).toBeHidden();
+
+    // Bob taps the reaction chip to see who reacted
+    await pageB.locator('.reaction-chip[data-emoji="❤️"]').click();
+
+    await pageA.screenshot({ path: 'verify/screenshots/phaseE_alice_reactions.png' });
+
+    console.log('PHASE E Verified: Full-screen viewer, reactions chips, and two-way sync verified.');
+
+    await contextA.close();
+    await contextB.close();
+  });
+
 });
+

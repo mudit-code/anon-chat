@@ -131,6 +131,45 @@ app.post("/upload", (req, res, next) => {
   res.on("finish", cleanup);
   res.on("close", cleanup);
 
+  const roomInstanceIdHeader = req.headers["x-room-instance-id"];
+  const clientMsgIdHeader = req.headers["x-client-msg-id"];
+  const totalContentLength = Number(req.headers["content-length"]) || 0;
+  let receivedBytes = 0;
+  let lastProgressBroadcast = 0;
+
+  let uploadRoom = null;
+  if (roomInstanceIdHeader) {
+    uploadRoom = findRoomByInstanceId(roomInstanceIdHeader);
+  }
+
+  const onStreamData = (chunk) => {
+    receivedBytes += chunk.length;
+    const now = Date.now();
+    if (uploadRoom && clientMsgIdHeader && (now - lastProgressBroadcast >= 250 || receivedBytes >= totalContentLength)) {
+      lastProgressBroadcast = now;
+      io.to(uploadRoom.roomKey).emit("media-progress", {
+        roomInstanceId: roomInstanceIdHeader,
+        clientMsgId: clientMsgIdHeader,
+        loaded: receivedBytes,
+        total: totalContentLength
+      });
+    }
+  };
+  req.on("data", onStreamData);
+
+  const onStreamAbort = () => {
+    if (uploadRoom && clientMsgIdHeader && !res.headersSent) {
+      io.to(uploadRoom.roomKey).emit("media-cancelled", { clientMsgId: clientMsgIdHeader });
+    }
+  };
+  req.on("aborted", onStreamAbort);
+  res.on("close", () => {
+    req.off("data", onStreamData);
+    if (!res.writableEnded) {
+      onStreamAbort();
+    }
+  });
+
   upload.single("file")(req, res, (err) => {
     if (err) {
       cleanup();
@@ -153,23 +192,45 @@ app.post("/upload", (req, res, next) => {
       return res.status(410).json({ error: "Room ended", code: "ROOM_ENDED" });
     }
 
-    if (clientMsgId && room.dedupeMap && room.dedupeMap.has(clientMsgId)) {
-      const cached = room.dedupeMap.get(clientMsgId);
+    if (!room.uploadDedupeMap) {
+      room.uploadDedupeMap = new Map();
+    }
+
+    if (clientMsgId && room.uploadDedupeMap.has(clientMsgId)) {
+      const cached = room.uploadDedupeMap.get(clientMsgId);
       if (req.file.path && fs.existsSync(req.file.path)) {
         try { fs.unlinkSync(req.file.path); } catch (e) {}
       }
       return res.json(cached);
     }
 
-    const result = { path: `/uploads/${req.file.filename}`, clientMsgId };
-    if (clientMsgId && room.dedupeMap) {
-      room.dedupeMap.set(clientMsgId, { ...result, timestamp: Date.now() });
+    const result = {
+      path: `/uploads/${req.file.filename}`,
+      clientMsgId,
+      filename: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    };
+    if (clientMsgId) {
+      room.uploadDedupeMap.set(clientMsgId, { ...result, timestamp: Date.now() });
+      if (room.uploadDedupeMap.size > 200) {
+        const now = Date.now();
+        for (const [k, v] of room.uploadDedupeMap.entries()) {
+          if (now - v.timestamp > DEDUPE_TTL_MS) room.uploadDedupeMap.delete(k);
+        }
+      }
     }
     room.lastActivity = Date.now();
     return res.json(result);
   }
 
-  res.json({ path: `/uploads/${req.file.filename}` });
+  res.json({
+    path: `/uploads/${req.file.filename}`,
+    clientMsgId,
+    filename: req.file.originalname,
+    size: req.file.size,
+    mimetype: req.file.mimetype
+  });
 });
 
 app.get("/api/gifs", async (req, res) => {
@@ -840,7 +901,10 @@ io.on("connection", (socket) => {
 
     if (clientMsgId && room.dedupeMap.has(clientMsgId)) {
       const existing = room.dedupeMap.get(clientMsgId);
-      return socket.emit("chat-message", existing.entry);
+      if (existing && existing.entry) {
+        io.to(room.roomKey).emit("chat-message", existing.entry);
+      }
+      return;
     }
 
     const msgId = id || clientMsgId || `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
@@ -849,6 +913,55 @@ io.on("connection", (socket) => {
       clientMsgId: clientMsgId || msgId,
       username,
       message,
+      timestamp: Date.now(),
+      seenBy: [],
+      ...(replyTo && { replyTo })
+    };
+
+    room.messages.push(entry);
+    if (clientMsgId) {
+      room.dedupeMap.set(clientMsgId, { entry, timestamp: Date.now() });
+      if (room.dedupeMap.size > 200) {
+        const now = Date.now();
+        for (const [k, v] of room.dedupeMap.entries()) {
+          if (now - v.timestamp > DEDUPE_TTL_MS) room.dedupeMap.delete(k);
+        }
+      }
+    }
+    room.lastActivity = Date.now();
+    io.to(room.roomKey).emit("chat-message", entry);
+  });
+
+  socket.on("file-message", (data) => {
+    if (!data) return;
+    const { roomKey, roomInstanceId, sessionToken, clientMsgId, username, file, replyTo, id } = data;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    if (!room) return socket.emit("room-ended", { reason: "ended" });
+    if (sessionToken && !room.users.some(u => u.sessionToken === sessionToken)) return;
+    if (roomInstanceId && room.roomInstanceId !== roomInstanceId) return socket.emit("room-ended", { reason: "ended" });
+    if (!checkSocketRateLimit(socket, room)) return socket.emit("rate-limited", { message: "You're sending too fast" });
+
+    if (clientMsgId && room.dedupeMap.has(clientMsgId)) {
+      const existing = room.dedupeMap.get(clientMsgId);
+      if (existing && existing.entry) {
+        io.to(room.roomKey).emit("chat-message", existing.entry);
+      }
+      return;
+    }
+
+    const msgId = id || clientMsgId || `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const entry = {
+      id: msgId,
+      clientMsgId: clientMsgId || msgId,
+      username,
+      message: {
+        type: 'file',
+        content: file?.path || '',
+        name: file?.name || 'file',
+        size: file?.size || 0,
+        mimeType: file?.type || ''
+      },
+      file,
       timestamp: Date.now(),
       seenBy: [],
       ...(replyTo && { replyTo })
@@ -910,6 +1023,93 @@ io.on("connection", (socket) => {
     }
     room.lastActivity = Date.now();
     io.to(room.roomKey).emit("file-uploaded", entry);
+  });
+
+  socket.on("media-start", (data) => {
+    if (!data) return;
+    const { roomKey, roomInstanceId, sessionToken, clientMsgId, kind, name, size, mime, width, height } = data;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    if (!room) return socket.emit("room-ended", { reason: "ended" });
+    if (sessionToken && !room.users.some(u => u.sessionToken === sessionToken)) return;
+    if (roomInstanceId && room.roomInstanceId !== roomInstanceId) return socket.emit("room-ended", { reason: "ended" });
+
+    if (!room.pendingMedia) room.pendingMedia = new Map();
+    const user = room.users.find(u => u.id === socket.id || (sessionToken && u.sessionToken === sessionToken));
+    const senderUsername = user ? user.username : (socket.username || 'Anonymous');
+
+    room.pendingMedia.set(clientMsgId, {
+      clientMsgId,
+      username: senderUsername,
+      kind,
+      name,
+      size,
+      mime,
+      width,
+      height,
+      timestamp: Date.now()
+    });
+
+    socket.to(room.roomKey).emit("media-incoming", {
+      clientMsgId,
+      username: senderUsername,
+      kind,
+      name,
+      size,
+      mime,
+      width,
+      height
+    });
+  });
+
+  socket.on("media-cancel", (data) => {
+    if (!data) return;
+    const { roomKey, roomInstanceId, clientMsgId } = data;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    if (room) {
+      if (room.pendingMedia) room.pendingMedia.delete(clientMsgId);
+      io.to(room.roomKey).emit("media-cancelled", { clientMsgId });
+    }
+  });
+
+  socket.on("react", (data) => {
+    if (!data) return;
+    const { roomKey, roomInstanceId, sessionToken, messageId, emoji } = data;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    if (!room) return socket.emit("room-ended", { reason: "ended" });
+    if (sessionToken && !room.users.some(u => u.sessionToken === sessionToken)) return;
+    if (roomInstanceId && room.roomInstanceId !== roomInstanceId) return socket.emit("room-ended", { reason: "ended" });
+
+    const user = room.users.find(u => u.id === socket.id || (sessionToken && u.sessionToken === sessionToken));
+    const username = user ? user.username : 'Anonymous';
+
+    if (!room.reactions) room.reactions = new Map();
+    if (!room.reactions.has(messageId)) {
+      room.reactions.set(messageId, new Map());
+    }
+    const msgReactions = room.reactions.get(messageId);
+
+    const currentEmoji = msgReactions.get(username);
+    if (!emoji || currentEmoji === emoji) {
+      msgReactions.delete(username);
+    } else {
+      msgReactions.set(username, emoji);
+    }
+
+    const reactionsObj = {};
+    for (const [u, em] of msgReactions.entries()) {
+      if (!reactionsObj[em]) reactionsObj[em] = [];
+      reactionsObj[em].push(u);
+    }
+
+    const msg = room.messages.find(m => m.id === messageId || m.clientMsgId === messageId);
+    if (msg) {
+      msg.reactions = reactionsObj;
+    }
+
+    io.to(room.roomKey).emit("reactions-updated", {
+      messageId,
+      reactions: reactionsObj
+    });
   });
 
   // Production-grade typing indicators

@@ -437,20 +437,98 @@
         </div>
 
         <!-- Media Preview Modal (Lightbox with Zoom & Gestures & Click Anywhere to Close) -->
-        <div id="previewModal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-0 select-none overflow-hidden touch-none" style="backdrop-filter: blur(8px); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);">
-          <!-- Top Bar with controls -->
-          <div class="absolute top-4 left-4 right-4 flex items-center justify-between z-30 pointer-events-none" style="top: calc(1rem + env(safe-area-inset-top, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); left: calc(1rem + env(safe-area-inset-left, 0px));">
-            <div id="previewZoomIndicator" class="px-2.5 py-1 rounded-full bg-black/70 text-[#ffb682] font-mono text-xs border border-white/10 opacity-0 transition-opacity">100%</div>
-            <div class="flex items-center gap-2 pointer-events-auto">
-              <button id="previewZoomResetBtn" type="button" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition-colors text-xs border border-white/15 cursor-pointer" title="Reset Zoom">
+        <!-- Media Preview Modal (WhatsApp-Style Full-Screen Media Viewer with Reactions & Gallery) -->
+        <div id="previewModal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-0 select-none overflow-hidden touch-none" style="backdrop-filter: blur(12px); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);">
+          <!-- Top Bar -->
+          <div id="previewTopBar" class="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-3 z-30 pointer-events-auto bg-gradient-to-b from-black/80 via-black/50 to-transparent" style="padding-top: env(safe-area-inset-top, 0px);">
+            <div class="flex items-center gap-3 min-w-0">
+              <button id="previewBackBtn" type="button" class="w-10 h-10 rounded-full hover:bg-white/10 text-white flex items-center justify-center transition-colors cursor-pointer" title="Back" aria-label="Back">
+                <i class="fas fa-arrow-left text-base"></i>
+              </button>
+              <div class="flex flex-col min-w-0">
+                <div class="flex items-center gap-2">
+                  <span id="previewSenderName" class="font-semibold text-sm text-white truncate">User</span>
+                  <span id="previewGalleryPosition" class="px-2 py-0.2 rounded-full bg-white/10 text-[#ffb682] font-mono text-[11px]">1 of 1</span>
+                </div>
+                <span id="previewTimestamp" class="text-xs text-white/60">Today at 12:00</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div id="previewZoomIndicator" class="px-2 py-0.5 rounded-full bg-black/60 text-[#ffb682] font-mono text-xs border border-white/10 opacity-0 transition-opacity mr-1">100%</div>
+              <button id="previewZoomResetBtn" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-xs cursor-pointer" title="Reset Zoom">
                 <i class="fas fa-compress"></i>
               </button>
-              <button id="closePreview" type="button" class="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-black/70 hover:bg-black/90 text-white hover:text-[#ffb682] flex items-center justify-center transition-colors text-base border border-white/15 cursor-pointer" title="Close (or click anywhere)" aria-label="Close preview">
+              <button id="previewDownloadBtn" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-sm cursor-pointer" title="Download">
+                <i class="fas fa-download"></i>
+              </button>
+              <button id="previewShareBtn" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-sm cursor-pointer" title="Share / Forward">
+                <i class="fas fa-share text-sm"></i>
+              </button>
+              <button id="closePreview" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-base cursor-pointer" title="Close">
                 <i class="fas fa-times"></i>
               </button>
             </div>
           </div>
+
+          <!-- Gallery Navigation Buttons (Desktop) -->
+          <button id="previewPrevBtn" type="button" class="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 text-white items-center justify-center z-30 transition-all border border-white/10 cursor-pointer" title="Previous media">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button id="previewNextBtn" type="button" class="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 text-white items-center justify-center z-30 transition-all border border-white/10 cursor-pointer" title="Next media">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+
+          <!-- Media Main Content Area -->
           <div id="previewContent" class="w-full h-full flex items-center justify-center overflow-hidden cursor-zoom-out"></div>
+
+          <!-- Bottom Reaction Bar (6 quick emojis + '+' button) -->
+          <div id="previewBottomBar" class="absolute bottom-0 left-0 right-0 flex items-center justify-center py-4 px-3 z-30 pointer-events-auto bg-gradient-to-t from-black/80 via-black/50 to-transparent" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));">
+            <div class="viewer-reactions-bar flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1e1e1e]/90 border border-white/15 shadow-2xl backdrop-blur-md">
+              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="👍">👍</button>
+              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="❤️">❤️</button>
+              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="😂">😂</button>
+              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="😮">😮</button>
+              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="😢">😢</button>
+              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="🙏">🙏</button>
+              <div class="w-[1px] h-6 bg-white/20 mx-1"></div>
+              <button id="previewReactPlusBtn" type="button" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-sm" title="More reactions">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Message Context Menu (Long-press / Right-click) -->
+        <div id="messageContextMenu" class="hidden fixed z-[90] min-w-[210px] rounded-2xl bg-[#1c1c1c] border border-white/15 shadow-2xl p-1.5 backdrop-blur-xl animate-fadeIn select-none">
+          <!-- Quick Reactions Row on top -->
+          <div class="context-reactions-row flex items-center justify-between px-2 py-1.5 border-b border-white/10 mb-1">
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="👍">👍</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="❤️">❤️</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="😂">😂</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="😮">😮</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="😢">😢</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="🙏">🙏</button>
+            <button type="button" class="ctx-more-emoji-btn w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs cursor-pointer ml-1" title="More">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <!-- Menu Action Items -->
+          <button type="button" id="ctxMenuReply" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
+            <i class="fas fa-reply text-xs text-[#ffb682] w-4"></i>
+            <span>Reply</span>
+          </button>
+          <button type="button" id="ctxMenuCopy" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
+            <i class="far fa-copy text-xs text-white/70 w-4"></i>
+            <span>Copy Text</span>
+          </button>
+          <button type="button" id="ctxMenuSave" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
+            <i class="fas fa-download text-xs text-white/70 w-4"></i>
+            <span>Save / Download</span>
+          </button>
+          <button type="button" id="ctxMenuDelete" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer">
+            <i class="fas fa-trash-can text-xs text-red-400 w-4"></i>
+            <span>Delete for everyone</span>
+          </button>
         </div>
 
         <!-- Circular Snap Recording Overlay (Phase 9) -->

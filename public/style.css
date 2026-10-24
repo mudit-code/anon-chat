@@ -1432,7 +1432,10 @@ body.light-mode .desktop-reply-btn {
   font-weight: 600;
 }
 .received-message .file-subtitle {
-  color: #9a9a9a !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+body.light-mode .received-message .file-subtitle {
+  color: rgba(0, 0, 0, 0.78) !important;
 }
 .received-message .file-btn-open {
   background: #2c2c2c !important;
@@ -2239,11 +2242,102 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
 }
 
 #voiceRecordingRow {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  background: #111111;
-  border-radius: 28px;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 360px) {
+  #voiceRecordingRow,
+  #composerRow {
+    gap: 6px !important;
+  }
+  .voice-record-wrapper {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    gap: 6px !important;
+  }
+  #sendBtn,
+  #voiceRecordSendBtn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+/* WhatsApp-Style Reactions Container & Chips */
+.reactions-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.reaction-chip:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(1.06);
+}
+
+.reaction-chip.active-reaction {
+  background: rgba(255, 115, 32, 0.22);
+  border-color: rgba(255, 115, 32, 0.6);
+  color: #ffb682;
+}
+
+body.light-mode .reaction-chip {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1c1917;
+}
+
+body.light-mode .reaction-chip.active-reaction {
+  background: rgba(255, 115, 32, 0.18);
+  border-color: #ff7320;
+  color: #c2410c;
+}
+
+/* Floating Message Context Menu */
+#messageContextMenu {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.light-mode #messageContextMenu {
+  background: #ffffff;
+  border-color: #e7e5e4;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .context-reactions-row {
+  border-color: #e7e5e4;
+}
+
+body.light-mode .context-menu-item {
+  color: #1c1917;
+}
+
+body.light-mode .context-menu-item:hover {
+  background: #f5f5f4;
 }
 
 /* ============================================================

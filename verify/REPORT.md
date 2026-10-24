@@ -357,6 +357,85 @@
 
 ---
 
+### Phase A: Fix Media/Files Reaching Others + In-Place Replacement of Stuck 100% Pending Bubble
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phaseA_reproduce_sender.png` (Sender side: confirmed bubble cleanly replaced in-place, zero stuck pending bubbles)
+  - `verify/screenshots/phaseA_reproduce_receiver.png` (Receiver side: confirmed photo, document, and video bubbles rendered with real links)
+- **Root Cause & Fix:**
+  - *Root Cause:*
+    1. Pending bubble was tracked by temporary ID but HTTP upload response didn't reconcile with `clientMsgId`, causing the confirmed bubble to append as a new sibling while leaving the pending bubble stuck at 100%.
+    2. Server `/upload` endpoint did not broadcast the uploaded media to the room socket channel if only an HTTP response was returned, so other peers never received the message.
+  - *Fix:*
+    1. Ensured `clientMsgId` is returned in `/upload` JSON response and sent in the server's room broadcast (`chat-message`).
+    2. In `public/script.js`, `renderMessageBubble` matches existing bubbles by `id` or `data-client-msg-id`, replacing pending DOM nodes in-place rather than appending duplicates.
+    3. Added 30s upload timeout with error state showing Retry (preserving `clientMsgId`) and Delete buttons.
+
+---
+
+### Phase B: WhatsApp-Style Streaming Upload/Download Progress & Cancellation
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phaseB_sender_complete.png` (Sender streaming upload with ETA, centered circular progress ring, and cancel trigger)
+  - `verify/screenshots/phaseB_receiver_complete.png` (Receiver placeholder bubble with incoming progress and download progress ring)
+- **Root Cause & Fix:**
+  - *Root Cause:* Uploads had static indeterminate progress; receivers had no awareness of incoming transfers until completion; cancellation didn't notify the server or peers; downloads lacked visual progress.
+  - *Fix:*
+    1. In `public/script.js`, sender emits `media-start` -> receiver creates `.incoming-media-placeholder` bubble.
+    2. Server streams progress updates (`media-progress`) throttled to ~4/s containing `{ clientMsgId, loaded, total }`.
+    3. Sender shows dimmed thumbnail with centered circular SVG progress ring, cancel (X) button, and ETA chip (e.g., "13% · 1 min left").
+    4. Clicking X aborts XHR, emits `media-cancelled`, and cleans up placeholders on all sides.
+    5. File downloads feature circular SVG progress rings tracking active transfer progress.
+
+---
+
+### Phase C: Voice Recorder Overlapping Composer Layout
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phaseC_recorder_320_dark.png` & `phaseC_recorder_320_light.png` (320px viewport in dark and light modes)
+  - `verify/screenshots/phaseC_recorder_360_dark.png` & `phaseC_recorder_360_light.png` (360px viewport in dark and light modes)
+  - `verify/screenshots/phaseC_recorder_412_dark.png` & `phaseC_recorder_412_light.png` (412px viewport in dark and light modes)
+- **Root Cause & Fix:**
+  - *Root Cause:* Audio recorder row was positioned absolutely or flexed outside normal document flow, causing it to overlap the composer pill and bleed offscreen on narrow 320px viewports.
+  - *Fix:*
+    1. Refactored `#voiceRecordingRow` into an in-flow slot inside `#composerContainer` that swaps with `#composerMainRow`.
+    2. Hid the composer pill and external round button while recording is active.
+    3. Added flex constraints ensuring the orange stop/send circle is fully inside the screen with zero horizontal overflow across 320px, 360px, and 412px viewports in both light and dark themes.
+
+---
+
+### Phase D: Reply to Own Messages, Media/Files, Quote Jump & Context Menu
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phaseD_context_menu.png` (Message context menu with Reply, React, Copy, Save, Delete)
+- **Root Cause & Fix:**
+  - *Root Cause:*
+    1. Swipe-to-reply check excluded own sent messages (`isOwn ? return : ...`).
+    2. Message context menu lacked quick actions (Reply, React, Copy, Save, Delete).
+    3. Media replies lacked thumbnail and media type previews in the quoted box.
+  - *Fix:*
+    1. Enabled swipe-to-reply on all message bubbles (own and received), guarding only real interactive controls (buttons, links, audio sliders).
+    2. Built WhatsApp-style quoted preview showing photo/video thumbnail, file kind/name/size, and sender.
+    3. Tapping a quoted reply smoothly scrolls to the target message and applies a temporary pulse highlight (`.message-highlight`).
+    4. Implemented long-press (mobile) and right-click (desktop) context menu `#messageContextMenu`.
+
+---
+
+### Phase E: WhatsApp-Style Media Lightbox Viewer & Reactions
+- **Status:** **PASS**
+- **Screenshots:**
+  - `verify/screenshots/phaseE_bob_viewer.png` (Bob viewing photo with top bar, sender, timestamp, gallery index, zoom, and reactions bar)
+  - `verify/screenshots/phaseE_alice_reactions.png` (Alice viewing message bubble with synchronized reaction chips)
+- **Root Cause & Fix:**
+  - *Root Cause:* Media viewer lacked gallery navigation, sender info, inline video playback controls, and native reaction syncing between room peers.
+  - *Fix:*
+    1. Built full-screen lightbox `#previewModal` with top bar (back, sender name, time, download, share) and gallery navigation (left/right arrows, keyboard arrow shortcuts, counter).
+    2. Added bottom quick emoji reaction bar with 6 quick emojis + '+' picker.
+    3. Connected Socket.IO `react` -> `reactions-updated` broadcast syncing reaction chips under message bubbles for all room members.
+    4. Tapping reaction chips displays who reacted with that emoji.
+
+---
+
 ## 4. Final Consolidated Pass/Fail Matrix (Before vs After)
 
 | Test / Feature Area | Initial Audit | Final Status | Verification Method & Artifacts |
@@ -383,6 +462,11 @@
 | **Phase 12**: Share button placement + Ask to join page | FAIL | **PASS** | `verify/screenshots/phase12_share_ask.png` (header share removed, people panel share present, `#join=KEY` / `?room=KEY` routes to Ask to join with live online count, approval flow, dead room handled) |
 | **Phase 13**: Keyboard GIFs & stickers (Android bridge) | FAIL | **PASS** (Hardware unverified) | `verify/screenshots/phase13_keyboard_stickers.png` (`handleKeyboardContent` function and `keyboardContent` event adding sticker to draft tray) |
 | **Phase 14**: Full regression, build, deploy, final report | FAIL | **PASS** | 21/21 Playwright tests pass (54.4s), `npm run build` succeeds, `cap sync android` succeeds, `gradlew assembleDebug` succeeds |
+| **Phase A**: Fix media/files reaching others & stuck 100% | FAIL | **PASS** | `verify/screenshots/phaseA_reproduce_sender.png` & `phaseA_reproduce_receiver.png` (in-place replacement, zero duplicate bubbles, room broadcast) |
+| **Phase B**: Streaming upload/download progress & cancel | FAIL | **PASS** | `verify/screenshots/phaseB_sender_complete.png` & `phaseB_receiver_complete.png` (server metering ~4/s, ETA calculation, cancel ring, download progress ring) |
+| **Phase C**: Voice recorder layout replacement | FAIL | **PASS** | `verify/screenshots/phaseC_recorder_320_dark.png` through `phaseC_recorder_412_light.png` (in-flow slot replacement across 320px/360px/412px light/dark) |
+| **Phase D**: Reply to own messages & media/files | FAIL | **PASS** | `verify/screenshots/phaseD_context_menu.png` (reply on own messages, quote jump highlight, media type & thumb previews, context menu) |
+| **Phase E**: WhatsApp-style lightbox viewer & reactions | FAIL | **PASS** | `verify/screenshots/phaseE_bob_viewer.png` & `phaseE_alice_reactions.png` (full-screen viewer with top bar/gallery, live two-way reaction sync) |
 
 ---
 
