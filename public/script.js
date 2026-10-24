@@ -1618,9 +1618,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const mediaSrc = resolveMediaUrl(message.content);
             messageBubble.className = 'sticker-bubble message-bubble';
             contentHtml = `
-                <div class="relative group">
-                    <img src="${mediaSrc}" class="sticker-message" loading="lazy">
-                    <a href="${mediaSrc}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                <div class="relative group cursor-pointer" onclick="openPreview('${mediaSrc}', 'sticker', '${id}')">
+                    <img src="${mediaSrc}" class="sticker-message cursor-pointer" loading="lazy">
+                    <a href="${mediaSrc}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
@@ -1629,32 +1629,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const mediaSrc = resolveMediaUrl(message.content);
             if (message.type === 'gif') {
                 contentHtml = `
-                <div class="relative group">
-                    <img src="${mediaSrc}" class="message-file-preview" loading="lazy">
-                    <a href="${mediaSrc}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                <div class="relative group media-container cursor-pointer overflow-hidden rounded-xl" onclick="openPreview('${mediaSrc}', 'gif', '${id}')">
+                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy">
+                    <a href="${mediaSrc}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'image') {
                 const aspectStyle = (message.width && message.height) ? `style="aspect-ratio: ${message.width} / ${message.height};"` : '';
                 contentHtml = `
-                <div class="relative group media-container overflow-hidden rounded-xl" ${aspectStyle}>
-                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" ${message.width ? `width="${message.width}"` : ''} ${message.height ? `height="${message.height}"` : ''} onclick="openPreview('${mediaSrc}', 'image', '${id}')" alt="Photo">
-                    <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                <div class="relative group media-container overflow-hidden rounded-xl cursor-pointer" ${aspectStyle} onclick="openPreview('${mediaSrc}', 'image', '${id}')">
+                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" ${message.width ? `width="${message.width}"` : ''} ${message.height ? `height="${message.height}"` : ''} alt="Photo">
+                    <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download text-xs"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'video') {
                 const aspectStyle = (message.width && message.height) ? `style="aspect-ratio: ${message.width} / ${message.height};"` : '';
                 contentHtml = `
-                <div class="relative group media-container overflow-hidden rounded-xl" ${aspectStyle}>
-                    <video src="${mediaSrc}" class="message-file-preview cursor-pointer" preload="metadata" playsinline onclick="openPreview('${mediaSrc}', 'video', '${id}')"></video>
+                <div class="relative group media-container overflow-hidden rounded-xl cursor-pointer" ${aspectStyle} onclick="openPreview('${mediaSrc}', 'video', '${id}')">
+                    <video src="${mediaSrc}" class="message-file-preview cursor-pointer" preload="metadata" playsinline></video>
                     <div class="video-play-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center shadow-lg text-white">
                             <i class="fas fa-play text-base ml-0.5"></i>
                         </div>
                     </div>
-                    <a href="${mediaSrc}" download="video-${Date.now()}.mp4" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                    <a href="${mediaSrc}" download="video-${Date.now()}.mp4" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download text-xs"></i>
                     </a>
                 </div>`;
@@ -3370,6 +3370,11 @@ document.addEventListener('DOMContentLoaded', () => {
             appAlert("Please enter a username and a room key.");
             return;
         }
+        if (roomKey.length < 6) {
+            appAlert("Room key must be at least 6 characters.", "Invalid Room Key");
+            if (roomKeyInput) roomKeyInput.focus();
+            return;
+        }
         withBusy(createRoomBtn, () => {
             window.currentRoomKey = roomKey;
             socket.emit("create-room", {
@@ -3381,9 +3386,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 function cleanup() {
                     socket.off("room-created", onDone);
                     socket.off("room-exists", onDone);
+                    socket.off("room-creation-error", onDone);
                 }
                 socket.once("room-created", onDone);
                 socket.once("room-exists", onDone);
+                socket.once("room-creation-error", onDone);
             });
         }, { serverWakeupNotice: true, connectingText: "Connecting…" });
     };
@@ -3393,6 +3400,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const uname = (targetUsername || "").trim();
         if (!key || !uname) {
             appAlert("Please enter a username and a room key.");
+            return;
+        }
+        if (key.length < 6) {
+            appAlert("Room key must be at least 6 characters.", "Invalid Room Key");
+            if (roomKeyInput) roomKeyInput.focus();
             return;
         }
 
@@ -3649,14 +3661,6 @@ document.addEventListener('DOMContentLoaded', () => {
         emojiBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
     }
-    if (fileBtn) {
-        fileBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        fileBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
-    if (cameraBtn) {
-        cameraBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        cameraBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
     if (recordBtn) {
         recordBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         recordBtn.addEventListener('mousedown', (e) => e.preventDefault());
@@ -3710,36 +3714,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function takePhoto() {
+    function takePhoto() {
         try {
             if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins?.Camera) {
-                const image = await window.Capacitor.Plugins.Camera.getPhoto({
+                window.Capacitor.Plugins.Camera.getPhoto({
                     quality: 85,
                     allowEditing: false,
                     resultType: 'uri',
                     source: 'CAMERA'
-                });
-                if (image && (image.webPath || image.path)) {
-                    const res = await fetch(image.webPath);
-                    const blob = await res.blob();
-                    const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-                    if (window.mediaDraft) {
-                        window.mediaDraft.add([file]);
+                }).then(async (image) => {
+                    if (image && (image.webPath || image.path)) {
+                        const res = await fetch(image.webPath);
+                        const blob = await res.blob();
+                        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                        if (window.mediaDraft) {
+                            window.mediaDraft.add([file]);
+                        }
                     }
-                }
+                }).catch((err) => {
+                    if (err && err.message && (err.message.includes('denied') || err.message.includes('permission'))) {
+                        if (typeof appAlert === 'function') {
+                            appAlert('Camera permission was denied. Please enable camera access in settings.');
+                        }
+                    } else if (!err || !err.message || !err.message.includes('User cancelled')) {
+                        console.warn('Camera photo error:', err);
+                    }
+                });
             } else {
                 if (cameraPhotoInput) {
                     cameraPhotoInput.click();
                 }
             }
         } catch (err) {
-            if (err && err.message && (err.message.includes('denied') || err.message.includes('permission'))) {
-                if (typeof appAlert === 'function') {
-                    appAlert('Camera permission was denied. Please enable camera access in settings.');
-                }
-            } else if (!err || !err.message || !err.message.includes('User cancelled')) {
-                console.warn('Camera photo error:', err);
-            }
+            console.warn('Camera photo error:', err);
         }
     }
 
@@ -4010,11 +4017,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (cameraBtn) {
         cameraBtn.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            try {
-                cameraBtn.setPointerCapture(e.pointerId);
-            } catch (err) {}
-
             cameraPressStartTime = Date.now();
             cameraPointerStartX = e.clientX;
             cameraPointerStartY = e.clientY;
@@ -4023,8 +4025,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cameraHoldTimer = setTimeout(async () => {
                 isCameraHolding = true;
+                try {
+                    cameraBtn.setPointerCapture(e.pointerId);
+                } catch (err) {}
                 await startSnapRecording();
-            }, 300);
+            }, 350);
         });
 
         const handlePointerMove = (e) => {
@@ -4045,9 +4050,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cameraHoldTimer = null;
             }
 
-            if (!isCameraHolding) {
-                takePhoto();
-            } else {
+            if (isCameraHolding) {
                 stopSnapRecording();
                 isCameraHolding = false;
             }
@@ -4060,6 +4063,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleCameraPointerEnd(e);
             }
         });
+
+        // Direct trusted click handler for taking a photo / opening file chooser on web
+        cameraBtn.onclick = (e) => {
+            if (isCameraHolding) {
+                e.preventDefault();
+                return;
+            }
+            takePhoto();
+        };
+
         cameraBtn.addEventListener('contextmenu', e => e.preventDefault());
     }
 
@@ -4904,9 +4917,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let previewOpenedTime = 0;
+
     function closePreviewModal() {
         if (!previewModal) return;
         previewModal.classList.add('hidden');
+        previewModal.style.setProperty('display', 'none', 'important');
         if (previewContent) previewContent.innerHTML = "";
         previewZoom = 1;
         previewPanX = 0;
@@ -4919,6 +4935,8 @@ document.addEventListener('DOMContentLoaded', () => {
             previewZoomIndicator.style.opacity = '0';
             previewZoomIndicator.textContent = '100%';
         }
+        const popover = document.getElementById('previewEmojiPickerPopover');
+        if (popover) popover.classList.add('hidden');
     }
 
     let galleryItems = [];
@@ -5023,7 +5041,9 @@ document.addEventListener('DOMContentLoaded', () => {
             galleryItems[targetIndex].messageId = messageId;
         }
 
+        previewOpenedTime = Date.now();
         previewModal.classList.remove('hidden');
+        previewModal.style.setProperty('display', 'flex', 'important');
         loadGalleryItem(targetIndex);
     }
     window.openPreview = openPreview;
@@ -5031,6 +5051,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const previewBackBtn = document.getElementById('previewBackBtn');
     if (previewBackBtn) previewBackBtn.onclick = (e) => { e.stopPropagation(); closePreviewModal(); };
+
+    const closePreviewBtn = document.getElementById('closePreview');
+    if (closePreviewBtn) {
+        closePreviewBtn.onclick = (e) => {
+            e.stopPropagation();
+            closePreviewModal();
+        };
+    }
+
+    const previewFullscreenBtn = document.getElementById('previewFullscreenBtn');
+    if (previewFullscreenBtn) {
+        previewFullscreenBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            }
+        };
+        document.addEventListener('fullscreenchange', () => {
+            const icon = document.getElementById('previewFullscreenIcon');
+            if (icon) {
+                if (document.fullscreenElement) {
+                    icon.className = 'fas fa-compress';
+                } else {
+                    icon.className = 'fas fa-expand';
+                }
+            }
+        });
+    }
 
     const previewPrevBtn = document.getElementById('previewPrevBtn');
     if (previewPrevBtn) previewPrevBtn.onclick = (e) => { e.stopPropagation(); loadGalleryItem(currentGalleryIndex - 1); };
@@ -5089,32 +5139,101 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.onclick = (e) => {
             e.stopPropagation();
             const emoji = btn.getAttribute('data-emoji');
-            const msgId = previewModal.getAttribute('data-active-message-id');
+            let msgId = previewModal?.getAttribute('data-active-message-id');
+            if (!msgId && galleryItems[currentGalleryIndex]) {
+                msgId = galleryItems[currentGalleryIndex].messageId;
+            }
             if (msgId && emoji) {
                 sendReaction(msgId, emoji);
+                showToast(`Reacted with ${emoji}`);
             }
         };
     });
 
     const previewReactPlusBtn = document.getElementById('previewReactPlusBtn');
+    const previewEmojiPickerPopover = document.getElementById('previewEmojiPickerPopover');
+    const previewEmojiGrid = document.getElementById('previewEmojiGrid');
+    const previewEmojiSearch = document.getElementById('previewEmojiSearch');
+    const closePreviewEmojiPicker = document.getElementById('closePreviewEmojiPicker');
+
+    function populatePreviewEmojiGrid(filter = '') {
+        if (!previewEmojiGrid) return;
+        previewEmojiGrid.innerHTML = '';
+        const popularEmojis = [
+            '👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '🎉', '👏', '💯', '✨', '😍', 
+            '🥰', '😎', '🤔', '🙄', '🥳', '🥺', '😭', '🤯', '😱', '💩', '🤝', '🙌', 
+            '💪', '🎯', '🚀', '⭐', '👀', '💖', '💀', '🤡', '⚡', '🌟', '🎈', '🍕', 
+            '🍻', '☕', '🧁', '🍦', '🌹', '🌈', '🥑', '🏆', '🎁', '💡'
+        ];
+        const allList = (Array.isArray(emojis) && emojis.length > 0) ? [...new Set([...popularEmojis, ...emojis])] : popularEmojis;
+        const lowerFilter = filter.toLowerCase().trim();
+        
+        let count = 0;
+        for (const emoji of allList) {
+            if (count >= 140) break;
+            if (lowerFilter && !emoji.includes(lowerFilter)) continue;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'w-9 h-9 rounded-lg hover:bg-white/15 flex items-center justify-center text-xl transition-transform active:scale-90 cursor-pointer select-none';
+            btn.textContent = emoji;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                let msgId = previewModal?.getAttribute('data-active-message-id');
+                if (!msgId && galleryItems[currentGalleryIndex]) {
+                    msgId = galleryItems[currentGalleryIndex].messageId;
+                }
+                if (msgId) {
+                    sendReaction(msgId, emoji);
+                    showToast(`Reacted with ${emoji}`);
+                } else {
+                    showToast(`Reaction sent: ${emoji}`);
+                }
+                if (previewEmojiPickerPopover) previewEmojiPickerPopover.classList.add('hidden');
+            };
+            previewEmojiGrid.appendChild(btn);
+            count++;
+        }
+    }
+
     if (previewReactPlusBtn) {
         previewReactPlusBtn.onclick = (e) => {
             e.stopPropagation();
-            const msgId = previewModal.getAttribute('data-active-message-id');
-            if (msgId) {
-                const quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '🎉', '👏', '💯', '✨', '😍'];
-                const randomOther = quickEmojis[Math.floor(Math.random() * quickEmojis.length)];
-                sendReaction(msgId, randomOther);
+            if (!previewEmojiPickerPopover) return;
+            const isHidden = previewEmojiPickerPopover.classList.contains('hidden');
+            if (isHidden) {
+                previewEmojiPickerPopover.classList.remove('hidden');
+                populatePreviewEmojiGrid();
+                if (previewEmojiSearch) {
+                    previewEmojiSearch.value = '';
+                    setTimeout(() => previewEmojiSearch.focus(), 60);
+                }
+            } else {
+                previewEmojiPickerPopover.classList.add('hidden');
             }
         };
     }
 
-    if (closePreview) {
-        closePreview.onclick = (e) => {
+    if (closePreviewEmojiPicker) {
+        closePreviewEmojiPicker.onclick = (e) => {
             e.stopPropagation();
-            closePreviewModal();
+            if (previewEmojiPickerPopover) previewEmojiPickerPopover.classList.add('hidden');
         };
     }
+
+    if (previewEmojiSearch) {
+        previewEmojiSearch.onclick = (e) => e.stopPropagation();
+        previewEmojiSearch.oninput = () => {
+            populatePreviewEmojiGrid(previewEmojiSearch.value);
+        };
+    }
+
+    document.addEventListener('click', (e) => {
+        if (previewEmojiPickerPopover && !previewEmojiPickerPopover.classList.contains('hidden')) {
+            if (!previewEmojiPickerPopover.contains(e.target) && !previewReactPlusBtn?.contains(e.target)) {
+                previewEmojiPickerPopover.classList.add('hidden');
+            }
+        }
+    });
 
     if (previewZoomResetBtn) {
         previewZoomResetBtn.onclick = (e) => {
@@ -5154,7 +5273,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Pointer Events for Pinch, Pan, and Tap-to-Close
         previewModal.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('#previewZoomResetBtn') || e.target.closest('#closePreview')) return;
+            if (e.target.closest('#previewTopBar') ||
+                e.target.closest('#previewBottomBar') ||
+                e.target.closest('#previewEmojiPickerPopover') ||
+                e.target.closest('#previewPrevBtn') ||
+                e.target.closest('#previewNextBtn') ||
+                e.target.closest('#previewZoomResetBtn') ||
+                e.target.closest('#previewFullscreenBtn') ||
+                e.target.closest('#closePreview')) return;
             const img = document.getElementById("previewActiveImage");
 
             activePointers.set(e.pointerId, {
@@ -5232,10 +5358,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Tap-to-close (backdrop and image, but not top bar, bottom bar, or video controls)
+                // Tap-to-close (backdrop and image, but not top bar, bottom bar, emoji picker, or video controls)
                 if (!hadMultiTouch && maxPointerMovement <= 8) {
+                    if (Date.now() - previewOpenedTime < 350) return;
                     if (!e.target.closest('#previewTopBar') &&
                         !e.target.closest('#previewBottomBar') &&
+                        !e.target.closest('#previewEmojiPickerPopover') &&
                         !e.target.closest('#previewPrevBtn') &&
                         !e.target.closest('#previewNextBtn') &&
                         !e.target.closest('video')) {
@@ -5262,14 +5390,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     messagesDiv.addEventListener('click', (e) => {
-        if (e.target.classList.contains('message-file-preview') || e.target.classList.contains('sticker-message')) {
-            let type;
-            if (e.target.tagName === 'IMG') {
-                type = e.target.src.endsWith('.gif') ? 'gif' : 'image/png';
-            } else if (e.target.tagName === 'VIDEO') {
+        if (e.target.closest('a, button, .media-download-btn, .file-action-btn, .desktop-reply-btn, .quoted-reply, .reaction-chip')) {
+            return;
+        }
+        const mediaEl = e.target.closest('.message-file-preview, .sticker-message') ||
+                        e.target.closest('.media-container, .message-bubble-media')?.querySelector('.message-file-preview, .sticker-message');
+        if (mediaEl) {
+            let type = 'image/png';
+            if (mediaEl.tagName === 'IMG') {
+                type = mediaEl.src.endsWith('.gif') ? 'gif' : 'image/png';
+            } else if (mediaEl.tagName === 'VIDEO') {
                 type = 'video/mp4';
             }
-            openPreview(e.target.src, type || 'image/png');
+            const wrapper = mediaEl.closest('.message');
+            const rawId = wrapper ? (wrapper.getAttribute('data-msg-id') || wrapper.getAttribute('data-client-msg-id') || wrapper.id) : null;
+            const msgId = (rawId && rawId.startsWith('msg-')) ? rawId.slice(4) : rawId;
+            openPreview(mediaEl.src, type, msgId);
         }
     });
 
@@ -5508,7 +5644,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.clientX <= 24) return;
 
             // Ignore only actual interactive controls (allow swipe starting anywhere else on media/file bubbles)
-            if (e.target.closest('a, button, input, textarea, .file-action-btn, .reply-cancel-btn, #previewModal, .desktop-reply-btn, .quoted-reply, .voice-play-btn, .voice-waveform-track, .voice-speed-btn, .voice-download-btn, .media-download-btn, .reaction-chip, #messageContextMenu')) {
+            if (e.target.closest('a, button, input, textarea, .message-file-preview, .sticker-message, .media-container, .snap-container, img, video, .file-action-btn, .reply-cancel-btn, #previewModal, .desktop-reply-btn, .quoted-reply, .voice-play-btn, .voice-waveform-track, .voice-speed-btn, .voice-download-btn, .media-download-btn, .reaction-chip, #messageContextMenu')) {
                 return;
             }
 
@@ -5545,10 +5681,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     isSwipeLocked = false;
                 }
             }, 450);
-
-            try {
-                messageBubble.setPointerCapture(e.pointerId);
-            } catch (_) {}
         });
 
         // Delegated click handler for tapping quoted replies
@@ -5608,6 +5740,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Horizontal movement > 8px that beats vertical: lock into drag
                 if (deltaX > 8 && deltaX > deltaY) {
                     isSwipeLocked = true;
+                    try {
+                        activeSwipeBubble.setPointerCapture(activePointerId);
+                    } catch (_) {}
                 } else {
                     return;
                 }
@@ -6198,6 +6333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     socket.on("room-exists", (m) => appAlert(m, "Room Exists"));
+    socket.on("room-creation-error", (m) => appAlert(m, "Invalid Room Key"));
 
     socket.on("room-not-found", async (m) => {
         resetInviteState();

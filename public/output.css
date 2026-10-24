@@ -755,6 +755,10 @@ input:focus-visible,
   bottom: 0.5rem;
 }
 
+.bottom-20 {
+  bottom: 5rem;
+}
+
 .bottom-3 {
   bottom: 0.75rem;
 }
@@ -831,6 +835,18 @@ input:focus-visible,
   z-index: 50;
 }
 
+.z-\[100000\] {
+  z-index: 100000;
+}
+
+.z-\[100002\] {
+  z-index: 100002;
+}
+
+.z-\[100005\] {
+  z-index: 100005;
+}
+
 .z-\[100\] {
   z-index: 100;
 }
@@ -841,6 +857,10 @@ input:focus-visible,
 
 .z-\[90\] {
   z-index: 90;
+}
+
+.z-\[99999\] {
+  z-index: 99999;
 }
 
 .col-span-3 {
@@ -1102,8 +1122,16 @@ input:focus-visible,
   max-height: 100dvh;
 }
 
+.max-h-\[220px\] {
+  max-height: 220px;
+}
+
 .max-h-\[260px\] {
   max-height: 260px;
+}
+
+.max-h-\[320px\] {
+  max-height: 320px;
 }
 
 .max-h-\[80vh\] {
@@ -1200,6 +1228,10 @@ input:focus-visible,
 
 .w-\[7px\] {
   width: 7px;
+}
+
+.w-\[92vw\] {
+  width: 92vw;
 }
 
 .w-full {
@@ -1376,6 +1408,10 @@ input:focus-visible,
 
 .grid-cols-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-cols-7 {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .grid-cols-8 {
@@ -1618,6 +1654,10 @@ input:focus-visible,
   border-color: rgb(239 68 68 / 0.4);
 }
 
+.border-red-500\/50 {
+  border-color: rgb(239 68 68 / 0.5);
+}
+
 .border-red-500\/60 {
   border-color: rgb(239 68 68 / 0.6);
 }
@@ -1680,6 +1720,10 @@ input:focus-visible,
   background-color: rgb(28 28 28 / var(--tw-bg-opacity, 1));
 }
 
+.bg-\[\#1c1c1c\]\/95 {
+  background-color: rgb(28 28 28 / 0.95);
+}
+
 .bg-\[\#1e1e1e\] {
   --tw-bg-opacity: 1;
   background-color: rgb(30 30 30 / var(--tw-bg-opacity, 1));
@@ -1712,6 +1756,11 @@ input:focus-visible,
 .bg-\[\#262626\] {
   --tw-bg-opacity: 1;
   background-color: rgb(38 38 38 / var(--tw-bg-opacity, 1));
+}
+
+.bg-\[\#282828\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(40 40 40 / var(--tw-bg-opacity, 1));
 }
 
 .bg-\[\#2a2a2a\] {
@@ -1759,6 +1808,10 @@ input:focus-visible,
   background-color: rgb(0 0 0 / 0.4);
 }
 
+.bg-black\/50 {
+  background-color: rgb(0 0 0 / 0.5);
+}
+
 .bg-black\/60 {
   background-color: rgb(0 0 0 / 0.6);
 }
@@ -1773,10 +1826,6 @@ input:focus-visible,
 
 .bg-black\/90 {
   background-color: rgb(0 0 0 / 0.9);
-}
-
-.bg-black\/95 {
-  background-color: rgb(0 0 0 / 0.95);
 }
 
 .bg-emerald-500 {
@@ -1795,6 +1844,10 @@ input:focus-visible,
 
 .bg-red-500\/15 {
   background-color: rgb(239 68 68 / 0.15);
+}
+
+.bg-red-500\/25 {
+  background-color: rgb(239 68 68 / 0.25);
 }
 
 .bg-red-600\/20 {
@@ -1816,6 +1869,10 @@ input:focus-visible,
 
 .bg-white\/10 {
   background-color: rgb(255 255 255 / 0.1);
+}
+
+.bg-white\/15 {
+  background-color: rgb(255 255 255 / 0.15);
 }
 
 .bg-white\/20 {
@@ -1844,8 +1901,8 @@ input:focus-visible,
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-.from-black\/80 {
-  --tw-gradient-from: rgb(0 0 0 / 0.8) var(--tw-gradient-from-position);
+.from-black\/90 {
+  --tw-gradient-from: rgb(0 0 0 / 0.9) var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(0 0 0 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
@@ -1856,9 +1913,9 @@ input:focus-visible,
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-.via-black\/50 {
+.via-black\/60 {
   --tw-gradient-to: rgb(0 0 0 / 0)  var(--tw-gradient-to-position);
-  --tw-gradient-stops: var(--tw-gradient-from), rgb(0 0 0 / 0.5) var(--tw-gradient-via-position), var(--tw-gradient-to);
+  --tw-gradient-stops: var(--tw-gradient-from), rgb(0 0 0 / 0.6) var(--tw-gradient-via-position), var(--tw-gradient-to);
 }
 
 .to-\[\#ff9858\] {
@@ -2026,6 +2083,10 @@ input:focus-visible,
 .py-8 {
   padding-top: 2rem;
   padding-bottom: 2rem;
+}
+
+.pb-2 {
+  padding-bottom: 0.5rem;
 }
 
 .pb-3 {
@@ -2306,6 +2367,14 @@ input:focus-visible,
   color: rgb(128 128 128 / var(--tw-placeholder-opacity, 1));
 }
 
+.placeholder-white\/40::-moz-placeholder {
+  color: rgb(255 255 255 / 0.4);
+}
+
+.placeholder-white\/40::placeholder {
+  color: rgb(255 255 255 / 0.4);
+}
+
 .opacity-0 {
   opacity: 0;
 }
@@ -2324,6 +2393,12 @@ input:focus-visible,
 
 .opacity-65 {
   opacity: 0.65;
+}
+
+.shadow {
+  --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
 .shadow-2xl {
@@ -2377,6 +2452,11 @@ input:focus-visible,
 
 .blur-\[1px\] {
   --tw-blur: blur(1px);
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+
+.drop-shadow {
+  --tw-drop-shadow: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.06));
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
@@ -3787,6 +3867,7 @@ body.light-mode .desktop-reply-btn {
   overflow: hidden;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
 }
 
 .message-file-preview {
@@ -3796,6 +3877,7 @@ body.light-mode .desktop-reply-btn {
   -o-object-fit: cover;
      object-fit: cover;
   border-radius: 12px;
+  cursor: pointer;
 }
 
 .video-play-overlay {
@@ -6574,6 +6656,95 @@ html.loading-file-room #fileRoomScreen {
   pointer-events: none;
 }
 
+/* ============================================================
+   FULLSCREEN MEDIA PREVIEW MODAL & CONTROLS
+   ============================================================ */
+
+#previewModal {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 99999 !important;
+  background-color: rgba(0, 0, 0, 0.96) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden !important;
+  touch-action: none;
+  box-sizing: border-box !important;
+}
+
+#previewModal.hidden {
+  display: none !important;
+}
+
+#previewTopBar {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 64px !important;
+  z-index: 100002 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 16px !important;
+  padding-top: max(env(safe-area-inset-top, 0px), 8px) !important;
+  background: linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+}
+
+#previewBottomBar {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 100002 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px 12px !important;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px) !important;
+  background: linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+}
+
+#previewEmojiPickerPopover {
+  position: absolute !important;
+  bottom: 84px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 100005 !important;
+  background: rgba(28, 28, 28, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85) !important;
+}
+
+.viewer-reactions-bar {
+  background: rgba(30, 30, 30, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7) !important;
+}
+
+#closePreview, #previewBackBtn, #previewZoomResetBtn, #previewFullscreenBtn, #previewDownloadBtn, #previewShareBtn, #previewPrevBtn, #previewNextBtn, #previewReactPlusBtn {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 100003 !important;
+}
+
 @media (min-width: 768px) {
   .md\:hidden {
     display: none !important;
@@ -6639,8 +6810,12 @@ html.loading-file-room #fileRoomScreen {
   background-color: rgb(0 0 0 / 0.8);
 }
 
-.hover\:bg-black\/90:hover {
-  background-color: rgb(0 0 0 / 0.9);
+.hover\:bg-black\/95:hover {
+  background-color: rgb(0 0 0 / 0.95);
+}
+
+.hover\:bg-red-500\/50:hover {
+  background-color: rgb(239 68 68 / 0.5);
 }
 
 .hover\:bg-red-600\/30:hover {
@@ -6661,6 +6836,10 @@ html.loading-file-room #fileRoomScreen {
 
 .hover\:bg-white\/20:hover {
   background-color: rgb(255 255 255 / 0.2);
+}
+
+.hover\:bg-white\/25:hover {
+  background-color: rgb(255 255 255 / 0.25);
 }
 
 .hover\:text-\[\#ff9b9b\]:hover {
@@ -6696,6 +6875,11 @@ html.loading-file-room #fileRoomScreen {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
+.focus\:border-\[\#ff7320\]:focus {
+  --tw-border-opacity: 1;
+  border-color: rgb(255 115 32 / var(--tw-border-opacity, 1));
+}
+
 .focus\:border-\[\#ffb682\]:focus {
   --tw-border-opacity: 1;
   border-color: rgb(255 182 130 / var(--tw-border-opacity, 1));
@@ -6704,6 +6888,12 @@ html.loading-file-room #fileRoomScreen {
 .focus\:outline-none:focus {
   outline: 2px solid transparent;
   outline-offset: 2px;
+}
+
+.active\:scale-90:active {
+  --tw-scale-x: .9;
+  --tw-scale-y: .9;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
 .active\:scale-95:active {
@@ -6723,6 +6913,10 @@ html.loading-file-room #fileRoomScreen {
 
   .sm\:w-48 {
     width: 12rem;
+  }
+
+  .sm\:w-\[360px\] {
+    width: 360px;
   }
 
   .sm\:flex-row {

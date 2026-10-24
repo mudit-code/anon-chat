@@ -1504,5 +1504,42 @@ test.describe('Audit Suite - Current Behavior', () => {
     await contextB.close();
   });
 
+  test('RULE: Room key creation enforces minimum 6 characters', async ({ page }) => {
+    await page.goto('/');
+
+    // Test 1: Short room key (< 6 characters) on Create
+    await page.fill('#username', 'KeyRuleTester');
+    await page.fill('#roomKey', 'abc');
+    await page.click('#createRoomBtn');
+
+    // Expect alert modal to be visible with validation message
+    const dialogModal = page.locator('#appDialogModal');
+    await expect(dialogModal).toBeVisible();
+    const dialogMsg = page.locator('#appDialogMessage');
+    await expect(dialogMsg).toContainText('Room key must be at least 6 characters');
+
+    // Chat screen should NOT open
+    await expect(page.locator('#chatScreen')).toBeHidden();
+
+    // Dismiss alert
+    await page.click('#appDialogOkBtn');
+    await expect(dialogModal).toBeHidden();
+
+    // Test 2: Short room key (< 6 characters) on Join
+    await page.click('#joinRoomBtn');
+    await expect(dialogModal).toBeVisible();
+    await expect(dialogMsg).toContainText('Room key must be at least 6 characters');
+    await page.click('#appDialogOkBtn');
+    await expect(dialogModal).toBeHidden();
+
+    // Test 3: Valid room key (>= 6 characters) creates room successfully
+    const validKey = 'valid_key_' + Math.random().toString(36).substring(2, 6);
+    await page.fill('#roomKey', validKey);
+    await page.click('#createRoomBtn');
+
+    // Should successfully transition to chatScreen
+    await expect(page.locator('#chatScreen')).toBeVisible();
+  });
+
 });
 

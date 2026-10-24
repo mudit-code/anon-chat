@@ -1343,6 +1343,7 @@ body.light-mode .desktop-reply-btn {
   overflow: hidden;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
 }
 
 .message-file-preview {
@@ -1351,6 +1352,7 @@ body.light-mode .desktop-reply-btn {
   max-height: min(55dvh, 420px);
   object-fit: cover;
   border-radius: 12px;
+  cursor: pointer;
 }
 
 .video-play-overlay {
@@ -3894,4 +3896,92 @@ html.loading-file-room #fileRoomScreen {
 .snap-play-overlay.playing {
   opacity: 0;
   pointer-events: none;
+}
+
+/* ============================================================
+   FULLSCREEN MEDIA PREVIEW MODAL & CONTROLS
+   ============================================================ */
+#previewModal {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 99999 !important;
+  background-color: rgba(0, 0, 0, 0.96) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden !important;
+  touch-action: none;
+  box-sizing: border-box !important;
+}
+
+#previewModal.hidden {
+  display: none !important;
+}
+
+#previewTopBar {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 64px !important;
+  z-index: 100002 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 16px !important;
+  padding-top: max(env(safe-area-inset-top, 0px), 8px) !important;
+  background: linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+}
+
+#previewBottomBar {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 100002 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px 12px !important;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px) !important;
+  background: linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+}
+
+#previewEmojiPickerPopover {
+  position: absolute !important;
+  bottom: 84px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 100005 !important;
+  background: rgba(28, 28, 28, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85) !important;
+}
+
+.viewer-reactions-bar {
+  background: rgba(30, 30, 30, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7) !important;
+}
+
+#closePreview, #previewBackBtn, #previewZoomResetBtn, #previewFullscreenBtn, #previewDownloadBtn, #previewShareBtn, #previewPrevBtn, #previewNextBtn, #previewReactPlusBtn {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 100003 !important;
 }

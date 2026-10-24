@@ -4,7 +4,8 @@
 <head>
   <base href="/">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content, viewport-fit=cover">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,8 +20,8 @@
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/output.css?v=4.1">
-  <link rel="stylesheet" href="/style.css?v=4.1">
+  <link rel="stylesheet" href="/output.css?v=4.2">
+  <link rel="stylesheet" href="/style.css?v=4.2">
   <script>
     (function () {
       try {
@@ -37,7 +38,8 @@
 
 <body class="bg-black text-white antialiased">
   <!-- Neutral Reconnect Splash (Phase 2) -->
-  <div id="reconnectSplash" class="hidden fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-6 text-center select-none">
+  <div id="reconnectSplash"
+    class="hidden fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-6 text-center select-none">
     <img src="/logo.png" alt="Anon Chat" class="w-16 h-16 mb-4 animate-pulse">
     <h2 class="text-xl font-bold font-heading text-white mb-2" id="splashTitle">Reconnecting…</h2>
     <p class="text-sm text-[#9a9a9a] max-w-xs mb-4" id="splashSubtitle">Checking your previous session</p>
@@ -45,13 +47,17 @@
       <i class="fas fa-server mr-1.5"></i>Waking up the server, this can take up to a minute
     </div>
     <div id="splashActions" class="hidden flex gap-3 mt-2">
-      <button id="splashRetryBtn" class="px-4 py-2 bg-[#ff7320] text-black font-semibold rounded-lg text-sm hover:brightness-110 active:scale-95 transition-all">Retry</button>
-      <button id="splashFreshBtn" class="px-4 py-2 bg-[#1f1f1f] text-white border border-[#333] rounded-lg text-sm hover:bg-[#2a2a2a] active:scale-95 transition-all">Start fresh</button>
+      <button id="splashRetryBtn"
+        class="px-4 py-2 bg-[#ff7320] text-black font-semibold rounded-lg text-sm hover:brightness-110 active:scale-95 transition-all">Retry</button>
+      <button id="splashFreshBtn"
+        class="px-4 py-2 bg-[#1f1f1f] text-white border border-[#333] rounded-lg text-sm hover:bg-[#2a2a2a] active:scale-95 transition-all">Start
+        fresh</button>
     </div>
   </div>
 
   <!-- Reconnecting socket banner for network dropouts -->
-  <div id="socketReconnectingBanner" class="hidden fixed top-0 inset-x-0 bg-[#ff7320] text-black text-xs font-semibold py-1.5 px-4 text-center z-50 shadow-md">
+  <div id="socketReconnectingBanner"
+    class="hidden fixed top-0 inset-x-0 bg-[#ff7320] text-black text-xs font-semibold py-1.5 px-4 text-center z-50 shadow-md">
     <i class="fas fa-arrows-rotate fa-spin mr-1.5"></i>Reconnecting to server...
   </div>
 
@@ -79,10 +85,12 @@
           <!-- Switcher Tabs / 30-second cycle timer -->
           <div class="carousel-nav-header">
             <div class="carousel-pill-tabs" role="tablist">
-              <button type="button" class="carousel-pill-tab active" id="pillSampleChat" data-slide="0" role="tab" aria-selected="true">
+              <button type="button" class="carousel-pill-tab active" id="pillSampleChat" data-slide="0" role="tab"
+                aria-selected="true">
                 <i class="fas fa-comments text-xs mr-1.5"></i>Chat Room
               </button>
-              <button type="button" class="carousel-pill-tab" id="pillFileSharing" data-slide="1" role="tab" aria-selected="false">
+              <button type="button" class="carousel-pill-tab" id="pillFileSharing" data-slide="1" role="tab"
+                aria-selected="false">
                 <i class="fas fa-folder-open text-xs mr-1.5"></i>File Sharing
               </button>
             </div>
@@ -94,7 +102,7 @@
           <!-- Carousel Viewport & Track -->
           <div class="carousel-viewport" id="carouselViewport">
             <div class="carousel-track" id="carouselTrack">
-              
+
               <!-- TILE 1: Sample Chat Tile (Matches mobile hero preview) -->
               <div class="carousel-slide" id="slideSampleChat">
                 <div class="demo-chat-preview" aria-hidden="true">
@@ -133,7 +141,8 @@
                     </div>
                     <div class="file-sharing-text-box">
                       <div class="file-sharing-title">Drag & drop files to share</div>
-                      <div class="file-sharing-sub">or <button type="button" class="file-sharing-browse-btn" id="landingTileBrowseBtn">browse device</button></div>
+                      <div class="file-sharing-sub">or <button type="button" class="file-sharing-browse-btn"
+                          id="landingTileBrowseBtn">browse device</button></div>
                     </div>
                     <div class="file-sharing-specs">
                       <span><i class="fas fa-shield-halved text-[10px] mr-1 text-[#ffb682]"></i>Anonymous</span>
@@ -149,7 +158,8 @@
                         <span id="landingTileProgressPercent" class="font-mono">0%</span>
                       </div>
                       <div class="w-full bg-[#222] rounded-full h-1.5 overflow-hidden">
-                        <div id="landingTileProgressBar" class="bg-[#ffb682] h-full transition-all duration-150" style="width: 0%;"></div>
+                        <div id="landingTileProgressBar" class="bg-[#ffb682] h-full transition-all duration-150"
+                          style="width: 0%;"></div>
                       </div>
                     </div>
                   </div>
@@ -158,7 +168,8 @@
                   <div class="file-sharing-key-row">
                     <span class="file-sharing-key-label">Have a room key?</span>
                     <div class="file-sharing-key-input-wrap">
-                      <input type="text" id="landingTileKeyInput" placeholder="e.g. vault-9482" class="file-sharing-key-input" autocomplete="off">
+                      <input type="text" id="landingTileKeyInput" placeholder="e.g. vault-9482"
+                        class="file-sharing-key-input" autocomplete="off">
                       <button type="button" id="landingTileOpenKeyBtn" class="file-sharing-key-btn">Open</button>
                     </div>
                   </div>
@@ -176,12 +187,14 @@
       <div class="landing-right-content">
 
         <!-- Dismissible Session Notice (Phase 2) -->
-        <div id="sessionNotice" class="hidden mb-4 p-3 bg-[#1e1e1e] border border-[#ff7320]/40 rounded-xl text-xs flex items-center justify-between text-white shadow-lg animate-fade-in">
+        <div id="sessionNotice"
+          class="hidden mb-4 p-3 bg-[#1e1e1e] border border-[#ff7320]/40 rounded-xl text-xs flex items-center justify-between text-white shadow-lg animate-fade-in">
           <div class="flex items-center gap-2">
             <i class="fas fa-circle-info text-[#ff7320] text-sm"></i>
             <span id="sessionNoticeText">Your last room has ended</span>
           </div>
-          <button id="closeSessionNoticeBtn" type="button" class="text-[#9a9a9a] hover:text-white p-1 ml-2 transition-colors">
+          <button id="closeSessionNoticeBtn" type="button"
+            class="text-[#9a9a9a] hover:text-white p-1 ml-2 transition-colors">
             <i class="fas fa-times text-xs"></i>
           </button>
         </div>
@@ -193,20 +206,24 @@
 
           <div class="landing-field-group">
             <label for="username" class="landing-label">Codename</label>
-            <input type="text" id="username" placeholder="Codename (not your real name)" class="landing-input" autocomplete="off">
+            <input type="text" id="username" placeholder="Codename (not your real name)" class="landing-input"
+              autocomplete="off">
             <p class="landing-hint">Shown to others in the room. Not your real name.</p>
           </div>
 
           <div class="landing-field-group">
             <label for="roomKey" class="landing-label">Room key</label>
-            <input type="text" id="roomKey" placeholder="Room key, same for everyone (6+)" class="landing-input" autocomplete="off">
+            <input type="text" id="roomKey" placeholder="Create a secret key (6+)" minlssength="6" class="landing-input"
+              autocomplete="off">
           </div>
 
           <div class="landing-buttons-row">
             <button id="createRoomBtn" type="button" class="btn-create flex-1">Create room</button>
             <button id="joinRoomBtn" type="button" class="btn-join flex-1">Join room</button>
           </div>
-          <div id="serverConnectionStatus" class="mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 hidden"></div>
+          <div id="serverConnectionStatus"
+            class="mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 hidden">
+          </div>
 
           <div class="landing-footnote-divider">
             <p class="landing-footnote-text">Create makes a new room with your key. Join enters a room
@@ -216,10 +233,12 @@
 
         <!-- Dedicated Ask to Join Screen (Phase 12) -->
         <div id="askToJoinScreen" class="hidden">
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ff7320]/15 text-[#ff7320] text-xs font-semibold mb-3">
+          <div
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ff7320]/15 text-[#ff7320] text-xs font-semibold mb-3">
             <i class="fas fa-envelope-open-text"></i> Room Invitation
           </div>
-          <h2 class="landing-form-title font-heading font-bold tracking-tight">You've been invited to a private room</h2>
+          <h2 class="landing-form-title font-heading font-bold tracking-tight">You've been invited to a private room
+          </h2>
           <div id="askRoomOnlineCount" class="text-xs text-[#9a9a9a] mb-3 flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
             <span id="askRoomOnlineText">1 person online</span>
@@ -233,16 +252,19 @@
 
           <div class="landing-field-group">
             <label for="inviteUsername" class="landing-label">Your Codename</label>
-            <input type="text" id="inviteUsername" placeholder="Codename (not your real name)" class="landing-input" autocomplete="off">
+            <input type="text" id="inviteUsername" placeholder="Codename (not your real name)" class="landing-input"
+              autocomplete="off">
             <p class="landing-hint">Shown to room members. Not your real identity.</p>
           </div>
 
-          <button id="askJoinRoomBtn" type="button" class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
+          <button id="askJoinRoomBtn" type="button"
+            class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
             <i class="fas fa-paper-plane text-sm"></i>
             <span>Ask to join</span>
           </button>
 
-          <div id="inviteJoinStatus" class="hidden mt-3 p-3 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/30 text-xs text-center text-[#ffb682]">
+          <div id="inviteJoinStatus"
+            class="hidden mt-3 p-3 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/30 text-xs text-center text-[#ffb682]">
             <div class="flex items-center justify-center gap-2 font-medium">
               <i class="fas fa-spinner fa-spin text-sm"></i>
               <span>Join request sent! Waiting for room host to approve...</span>
@@ -250,7 +272,8 @@
           </div>
 
           <div class="mt-4 text-center">
-            <button id="cancelInviteBtn" type="button" class="text-xs text-[#888888] hover:text-[#ffb682] transition-colors underline cursor-pointer">
+            <button id="cancelInviteBtn" type="button"
+              class="text-xs text-[#888888] hover:text-[#ffb682] transition-colors underline cursor-pointer">
               Cancel
             </button>
           </div>
@@ -258,13 +281,16 @@
 
         <!-- Room Unavailable State (Phase 12) -->
         <div id="roomUnavailableState" class="hidden">
-          <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-xs font-semibold mb-3">
+          <div
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-xs font-semibold mb-3">
             <i class="fas fa-triangle-exclamation"></i> Unavailable
           </div>
           <h2 class="landing-form-title font-heading font-bold tracking-tight">This room is no longer available</h2>
-          <p class="landing-form-subtitle mb-6" id="roomUnavailableReason">The room you were invited to has expired, ended, or does not exist.</p>
+          <p class="landing-form-subtitle mb-6" id="roomUnavailableReason">The room you were invited to has expired,
+            ended, or does not exist.</p>
 
-          <button id="roomUnavailableHomeBtn" type="button" class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
+          <button id="roomUnavailableHomeBtn" type="button"
+            class="btn-create w-full flex items-center justify-center gap-2 py-3 text-base">
             <i class="fas fa-home text-sm"></i>
             <span>Go to Home</span>
           </button>
@@ -284,7 +310,8 @@
           <span class="font-heading font-bold text-[17px] text-white leading-tight header-title">Anon Chat</span>
           <div class="header-subtitle text-[12px] text-[#9a9a9a] flex items-center gap-1.5 mt-0.5">
             <span class="header-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block"></span>
-            <span class="header-status-text">Private room · <span id="headerOnlineCount" class="header-online-count font-semibold">0</span> online</span>
+            <span class="header-status-text">Private room · <span id="headerOnlineCount"
+                class="header-online-count font-semibold">0</span> online</span>
           </div>
         </div>
       </div>
@@ -356,7 +383,8 @@
             </div>
 
             <!-- Active Media Upload Progress Banner -->
-            <div id="uploadProgressBanner" class="hidden mb-2.5 p-2.5 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/40 text-xs shadow-lg">
+            <div id="uploadProgressBanner"
+              class="hidden mb-2.5 p-2.5 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/40 text-xs shadow-lg">
               <div class="flex items-center justify-between gap-2 mb-1.5">
                 <div class="flex items-center gap-2 min-w-0">
                   <i class="fas fa-cloud-arrow-up text-[#ffb682] animate-bounce text-sm"></i>
@@ -365,7 +393,9 @@
                 <span id="uploadProgressPercent" class="font-mono text-[#ffb682] font-semibold text-xs">0%</span>
               </div>
               <div class="w-full bg-[#111111] rounded-full h-1.5 overflow-hidden">
-                <div id="uploadProgressBar" class="bg-gradient-to-r from-[#ff7320] to-[#ffb682] h-full transition-all duration-150 rounded-full" style="width: 0%;"></div>
+                <div id="uploadProgressBar"
+                  class="bg-gradient-to-r from-[#ff7320] to-[#ffb682] h-full transition-all duration-150 rounded-full"
+                  style="width: 0%;"></div>
               </div>
             </div>
 
@@ -385,10 +415,11 @@
                     <i class="fas fa-paperclip text-sm"></i>
                   </button>
                   <div class="flex-1 min-w-0 py-1">
-                    <div id="messageInput" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Type a message"
+                    <div id="messageInput" contenteditable="true" role="textbox" aria-multiline="true"
+                      data-placeholder="Type a message"
                       class="w-full bg-transparent text-white text-[15.5px] outline-none border-none py-1.5 px-2 block overflow-y-auto"
-                      style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;" autocomplete="off"
-                      autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+                      style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;"
+                      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
                   </div>
                   <!-- Emoji button -->
                   <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
@@ -399,30 +430,39 @@
                     <i class="fas fa-camera text-base"></i>
                   </button>
                   <input type="file" id="fileInput" class="hidden" multiple>
-                  <input type="file" id="cameraPhotoInput" class="hidden" accept="image/*" capture="environment">
+                  <input type="file" id="cameraPhotoInput" class="hidden" accept="image/*,video/*">
                 </div>
                 <!-- Round action button (mic when empty, send when content exists) -->
-                <button id="sendBtn" title="Record voice note" type="button" data-mode="mic" class="composer-round-btn mic-mode">
+                <button id="sendBtn" title="Record voice note" type="button" data-mode="mic"
+                  class="composer-round-btn mic-mode">
                   <i class="fas fa-microphone text-base" id="sendBtnIcon"></i>
                 </button>
               </div>
 
               <!-- In-Place WhatsApp-Style Voice Recording Row (Overlay that preserves composer focus) -->
               <div id="voiceRecordingRow" class="hidden flex items-center gap-3 w-full h-[48px]">
-                <div class="voice-record-wrapper flex-1 flex items-center gap-3 px-3 h-[48px] rounded-full bg-[#1c1c1c] border border-[#2a2a2a]">
-                  <button id="voiceRecordTrashBtn" type="button" class="voice-record-btn text-[#ff7b7b] hover:text-[#ff9b9b] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Discard recording">
+                <div
+                  class="voice-record-wrapper flex-1 flex items-center gap-3 px-3 h-[48px] rounded-full bg-[#1c1c1c] border border-[#2a2a2a]">
+                  <button id="voiceRecordTrashBtn" type="button"
+                    class="voice-record-btn text-[#ff7b7b] hover:text-[#ff9b9b] transition-colors p-2 flex items-center justify-center cursor-pointer"
+                    title="Discard recording">
                     <i class="fas fa-trash-can text-base"></i>
                   </button>
                   <div class="flex items-center gap-2 flex-shrink-0">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#ff7b7b] animate-pulse"></span>
                     <span id="voiceRecordTimer" class="font-mono text-sm font-semibold text-white">00:00</span>
                   </div>
-                  <div id="voiceLiveWaveform" class="voice-live-waveform flex-1 flex items-center gap-[3px] h-6 overflow-hidden px-1"></div>
-                  <button id="voiceRecordPauseBtn" type="button" class="voice-record-btn text-white hover:text-[#ffb682] transition-colors p-2 flex items-center justify-center cursor-pointer" title="Pause">
+                  <div id="voiceLiveWaveform"
+                    class="voice-live-waveform flex-1 flex items-center gap-[3px] h-6 overflow-hidden px-1"></div>
+                  <button id="voiceRecordPauseBtn" type="button"
+                    class="voice-record-btn text-white hover:text-[#ffb682] transition-colors p-2 flex items-center justify-center cursor-pointer"
+                    title="Pause">
                     <i id="voiceRecordPauseIcon" class="fas fa-pause text-sm"></i>
                   </button>
                 </div>
-                <button id="voiceRecordSendBtn" type="button" class="w-12 h-12 rounded-full bg-[#ff7320] hover:bg-[#ff9150] text-black flex items-center justify-center flex-shrink-0 shadow-lg cursor-pointer transition-transform active:scale-95" title="Send voice note">
+                <button id="voiceRecordSendBtn" type="button"
+                  class="w-12 h-12 rounded-full bg-[#ff7320] hover:bg-[#ff9150] text-black flex items-center justify-center flex-shrink-0 shadow-lg cursor-pointer transition-transform active:scale-95"
+                  title="Send voice note">
                   <i class="fas fa-paper-plane text-base"></i>
                 </button>
               </div>
@@ -436,117 +476,75 @@
           </div>
         </div>
 
-        <!-- Media Preview Modal (Lightbox with Zoom & Gestures & Click Anywhere to Close) -->
-        <!-- Media Preview Modal (WhatsApp-Style Full-Screen Media Viewer with Reactions & Gallery) -->
-        <div id="previewModal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-0 select-none overflow-hidden touch-none" style="backdrop-filter: blur(12px); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);">
-          <!-- Top Bar -->
-          <div id="previewTopBar" class="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-3 z-30 pointer-events-auto bg-gradient-to-b from-black/80 via-black/50 to-transparent" style="padding-top: env(safe-area-inset-top, 0px);">
-            <div class="flex items-center gap-3 min-w-0">
-              <button id="previewBackBtn" type="button" class="w-10 h-10 rounded-full hover:bg-white/10 text-white flex items-center justify-center transition-colors cursor-pointer" title="Back" aria-label="Back">
-                <i class="fas fa-arrow-left text-base"></i>
-              </button>
-              <div class="flex flex-col min-w-0">
-                <div class="flex items-center gap-2">
-                  <span id="previewSenderName" class="font-semibold text-sm text-white truncate">User</span>
-                  <span id="previewGalleryPosition" class="px-2 py-0.2 rounded-full bg-white/10 text-[#ffb682] font-mono text-[11px]">1 of 1</span>
-                </div>
-                <span id="previewTimestamp" class="text-xs text-white/60">Today at 12:00</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-1">
-              <div id="previewZoomIndicator" class="px-2 py-0.5 rounded-full bg-black/60 text-[#ffb682] font-mono text-xs border border-white/10 opacity-0 transition-opacity mr-1">100%</div>
-              <button id="previewZoomResetBtn" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-xs cursor-pointer" title="Reset Zoom">
-                <i class="fas fa-compress"></i>
-              </button>
-              <button id="previewDownloadBtn" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-sm cursor-pointer" title="Download">
-                <i class="fas fa-download"></i>
-              </button>
-              <button id="previewShareBtn" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-sm cursor-pointer" title="Share / Forward">
-                <i class="fas fa-share text-sm"></i>
-              </button>
-              <button id="closePreview" type="button" class="w-9 h-9 rounded-full hover:bg-white/15 text-white flex items-center justify-center transition-colors text-base cursor-pointer" title="Close">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-          </div>
 
-          <!-- Gallery Navigation Buttons (Desktop) -->
-          <button id="previewPrevBtn" type="button" class="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 text-white items-center justify-center z-30 transition-all border border-white/10 cursor-pointer" title="Previous media">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <button id="previewNextBtn" type="button" class="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 text-white items-center justify-center z-30 transition-all border border-white/10 cursor-pointer" title="Next media">
-            <i class="fas fa-chevron-right"></i>
-          </button>
-
-          <!-- Media Main Content Area -->
-          <div id="previewContent" class="w-full h-full flex items-center justify-center overflow-hidden cursor-zoom-out"></div>
-
-          <!-- Bottom Reaction Bar (6 quick emojis + '+' button) -->
-          <div id="previewBottomBar" class="absolute bottom-0 left-0 right-0 flex items-center justify-center py-4 px-3 z-30 pointer-events-auto bg-gradient-to-t from-black/80 via-black/50 to-transparent" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));">
-            <div class="viewer-reactions-bar flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1e1e1e]/90 border border-white/15 shadow-2xl backdrop-blur-md">
-              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="👍">👍</button>
-              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="❤️">❤️</button>
-              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="😂">😂</button>
-              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="😮">😮</button>
-              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="😢">😢</button>
-              <button type="button" class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1" data-emoji="🙏">🙏</button>
-              <div class="w-[1px] h-6 bg-white/20 mx-1"></div>
-              <button id="previewReactPlusBtn" type="button" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-sm" title="More reactions">
-                <i class="fas fa-plus"></i>
-              </button>
-            </div>
-          </div>
-        </div>
 
         <!-- Floating Message Context Menu (Long-press / Right-click) -->
-        <div id="messageContextMenu" class="hidden fixed z-[90] min-w-[210px] rounded-2xl bg-[#1c1c1c] border border-white/15 shadow-2xl p-1.5 backdrop-blur-xl animate-fadeIn select-none">
+        <div id="messageContextMenu"
+          class="hidden fixed z-[90] min-w-[210px] rounded-2xl bg-[#1c1c1c] border border-white/15 shadow-2xl p-1.5 backdrop-blur-xl animate-fadeIn select-none">
           <!-- Quick Reactions Row on top -->
-          <div class="context-reactions-row flex items-center justify-between px-2 py-1.5 border-b border-white/10 mb-1">
-            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="👍">👍</button>
-            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="❤️">❤️</button>
-            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="😂">😂</button>
-            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="😮">😮</button>
-            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="😢">😢</button>
-            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer" data-emoji="🙏">🙏</button>
-            <button type="button" class="ctx-more-emoji-btn w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs cursor-pointer ml-1" title="More">
+          <div
+            class="context-reactions-row flex items-center justify-between px-2 py-1.5 border-b border-white/10 mb-1">
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer"
+              data-emoji="👍">👍</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer"
+              data-emoji="❤️">❤️</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer"
+              data-emoji="😂">😂</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer"
+              data-emoji="😮">😮</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer"
+              data-emoji="😢">😢</button>
+            <button type="button" class="ctx-emoji-btn text-xl hover:scale-125 transition-transform cursor-pointer"
+              data-emoji="🙏">🙏</button>
+            <button type="button"
+              class="ctx-more-emoji-btn w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs cursor-pointer ml-1"
+              title="More">
               <i class="fas fa-plus"></i>
             </button>
           </div>
           <!-- Menu Action Items -->
-          <button type="button" id="ctxMenuReply" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
+          <button type="button" id="ctxMenuReply"
+            class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
             <i class="fas fa-reply text-xs text-[#ffb682] w-4"></i>
             <span>Reply</span>
           </button>
-          <button type="button" id="ctxMenuCopy" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
+          <button type="button" id="ctxMenuCopy"
+            class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
             <i class="far fa-copy text-xs text-white/70 w-4"></i>
             <span>Copy Text</span>
           </button>
-          <button type="button" id="ctxMenuSave" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
+          <button type="button" id="ctxMenuSave"
+            class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-white hover:bg-white/10 transition-colors cursor-pointer">
             <i class="fas fa-download text-xs text-white/70 w-4"></i>
             <span>Save / Download</span>
           </button>
-          <button type="button" id="ctxMenuDelete" class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer">
+          <button type="button" id="ctxMenuDelete"
+            class="context-menu-item flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left text-sm text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer">
             <i class="fas fa-trash-can text-xs text-red-400 w-4"></i>
             <span>Delete for everyone</span>
           </button>
         </div>
 
         <!-- Circular Snap Recording Overlay (Phase 9) -->
-        <div id="snapRecordingOverlay" class="hidden fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center select-none backdrop-blur-md touch-none">
+        <div id="snapRecordingOverlay"
+          class="hidden fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center select-none backdrop-blur-md touch-none">
           <div class="flex items-center gap-2 mb-6">
             <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
             <span class="text-xs font-semibold text-white tracking-wider uppercase">Recording Video Snap</span>
-            <span id="snapRecordTimer" class="ml-2 px-2.5 py-0.5 rounded-full bg-white/10 text-[#ffb682] font-mono text-xs">0:00 / 0:30</span>
+            <span id="snapRecordTimer"
+              class="ml-2 px-2.5 py-0.5 rounded-full bg-white/10 text-[#ffb682] font-mono text-xs">0:00 / 0:30</span>
           </div>
           <div class="relative w-[240px] h-[240px] flex items-center justify-center">
             <!-- Circular camera preview -->
             <div class="w-[240px] h-[240px] rounded-full overflow-hidden border-2 border-white/30 shadow-2xl bg-black">
-              <video id="snapRecordVideo" autoplay playsinline muted class="w-full h-full object-cover -scale-x-100"></video>
+              <video id="snapRecordVideo" autoplay playsinline muted
+                class="w-full h-full object-cover -scale-x-100"></video>
             </div>
             <!-- SVG Progress Ring (30s max) -->
             <svg class="absolute -inset-2 w-[256px] h-[256px] -rotate-90 pointer-events-none" viewBox="0 0 256 256">
               <circle cx="128" cy="128" r="122" stroke="rgba(255,255,255,0.15)" stroke-width="5" fill="none" />
-              <circle id="snapRecordProgressRing" cx="128" cy="128" r="122" stroke="#ff7320" stroke-width="5" fill="none" stroke-dasharray="766.5" stroke-dashoffset="766.5" stroke-linecap="round" />
+              <circle id="snapRecordProgressRing" cx="128" cy="128" r="122" stroke="#ff7320" stroke-width="5"
+                fill="none" stroke-dasharray="766.5" stroke-dashoffset="766.5" stroke-linecap="round" />
             </svg>
           </div>
           <div id="snapSlideCancelHint" class="mt-8 flex items-center gap-2 text-white/60 text-xs font-medium">
@@ -556,39 +554,49 @@
         </div>
 
         <!-- Circular Snap Review Overlay (Phase 9) -->
-        <div id="snapReviewOverlay" class="hidden fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center select-none backdrop-blur-md">
+        <div id="snapReviewOverlay"
+          class="hidden fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center select-none backdrop-blur-md">
           <div class="relative w-[240px] h-[240px] flex items-center justify-center">
-            <div id="snapReviewWrapper" class="relative w-[240px] h-[240px] rounded-full overflow-hidden border-2 border-[#ff7320]/60 shadow-2xl bg-black cursor-pointer group">
+            <div id="snapReviewWrapper"
+              class="relative w-[240px] h-[240px] rounded-full overflow-hidden border-2 border-[#ff7320]/60 shadow-2xl bg-black cursor-pointer group">
               <video id="snapReviewVideo" loop playsinline muted class="w-full h-full object-cover"></video>
-              <div id="snapReviewSoundBadge" class="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center text-xs border border-white/20">
+              <div id="snapReviewSoundBadge"
+                class="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center text-xs border border-white/20">
                 <i class="fas fa-volume-xmark"></i>
               </div>
-              <div id="snapReviewDuration" class="absolute top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-black/70 text-white font-mono text-xs border border-white/20">0:00</div>
+              <div id="snapReviewDuration"
+                class="absolute top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-black/70 text-white font-mono text-xs border border-white/20">
+                0:00</div>
             </div>
           </div>
           <div class="mt-8 flex items-center gap-6">
-            <button id="snapDeleteBtn" type="button" class="w-14 h-14 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 flex items-center justify-center text-lg transition-transform active:scale-95 cursor-pointer" title="Discard">
+            <button id="snapDeleteBtn" type="button"
+              class="w-14 h-14 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 flex items-center justify-center text-lg transition-transform active:scale-95 cursor-pointer"
+              title="Discard">
               <i class="fas fa-trash-can"></i>
             </button>
-            <button id="snapSendBtn" type="button" class="w-14 h-14 rounded-full bg-gradient-to-r from-[#ff7320] to-[#ff9858] hover:opacity-95 text-white shadow-lg shadow-[#ff7320]/30 flex items-center justify-center text-xl transition-transform active:scale-95 cursor-pointer" title="Send video snap">
+            <button id="snapSendBtn" type="button"
+              class="w-14 h-14 rounded-full bg-gradient-to-r from-[#ff7320] to-[#ff9858] hover:opacity-95 text-white shadow-lg shadow-[#ff7320]/30 flex items-center justify-center text-xl transition-transform active:scale-95 cursor-pointer"
+              title="Send video snap">
               <i class="fas fa-paper-plane"></i>
             </button>
           </div>
         </div>
 
-        <!-- Hidden photo input for web camera fallback -->
-        <input type="file" id="cameraPhotoInput" accept="image/*" capture="environment" class="hidden">
+
       </div>
 
       <!-- Desktop Sidebar (300px, Solid #0d0d0d) -->
       <div class="sidebar-panel custom-scrollbar">
         <!-- Invite Card -->
         <div id="inviteCard" class="mb-4 p-3.5 bg-[#141414] border border-[#262626] rounded-xl">
-          <div class="text-[12px] text-[#9a9a9a] mb-2 leading-snug">Share this key with people you want in the room.</div>
+          <div class="text-[12px] text-[#9a9a9a] mb-2 leading-snug">Share this key with people you want in the room.
+          </div>
           <div class="flex items-center justify-between gap-2 mb-2.5">
             <span class="font-mono text-sm tracking-widest text-[#cccccc]" id="maskedRoomKey">••••••</span>
             <button type="button" id="copyRoomKeyBtn"
-              class="copy-key-btn px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer">Copy key</button>
+              class="copy-key-btn px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer">Copy
+              key</button>
           </div>
           <div class="flex gap-2">
             <button type="button" id="shareRoomCardBtn"
@@ -597,7 +605,8 @@
               <span>Share link</span>
             </button>
             <button type="button" id="showRoomQrBtn"
-              class="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-[#1e1e1e] text-[#cccccc] border border-[#333333] text-xs font-semibold hover:bg-[#ff7320] hover:text-black transition-colors cursor-pointer" title="Show QR Code">
+              class="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-[#1e1e1e] text-[#cccccc] border border-[#333333] text-xs font-semibold hover:bg-[#ff7320] hover:text-black transition-colors cursor-pointer"
+              title="Show QR Code">
               <i class="fas fa-qrcode text-xs"></i>
               <span>QR</span>
             </button>
@@ -606,7 +615,8 @@
 
         <div class="flex items-center justify-between mb-4">
           <h3 class="sidebar-title">In this room</h3>
-          <span id="userCount" class="text-xs font-medium text-[#9a9a9a] bg-[#1a1a1a] px-2.5 py-0.5 rounded-full">0</span>
+          <span id="userCount"
+            class="text-xs font-medium text-[#9a9a9a] bg-[#1a1a1a] px-2.5 py-0.5 rounded-full">0</span>
         </div>
         <ul id="userList" class="space-y-1.5 flex-1"></ul>
       </div>
@@ -618,8 +628,7 @@
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-heading font-bold text-lg text-white">In this room</h3>
         <div class="flex items-center space-x-3">
-          <span id="mobileUserCountText"
-            class="text-xs text-[#9a9a9a] bg-[#1a1a1a] px-2.5 py-1 rounded-full">0</span>
+          <span id="mobileUserCountText" class="text-xs text-[#9a9a9a] bg-[#1a1a1a] px-2.5 py-1 rounded-full">0</span>
           <button id="closeMobileSidebar"
             class="w-8 h-8 flex items-center justify-center text-[#9a9a9a] hover:text-white rounded-lg">
             <i class="fas fa-times text-base"></i>
@@ -633,7 +642,8 @@
           <span>Share link</span>
         </button>
         <button type="button" id="mobileShowRoomQrBtn"
-          class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#1e1e1e] text-[#cccccc] border border-[#333333] text-xs font-semibold hover:bg-[#ff7320] hover:text-black transition-colors cursor-pointer" title="Show QR Code">
+          class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#1e1e1e] text-[#cccccc] border border-[#333333] text-xs font-semibold hover:bg-[#ff7320] hover:text-black transition-colors cursor-pointer"
+          title="Show QR Code">
           <i class="fas fa-qrcode text-xs"></i>
           <span>QR</span>
         </button>
@@ -682,7 +692,8 @@
     <div id="endRoomModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
       <div class="modal-panel animate-modal-in">
         <h3 class="modal-title">End group?</h3>
-        <p class="modal-body">Are you sure you want to end this room? This will disconnect all users and delete the room permanently.</p>
+        <p class="modal-body">Are you sure you want to end this room? This will disconnect all users and delete the room
+          permanently.</p>
         <div class="flex justify-end gap-3">
           <button id="cancelEndRoomBtn" class="modal-btn-secondary">Cancel</button>
           <button id="confirmEndRoomBtn" class="modal-btn-danger">End group</button>
@@ -716,7 +727,8 @@
 
 
     <!-- Room Ended Notice Modal (for other members when admin ends room) -->
-    <div id="roomEndedNoticeModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+    <div id="roomEndedNoticeModal"
+      class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
       <div class="modal-panel animate-modal-in">
         <h3 class="modal-title">Room ended</h3>
         <p class="modal-body">The admin has ended this room. All participants have been disconnected.</p>
@@ -727,7 +739,8 @@
     </div>
 
     <!-- User Removed Notice Modal (for member removed by admin) -->
-    <div id="userRemovedNoticeModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+    <div id="userRemovedNoticeModal"
+      class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
       <div class="modal-panel animate-modal-in">
         <h3 class="modal-title">Removed from room</h3>
         <p class="modal-body">You have been removed from the room by the admin.</p>
@@ -741,16 +754,21 @@
   </div>
 
   <!-- ================= ANONYMOUS FILE SHARING ROOM SCREEN ================= -->
-  <div id="fileRoomScreen" style="display: none;" class="h-[100dvh] max-h-[100dvh] w-full flex flex-col overflow-hidden bg-[#0c0c0c] text-white">
+  <div id="fileRoomScreen" style="display: none;"
+    class="h-[100dvh] max-h-[100dvh] w-full flex flex-col overflow-hidden bg-[#0c0c0c] text-white">
     <!-- Header -->
-    <header id="file-room-header" class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[#222] bg-[#111]/90 backdrop-blur-md sticky top-0 z-40 flex-shrink-0">
+    <header id="file-room-header"
+      class="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[#222] bg-[#111]/90 backdrop-blur-md sticky top-0 z-40 flex-shrink-0">
       <div class="flex items-center space-x-3">
         <img src="/logo.png" alt="Anon Chat" class="header-logo">
         <div class="flex flex-col">
-          <span class="font-heading font-bold text-[17px] text-white leading-tight file-room-title">Anon File Vault</span>
+          <span class="font-heading font-bold text-[17px] text-white leading-tight file-room-title">Anon File
+            Vault</span>
           <div class="text-[12px] text-[#9a9a9a] flex items-center gap-1.5 mt-0.5 file-room-subtitle">
-            <span class="file-room-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block animate-pulse"></span>
-            <span>Ephemeral Vault · Auto-deletes in: <span id="fileRoomCountdown" class="font-mono text-[#ffb682] font-semibold file-room-countdown">30:00</span></span>
+            <span
+              class="file-room-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block animate-pulse"></span>
+            <span>Ephemeral Vault · Auto-deletes in: <span id="fileRoomCountdown"
+                class="font-mono text-[#ffb682] font-semibold file-room-countdown">30:00</span></span>
           </div>
         </div>
       </div>
@@ -780,8 +798,11 @@
               <div>
                 <span class="text-xs uppercase tracking-wider text-[#8c8c8c] font-semibold">Room Key</span>
                 <div class="flex items-center gap-2.5 mt-1">
-                  <span id="fileRoomKeyDisplay" class="font-heading font-bold text-2xl sm:text-3xl text-[#ffb682] tracking-wide select-all">vault-XXXX</span>
-                  <button type="button" id="copyFileRoomKeyBtn" class="p-2 rounded-lg bg-[#222] hover:bg-[#333] text-gray-300 hover:text-white transition-colors" title="Copy room key">
+                  <span id="fileRoomKeyDisplay"
+                    class="font-heading font-bold text-2xl sm:text-3xl text-[#ffb682] tracking-wide select-all">vault-XXXX</span>
+                  <button type="button" id="copyFileRoomKeyBtn"
+                    class="p-2 rounded-lg bg-[#222] hover:bg-[#333] text-gray-300 hover:text-white transition-colors"
+                    title="Copy room key">
                     <i class="far fa-copy text-sm"></i>
                   </button>
                 </div>
@@ -789,11 +810,14 @@
 
               <!-- Buttons: Strictly labelled "Share" with link copy fallback -->
               <div class="flex items-center gap-2.5">
-                <button type="button" id="btnShareFileRoom" class="btn-share-main flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#ffb682] hover:bg-[#ffa767] text-black font-semibold text-sm transition-all shadow-md">
+                <button type="button" id="btnShareFileRoom"
+                  class="btn-share-main flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#ffb682] hover:bg-[#ffa767] text-black font-semibold text-sm transition-all shadow-md">
                   <i class="fas fa-share-nodes text-sm"></i>
                   <span>Share</span>
                 </button>
-                <button type="button" id="btnCopyFileRoomLink" class="p-2.5 rounded-xl bg-[#222] hover:bg-[#2e2e2e] text-gray-200 hover:text-white transition-colors" title="Copy room link">
+                <button type="button" id="btnCopyFileRoomLink"
+                  class="p-2.5 rounded-xl bg-[#222] hover:bg-[#2e2e2e] text-gray-200 hover:text-white transition-colors"
+                  title="Copy room link">
                   <i class="fas fa-link text-sm"></i>
                 </button>
               </div>
@@ -808,16 +832,20 @@
                 <span id="fileRoomStorageText" class="font-mono text-white font-medium">0 MB / 500 MB</span>
               </div>
               <div class="w-full bg-[#222] rounded-full h-2 overflow-hidden">
-                <div id="fileRoomStorageBar" class="h-full bg-gradient-to-r from-[#ff7320] to-[#ffb682] rounded-full transition-all duration-300" style="width: 0%;"></div>
+                <div id="fileRoomStorageBar"
+                  class="h-full bg-gradient-to-r from-[#ff7320] to-[#ffb682] rounded-full transition-all duration-300"
+                  style="width: 0%;"></div>
               </div>
             </div>
           </div>
 
           <!-- Upload / Add More Files Card -->
           <div class="file-card p-5 sm:p-6 rounded-2xl bg-[#141414] border border-[#262626]">
-            <div id="roomAddDropArea" class="border-2 border-dashed border-[#333] hover:border-[#ffb682]/60 rounded-xl p-6 text-center cursor-pointer transition-colors bg-[#171717]/60">
+            <div id="roomAddDropArea"
+              class="border-2 border-dashed border-[#333] hover:border-[#ffb682]/60 rounded-xl p-6 text-center cursor-pointer transition-colors bg-[#171717]/60">
               <input type="file" multiple id="roomAddFileInput" class="hidden">
-              <div class="w-12 h-12 rounded-full bg-[#ffb682]/10 text-[#ffb682] file-room-cloud-icon flex items-center justify-center mx-auto mb-2.5 text-xl">
+              <div
+                class="w-12 h-12 rounded-full bg-[#ffb682]/10 text-[#ffb682] file-room-cloud-icon flex items-center justify-center mx-auto mb-2.5 text-xl">
                 <i class="fas fa-cloud-arrow-up"></i>
               </div>
               <div class="font-heading font-semibold text-white text-base">Add more files to this vault</div>
@@ -832,11 +860,13 @@
             <!-- Upload Progress Indicator in room -->
             <div id="roomUploadProgressBox" class="hidden mt-4 p-3.5 rounded-xl bg-[#1c1c1c] border border-[#2c2c2c]">
               <div class="flex justify-between items-center text-xs mb-1.5">
-                <span id="roomUploadFileName" class="text-[#ffb682] font-medium truncate max-w-[80%]">Uploading files...</span>
+                <span id="roomUploadFileName" class="text-[#ffb682] font-medium truncate max-w-[80%]">Uploading
+                  files...</span>
                 <span id="roomUploadPercent" class="text-white font-mono font-semibold">0%</span>
               </div>
               <div class="w-full bg-[#2a2a2a] rounded-full h-1.5 overflow-hidden">
-                <div id="roomUploadProgressBar" class="h-full bg-[#ffb682] transition-all duration-150" style="width: 0%;"></div>
+                <div id="roomUploadProgressBar" class="h-full bg-[#ffb682] transition-all duration-150"
+                  style="width: 0%;"></div>
               </div>
             </div>
           </div>
@@ -846,9 +876,11 @@
             <div class="flex items-center justify-between mb-4 pb-3 border-b border-[#222]">
               <div class="flex items-center gap-2">
                 <h3 class="font-heading font-bold text-lg text-white">Files in this vault</h3>
-                <span id="fileRoomCountBadge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30">0</span>
+                <span id="fileRoomCountBadge"
+                  class="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#261a12] text-[#ffb682] border border-[#ffb682]/30">0</span>
               </div>
-              <button type="button" id="btnRefreshFiles" class="text-xs text-[#9a9a9a] hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#222] hover:bg-[#2c2c2c] transition-colors">
+              <button type="button" id="btnRefreshFiles"
+                class="text-xs text-[#9a9a9a] hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#222] hover:bg-[#2c2c2c] transition-colors">
                 <i class="fas fa-rotate text-xs"></i><span>Refresh</span>
               </button>
             </div>
@@ -856,7 +888,8 @@
             <!-- Dynamic File Items Container -->
             <div id="fileRoomItemsList" class="flex flex-col gap-3 min-h-[160px]">
               <!-- Empty state default -->
-              <div id="fileRoomEmptyState" class="flex flex-col items-center justify-center py-10 text-center text-[#737373]">
+              <div id="fileRoomEmptyState"
+                class="flex flex-col items-center justify-center py-10 text-center text-[#737373]">
                 <i class="fas fa-box-open text-3xl mb-2.5 opacity-40"></i>
                 <p class="text-sm">No files uploaded yet.</p>
                 <p class="text-xs mt-1">Drop files above to start sharing.</p>
@@ -879,7 +912,8 @@
             </div>
 
             <div class="mt-4 flex flex-col gap-2">
-              <button type="button" id="btnDownloadQr" class="w-full py-2.5 px-4 rounded-xl bg-[#222] hover:bg-[#2c2c2c] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
+              <button type="button" id="btnDownloadQr"
+                class="w-full py-2.5 px-4 rounded-xl bg-[#222] hover:bg-[#2c2c2c] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
                 <i class="fas fa-download text-xs"></i>
                 <span>Download QR Code</span>
               </button>
@@ -888,7 +922,8 @@
 
           <!-- Privacy & Security Notice Card -->
           <div class="file-card p-5 sm:p-6 rounded-2xl bg-[#141414] border border-[#262626]">
-            <h4 class="font-heading font-semibold text-sm text-white file-room-shield-title mb-3 flex items-center gap-2">
+            <h4
+              class="font-heading font-semibold text-sm text-white file-room-shield-title mb-3 flex items-center gap-2">
               <i class="fas fa-shield-halved text-[#ffb682] file-room-shield-icon"></i>Anonymous & Ephemeral
             </h4>
             <div class="space-y-3 text-xs text-[#9a9a9a]">
@@ -917,7 +952,8 @@
   <div id="deleteFileModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
     <div class="modal-panel animate-modal-in">
       <h3 class="modal-title">Delete file?</h3>
-      <p id="deleteFileModalText" class="modal-body">Are you sure you want to delete this file from the room? This action cannot be undone.</p>
+      <p id="deleteFileModalText" class="modal-body">Are you sure you want to delete this file from the room? This
+        action cannot be undone.</p>
       <div class="flex justify-end gap-3">
         <button id="cancelDeleteFileBtn" class="modal-btn-secondary">Cancel</button>
         <button id="confirmDeleteFileBtn" class="modal-btn-danger">Delete</button>
@@ -944,7 +980,8 @@
   <!-- Exit / End Vault Warning Modal -->
   <div id="exitVaultModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
     <div class="modal-panel animate-modal-in max-w-sm w-full">
-      <div class="w-12 h-12 rounded-full bg-[#dc2626]/15 text-[#dc2626] flex items-center justify-center mx-auto mb-3 text-xl">
+      <div
+        class="w-12 h-12 rounded-full bg-[#dc2626]/15 text-[#dc2626] flex items-center justify-center mx-auto mb-3 text-xl">
         <i class="fas fa-triangle-exclamation"></i>
       </div>
       <h3 id="exitVaultModalTitle" class="modal-title text-center text-lg">Are you sure to end the vault?</h3>
@@ -961,7 +998,8 @@
   <!-- Vault Ended Notice Modal (for members when creator ends vault) -->
   <div id="vaultEndedNoticeModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
     <div class="modal-panel animate-modal-in max-w-sm w-full text-center">
-      <div class="w-12 h-12 rounded-full bg-[#ff7320]/15 text-[#ff7320] flex items-center justify-center mx-auto mb-3 text-xl">
+      <div
+        class="w-12 h-12 rounded-full bg-[#ff7320]/15 text-[#ff7320] flex items-center justify-center mx-auto mb-3 text-xl">
         <i class="fas fa-door-closed"></i>
       </div>
       <h3 class="modal-title text-center text-lg">Vault ended</h3>
@@ -975,7 +1013,8 @@
   </div>
 
   <!-- App-Styled Global Dialog Modal (Alert & Confirm) -->
-  <div id="appDialogModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
+  <div id="appDialogModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50"
+    role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
     <div class="modal-panel animate-modal-in max-w-sm w-full" id="appDialogPanel">
       <h3 class="modal-title font-heading font-bold text-lg" id="appDialogTitle">Notice</h3>
       <p class="modal-body text-sm mt-2 text-[#9a9a9a]" id="appDialogMessage"></p>
@@ -986,12 +1025,130 @@
     </div>
   </div>
 
+  <!-- Media Preview Modal (WhatsApp-Style Full-Screen Media Viewer with Reactions & Gallery) -->
+  <div id="previewModal"
+    class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-0 select-none overflow-hidden touch-none"
+    style="backdrop-filter: blur(14px); background-color: rgba(0, 0, 0, 0.96);">
+    <!-- Top Bar -->
+    <div id="previewTopBar"
+      class="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-[100002] pointer-events-auto bg-gradient-to-b from-black/90 via-black/60 to-transparent">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="previewBackBtn" type="button"
+          class="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-lg"
+          title="Back (Esc)" aria-label="Back">
+          <i class="fas fa-arrow-left text-base"></i>
+        </button>
+        <div class="flex flex-col min-w-0">
+          <div class="flex items-center gap-2">
+            <span id="previewSenderName" class="font-semibold text-sm text-white truncate drop-shadow">User</span>
+            <span id="previewGalleryPosition"
+              class="px-2 py-0.5 rounded-full bg-white/15 text-[#ffb682] font-mono text-[11px] border border-white/10">1 of 1</span>
+          </div>
+          <span id="previewTimestamp" class="text-xs text-white/70 drop-shadow">Today at 12:00</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="previewZoomIndicator"
+          class="px-2.5 py-1 rounded-full bg-black/70 text-[#ffb682] font-mono text-xs border border-white/20 opacity-0 transition-opacity">
+          100%</div>
+        <button id="previewZoomResetBtn" type="button"
+          class="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-white/20 text-white flex items-center justify-center transition-all text-xs cursor-pointer shadow-lg"
+          title="Reset Zoom">
+          <i class="fas fa-compress"></i>
+        </button>
+        <button id="previewFullscreenBtn" type="button"
+          class="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-white/20 text-white flex items-center justify-center transition-all text-sm cursor-pointer shadow-lg"
+          title="Toggle Fullscreen">
+          <i id="previewFullscreenIcon" class="fas fa-expand"></i>
+        </button>
+        <button id="previewDownloadBtn" type="button"
+          class="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-white/20 text-white flex items-center justify-center transition-all text-sm cursor-pointer shadow-lg"
+          title="Download">
+          <i class="fas fa-download"></i>
+        </button>
+        <button id="previewShareBtn" type="button"
+          class="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-white/20 text-white flex items-center justify-center transition-all text-sm cursor-pointer shadow-lg"
+          title="Share / Forward">
+          <i class="fas fa-share text-sm"></i>
+        </button>
+        <button id="closePreview" type="button"
+          class="w-10 h-10 rounded-full bg-red-500/25 hover:bg-red-500/50 border border-red-500/50 text-white flex items-center justify-center transition-all text-base cursor-pointer shadow-lg ml-1"
+          title="Close (Esc)">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Gallery Navigation Buttons (Desktop) -->
+    <button id="previewPrevBtn" type="button"
+      class="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/70 hover:bg-black/95 text-white items-center justify-center z-[100002] transition-all border border-white/20 shadow-xl cursor-pointer"
+      title="Previous media">
+      <i class="fas fa-chevron-left text-lg"></i>
+    </button>
+    <button id="previewNextBtn" type="button"
+      class="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/70 hover:bg-black/95 text-white items-center justify-center z-[100002] transition-all border border-white/20 shadow-xl cursor-pointer"
+      title="Next media">
+      <i class="fas fa-chevron-right text-lg"></i>
+    </button>
+
+    <!-- Media Main Content Area -->
+    <div id="previewContent"
+      class="w-full h-full flex items-center justify-center overflow-hidden cursor-zoom-out z-[100000]"></div>
+
+    <!-- Floating Full Emoji Picker Popover for '+' Reaction Button -->
+    <div id="previewEmojiPickerPopover"
+      class="hidden absolute bottom-20 z-[100005] max-w-sm w-[92vw] sm:w-[360px] max-h-[320px] rounded-2xl bg-[#1c1c1c]/95 border border-white/20 shadow-2xl backdrop-blur-xl p-3 flex flex-col pointer-events-auto animate-modal-in">
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+        <span class="text-xs font-semibold uppercase tracking-wider text-white/80">Choose Reaction</span>
+        <button id="closePreviewEmojiPicker" type="button" class="w-6 h-6 rounded-full hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center text-xs cursor-pointer">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <input id="previewEmojiSearch" type="text" placeholder="Search emojis..." class="w-full px-3 py-1.5 rounded-lg bg-[#282828] border border-white/10 text-white text-xs placeholder-white/40 mb-2 outline-none focus:border-[#ff7320]" />
+      <div id="previewEmojiGrid" class="grid grid-cols-7 gap-1 overflow-y-auto max-h-[220px] custom-scrollbar p-1">
+        <!-- populated dynamically with emojis -->
+      </div>
+    </div>
+
+    <!-- Bottom Reaction Bar (6 quick emojis + '+' button) -->
+    <div id="previewBottomBar"
+      class="absolute bottom-0 left-0 right-0 flex items-center justify-center py-4 px-3 z-[100002] pointer-events-auto bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+      <div
+        class="viewer-reactions-bar flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1e1e1e]/90 border border-white/20 shadow-2xl backdrop-blur-md">
+        <button type="button"
+          class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1"
+          data-emoji="👍">👍</button>
+        <button type="button"
+          class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1"
+          data-emoji="❤️">❤️</button>
+        <button type="button"
+          class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1"
+          data-emoji="😂">😂</button>
+        <button type="button"
+          class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1"
+          data-emoji="😮">😮</button>
+        <button type="button"
+          class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1"
+          data-emoji="😢">😢</button>
+        <button type="button"
+          class="viewer-emoji-btn text-2xl hover:scale-125 transition-transform active:scale-95 cursor-pointer p-1"
+          data-emoji="🙏">🙏</button>
+        <div class="w-[1px] h-6 bg-white/20 mx-1"></div>
+        <button id="previewReactPlusBtn" type="button"
+          class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer text-sm shadow"
+          title="More reactions">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastNotification" class="toast-box"></div>
 
   <script src="/socket.io.min.js"></script>
   <script src="/audioRecorder.js"></script>
-  <script src="/script.js?v=4.1"></script>
+  <script src="/script.js?v=5.1"></script>
 </body>
 
 </html>

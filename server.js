@@ -710,17 +710,25 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   socket.on("create-room", ({ roomKey, username }) => {
-    if (rooms[roomKey]) return socket.emit("room-exists", "This room key is already taken.");
+    const trimmedKey = typeof roomKey === "string" ? roomKey.trim() : "";
+    const trimmedUsername = typeof username === "string" ? username.trim() : "";
+    if (!trimmedKey || trimmedKey.length < 6) {
+      return socket.emit("room-creation-error", "Room key must be at least 6 characters.");
+    }
+    if (!trimmedUsername) {
+      return socket.emit("room-creation-error", "Please provide a valid codename.");
+    }
+    if (rooms[trimmedKey]) return socket.emit("room-exists", "This room key is already taken.");
     const roomInstanceId = crypto.randomUUID();
     const sessionToken = crypto.randomBytes(16).toString("hex");
     const memberId = crypto.randomUUID();
 
-    socket.join(roomKey);
-    rooms[roomKey] = {
-      roomKey,
+    socket.join(trimmedKey);
+    rooms[trimmedKey] = {
+      roomKey: trimmedKey,
       roomInstanceId,
-      admin: { id: socket.id, username, memberId, sessionToken },
-      users: [{ id: socket.id, username, memberId, sessionToken }],
+      admin: { id: socket.id, username: trimmedUsername, memberId, sessionToken },
+      users: [{ id: socket.id, username: trimmedUsername, memberId, sessionToken }],
       messages: [],
       pendingUsers: [],
       typingUsers: new Set(),
@@ -731,14 +739,14 @@ io.on("connection", (socket) => {
 
     socket.emit("room-created", {
       isAdmin: true,
-      roomKey,
+      roomKey: trimmedKey,
       roomInstanceId,
       sessionToken,
       memberId,
-      username,
+      username: trimmedUsername,
       expiresAt: Date.now() + ROOM_TTL_MS
     });
-    updateUserList(roomKey);
+    updateUserList(trimmedKey);
   });
 
   socket.on("join-room", ({ roomKey, username }) => {
