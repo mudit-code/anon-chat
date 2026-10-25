@@ -7025,13 +7025,15 @@ html.loading-file-room #fileRoomScreen {
     opacity: 0.95 !important;
   }
 
-  /* Top Header: Logo + "Anon Chat" */
+  /* Top Header: Logo + "Anon Chat" (Centered, larger branding) */
 
   .mobile-home-header {
     position: relative;
     z-index: 1;
     display: flex;
     align-items: center;
+    justify-content: center;
+    text-align: center;
     padding-top: max(env(safe-area-inset-top, 0px), 16px);
     padding-left: 20px;
     padding-right: 20px;
@@ -7042,12 +7044,14 @@ html.loading-file-room #fileRoomScreen {
   .mobile-logo-wrap {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
+    margin: 0 auto;
   }
 
   .mobile-logo-img {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     -o-object-fit: contain;
        object-fit: contain;
     border-radius: 8px;
@@ -7055,10 +7059,10 @@ html.loading-file-room #fileRoomScreen {
 
   .mobile-logo-text {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 19px;
-    font-weight: 700;
+    font-size: 24px;
+    font-weight: 800;
     color: #FFFFFF;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.02em;
   }
 
   /* Main Home Content layout */
@@ -7078,33 +7082,39 @@ html.loading-file-room #fileRoomScreen {
   /* Hero Section (Upper half) */
 
   .mobile-hero-section {
-    padding-top: clamp(6px, 2vh, 20px);
-    padding-bottom: 16px;
+    padding-top: clamp(4px, 1.5vh, 16px);
+    padding-bottom: 12px;
   }
 
   .mobile-hero-block {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 
   .mobile-heading {
     font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: clamp(32px, 9.2vw, 38px);
-    line-height: 1.04;
-    font-weight: 800;
-    letter-spacing: -0.035em;
+    font-size: 18px !important;
+    line-height: 1.28 !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.015em !important;
     color: #FFFFFF;
-    margin: 0;
+    margin: 0 auto;
+    text-align: center;
+    max-width: 32ch;
     word-break: break-word;
   }
 
   .mobile-subline {
-    font-size: 15px;
-    color: #B4AFA9;
-    line-height: 1.4;
-    margin-top: 12px;
+    font-size: 13.5px !important;
+    color: #FFFFFF !important;
+    opacity: 0.92;
+    line-height: 1.35;
+    margin-top: 6px;
     margin-bottom: 0;
     font-weight: 400;
+    text-align: center;
   }
 
   /* Decorative Typing Hint */
@@ -7163,7 +7173,8 @@ html.loading-file-room #fileRoomScreen {
 
   .mobile-typing-hint .typing-text {
     font-size: 13px;
-    color: #8F8A85;
+    color: #FFFFFF !important;
+    opacity: 0.9;
     font-weight: 500;
     -webkit-user-select: none;
        -moz-user-select: none;
@@ -7180,11 +7191,12 @@ html.loading-file-room #fileRoomScreen {
     display: none !important;
   }
 
-  /* Animated Live Chat Preview in Mobile View */
+  /* Animated Live Chat Preview in Mobile View (Added padding between heading and animation) */
 
   .mobile-demo-chat-preview {
-    margin-top: clamp(10px, 1.8vh, 18px);
-    margin-bottom: clamp(4px, 1vh, 10px);
+    margin-top: 24px !important;
+    padding-top: 4px;
+    margin-bottom: clamp(6px, 1.2vh, 12px);
     width: 100%;
     max-width: 100%;
   }
@@ -7202,11 +7214,41 @@ html.loading-file-room #fileRoomScreen {
 
   .mobile-demo-chat-preview .demo-bubble-item {
     margin-bottom: 8px !important;
+    will-change: transform, opacity, max-height, margin-bottom;
   }
+
+  /* Smooth non-jumping entrance for mobile demo chat bubbles */
+
+  .mobile-demo-chat-preview .demo-bubble-item.animate-enter {
+    animation: mobileSmoothBubbleIn 0.5s ease-out both !important;
+  }
+
+  @keyframes mobileSmoothBubbleIn {
+    0% {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Small text also white */
 
   .mobile-demo-chat-preview .demo-sender-label {
     font-size: 11.5px !important;
+    color: #FFFFFF !important;
+    opacity: 0.9 !important;
+    font-weight: 600 !important;
     margin-bottom: 2px !important;
+  }
+
+  .mobile-demo-chat-preview .demo-bubble-item.text-right .demo-sender-label {
+    color: #FFFFFF !important;
+    opacity: 0.9 !important;
+    font-weight: 600 !important;
   }
 
   .mobile-demo-chat-preview .demo-bubble-dark,
@@ -7226,19 +7268,22 @@ html.loading-file-room #fileRoomScreen {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
   }
 
+  /* Lighter shade (#ffb682) of message bubble in animation */
+
   .mobile-demo-chat-preview .demo-bubble-orange {
-    background: #FF7A1F !important;
-    color: #1A0F05 !important;
+    background: #ffb682 !important;
+    color: #000000 !important;
     font-weight: 600 !important;
     border-bottom-right-radius: 4px !important;
-    box-shadow: 0 4px 16px rgba(255, 122, 31, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(255, 182, 130, 0.28) !important;
   }
 
   .mobile-demo-chat-preview .demo-caption {
     display: block !important;
     font-size: 11.5px !important;
-    color: #8F8A85 !important;
-    margin-top: 4px !important;
+    color: #FFFFFF !important;
+    opacity: 0.88 !important;
+    margin-top: 5px !important;
     margin-bottom: 0 !important;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
@@ -7284,9 +7329,11 @@ html.loading-file-room #fileRoomScreen {
     touch-action: manipulation;
   }
 
+  /* Lighter shade (#ffb682) on active tab */
+
   .mobile-seg-tab.active {
-    background: #FF7A1F;
-    color: #1A0F05;
+    background: #ffb682 !important;
+    color: #000000 !important;
     font-weight: 700;
   }
 
@@ -7320,9 +7367,11 @@ html.loading-file-room #fileRoomScreen {
     transform: scale(0.985);
   }
 
+  /* Lighter shade (#ffb682) on chat room button in hero page */
+
   .mobile-action-card.primary-card {
-    background: #FF7A1F;
-    color: #1A0F05;
+    background: #ffb682 !important;
+    color: #000000 !important;
     margin-bottom: 12px;
   }
 
@@ -7353,7 +7402,7 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .primary-card .card-title {
-    color: #1A0F05;
+    color: #000000 !important;
   }
 
   .secondary-card .card-title {
@@ -7366,12 +7415,15 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .primary-card .card-desc {
-    color: #1A0F05;
+    color: #000000 !important;
     opacity: 0.88;
   }
 
+  /* Small text white on secondary card */
+
   .secondary-card .card-desc {
-    color: #8F8A85;
+    color: #FFFFFF !important;
+    opacity: 0.88;
   }
 
   .card-icon-wrap {
@@ -7383,7 +7435,7 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .primary-card .card-icon-wrap {
-    color: #1A0F05;
+    color: #000000 !important;
     font-size: 22px;
   }
 
@@ -7392,10 +7444,11 @@ html.loading-file-room #fileRoomScreen {
     font-size: 18px;
   }
 
-  /* Chat Footer */
+  /* Chat Footer: Small text also white */
 
   .mobile-chat-footer {
-    color: #8F8A85;
+    color: #FFFFFF !important;
+    opacity: 0.82;
     font-size: 12.5px;
     text-align: center;
     margin-top: 16px;
@@ -7458,7 +7511,8 @@ html.loading-file-room #fileRoomScreen {
 
   .vault-drop-browse {
     font-size: 13.5px;
-    color: #8F8A85;
+    color: #FFFFFF !important;
+    opacity: 0.92;
     margin-top: 3px;
   }
 
@@ -7471,7 +7525,8 @@ html.loading-file-room #fileRoomScreen {
 
   .vault-drop-meta {
     font-size: 11.5px;
-    color: #8F8A85;
+    color: #FFFFFF !important;
+    opacity: 0.85;
     margin-top: 14px;
     display: inline-flex;
     align-items: center;
@@ -7772,7 +7827,8 @@ html.loading-file-room #fileRoomScreen {
 
   .mobile-field-helper {
     font-size: 13px;
-    color: #8F8A85;
+    color: #FFFFFF !important;
+    opacity: 0.85;
     margin-top: 6px;
     margin-bottom: 16px;
     line-height: 1.35;
