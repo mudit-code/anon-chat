@@ -4277,6 +4277,17 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   width: 100%;
 }
 
+#voiceRecordingRow:not(.hidden) {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+
+#composerRow.composer-recording-active {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .voice-record-wrapper {
   background: #1c1c1c;
   border: 1px solid #2a2a2a;

@@ -545,6 +545,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Send button rate limiting & upload state
     let isSendingInProgress = false;
     let lastSendTime = 0;
+    let shouldKeepKeyboardOpen = false;
+    let isUniversalBackDismissal = false;
 
     // Lightbox zoom & pan state
     let previewZoom = 1;
@@ -897,6 +899,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageBubble.className = "sticker-bubble message-bubble pending-bubble relative overflow-visible border-none bg-transparent p-0 ml-auto";
             } else if (isImage || isVideo) {
                 messageBubble.className = "sent-message message-bubble message-bubble-media pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
+            } else if (isAudio) {
+                messageBubble.className = "sent-message message-bubble voice-message-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
+                messageBubble.style.minWidth = "220px";
             } else {
                 messageBubble.className = "sent-message message-bubble file-document-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
                 messageBubble.style.minWidth = "200px";
@@ -945,6 +950,33 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="pending-progress-text font-bold">0%</span>
                             <span class="pending-eta-separator hidden">·</span>
                             <span class="pending-eta-text hidden"></span>
+                        </div>
+                    </div>
+                `;
+            } else if (isAudio) {
+                const formattedDuration = file?.durationMs ? formatVoiceTime(Math.round(file.durationMs / 1000)) : (file?.size ? formatBytes(file.size) : 'Voice note');
+                mediaPreviewHtml = `
+                    <div class="voice-card-content flex items-center p-2.5 rounded-xl bg-black/30 gap-3">
+                        <div class="voice-icon-box w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-full bg-[#181818] border border-[#ff7320]/40 text-[#ff7320]">
+                            <i class="fas fa-microphone text-base"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="file-title font-semibold text-sm text-white truncate">Voice message</div>
+                            <div class="file-subtitle text-xs text-white/85 font-mono mt-0.5">${formattedDuration}</div>
+                            <div class="pending-eta-chip text-[11px] text-[#ffb682] font-medium mt-0.5 flex items-center gap-1">
+                                <span class="pending-progress-text font-bold">0%</span>
+                                <span class="pending-eta-separator hidden">·</span>
+                                <span class="pending-eta-text hidden"></span>
+                            </div>
+                        </div>
+                        <div class="pending-progress-ring relative w-10 h-10 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-white/15" stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#ff7320] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                            </svg>
+                            <button type="button" class="pending-cancel-btn absolute inset-0 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer" title="Cancel upload">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1151,46 +1183,88 @@ document.addEventListener('DOMContentLoaded', () => {
             const actions = bubble.querySelector('.pending-actions');
             if (actions) actions.remove();
 
-            const mediaEl = bubble.querySelector('img.message-file-preview, video.message-file-preview, img.sticker-message');
-            if (mediaEl) {
-                mediaEl.classList.remove('opacity-75', 'opacity-85', 'blur-[0.5px]');
-                mediaEl.style.opacity = '1';
-                mediaEl.style.filter = 'none';
-            }
+            if (mType === 'audio') {
+                bubble.innerHTML = createVoicePlayerHtml(mediaSrc, msgData.durationMs || 0, true) + `<span class="msg-time select-none ml-1.5 self-end text-[11px]">${formatTime(new Date())}</span>`;
+                const playerEl = bubble.querySelector('.voice-player');
+                if (playerEl) {
+                    setupVoicePlayer(playerEl, msgData.durationMs || 0);
+                }
+            } else if (mType === 'file') {
+                const fileName = msgData.name || messagePayload.file?.name || 'Document';
+                const fileSize = msgData.size || messagePayload.file?.size || 0;
+                const fileMime = msgData.mimeType || messagePayload.file?.type || '';
+                const truncatedName = fileName.length > 20 ? fileName.substring(0, 15) + "..." + fileName.substring(fileName.length - 5) : fileName;
+                const friendlyType = getFriendlyFileType(fileMime, fileName);
+                const fullFileInfo = `${fileName} (${formatBytes(fileSize)})`;
 
-            const mediaContainer = bubble.querySelector('.media-container, .relative');
-            if (mediaContainer) {
-                mediaContainer.onclick = () => openPreview(mediaSrc, mType, clientMsgId);
-
-                // Add play overlay if video
-                if (mType === 'video' && !mediaContainer.querySelector('.video-play-overlay')) {
-                    const playOverlay = document.createElement('div');
-                    playOverlay.className = 'video-play-overlay absolute inset-0 flex items-center justify-center pointer-events-none';
-                    playOverlay.innerHTML = '<div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center shadow-lg text-white"><i class="fas fa-play text-base ml-0.5"></i></div>';
-                    mediaContainer.appendChild(playOverlay);
+                bubble.innerHTML = `
+                    <div class="file-card-content flex items-center p-1" title="${escapeHtml(fullFileInfo)}">
+                        <div class="file-icon-box w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-lg mr-3 bg-[#181818] border border-white/10 text-[#ffb682]">
+                            ${getFileIcon({ type: fileMime, name: fileName })}
+                        </div>
+                        <div class="overflow-hidden flex-1">
+                            <div class="file-title font-semibold text-sm truncate text-white" title="${escapeHtml(fileName)}">${escapeHtml(truncatedName)}</div>
+                            <div class="file-subtitle text-xs mt-0.5 text-white/85 font-mono">${formatBytes(fileSize)} • ${friendlyType}</div>
+                        </div>
+                    </div>
+                    <div class="file-footer-row flex items-center justify-between gap-2 mt-1.5 pt-0.5">
+                        <div class="file-actions-container flex gap-2 flex-1">
+                            <button type="button" class="file-action-btn file-btn-open flex-1 text-center py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer" data-url="${mediaSrc}" data-name="${escapeHtml(fileName)}">
+                                <i class="fas fa-external-link-alt mr-1.5"></i>Open
+                            </button>
+                            <button type="button" class="file-action-btn file-btn-save flex-1 text-center py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer" data-url="${mediaSrc}" data-name="${escapeHtml(fileName)}">
+                                <i class="fas fa-download mr-1.5"></i>Save
+                            </button>
+                        </div>
+                        <span class="msg-time self-end text-[11px] mb-0.5">${formatTime(new Date())}</span>
+                    </div>
+                `;
+                const actionsBox = bubble.querySelector('.file-actions-container');
+                if (actionsBox) bindDownloadButtons(actionsBox);
+            } else {
+                const mediaEl = bubble.querySelector('img.message-file-preview, video.message-file-preview, img.sticker-message');
+                if (mediaEl) {
+                    mediaEl.classList.remove('opacity-75', 'opacity-85', 'blur-[0.5px]');
+                    mediaEl.style.opacity = '1';
+                    mediaEl.style.filter = 'none';
                 }
 
-                // Add download button if image or video
-                if ((mType === 'image' || mType === 'video') && !mediaContainer.querySelector('.media-download-btn')) {
-                    const dlBtn = document.createElement('a');
-                    dlBtn.href = mediaSrc;
-                    dlBtn.download = `${mType}-${Date.now()}.${mType === 'video' ? 'mp4' : 'jpg'}`;
-                    dlBtn.className = 'media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity';
-                    dlBtn.title = 'Download';
-                    dlBtn.onclick = (e) => e.stopPropagation();
-                    dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i>';
-                    mediaContainer.appendChild(dlBtn);
-                }
-            }
+                const mediaContainer = bubble.querySelector('.media-container, .relative');
+                if (mediaContainer) {
+                    mediaContainer.onclick = () => openPreview(mediaSrc, mType, clientMsgId);
 
-            // Append time indicator
-            if (!bubble.querySelector('.msg-time')) {
-                const timeEl = document.createElement('span');
-                timeEl.className = 'msg-time select-none ml-1.5 self-end text-[11px]';
-                timeEl.textContent = formatTime(new Date());
-                bubble.appendChild(timeEl);
+                    // Add play overlay if video
+                    if (mType === 'video' && !mediaContainer.querySelector('.video-play-overlay')) {
+                        const playOverlay = document.createElement('div');
+                        playOverlay.className = 'video-play-overlay absolute inset-0 flex items-center justify-center pointer-events-none';
+                        playOverlay.innerHTML = '<div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center shadow-lg text-white"><i class="fas fa-play text-base ml-0.5"></i></div>';
+                        mediaContainer.appendChild(playOverlay);
+                    }
+
+                    // Add download button if image or video
+                    if ((mType === 'image' || mType === 'video') && !mediaContainer.querySelector('.media-download-btn')) {
+                        const dlBtn = document.createElement('a');
+                        dlBtn.href = mediaSrc;
+                        dlBtn.download = `${mType}-${Date.now()}.${mType === 'video' ? 'mp4' : 'jpg'}`;
+                        dlBtn.className = 'media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity';
+                        dlBtn.title = 'Download';
+                        dlBtn.onclick = (e) => e.stopPropagation();
+                        dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i>';
+                        mediaContainer.appendChild(dlBtn);
+                    }
+                }
+
+                // Append time indicator
+                if (!bubble.querySelector('.msg-time')) {
+                    const timeEl = document.createElement('span');
+                    timeEl.className = 'msg-time select-none ml-1.5 self-end text-[11px]';
+                    timeEl.textContent = formatTime(new Date());
+                    bubble.appendChild(timeEl);
+                }
             }
         }
+
+        hideUploadProgress();
 
         // Maintain structured messageDataStore
         if (!window.messageDataStore) window.messageDataStore = new Map();
@@ -1198,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             id: clientMsgId,
             senderName: username,
             type: mType,
-            snippet: mType === 'video' ? 'Video' : mType === 'sticker' ? 'Sticker' : 'Photo',
+            snippet: mType === 'audio' ? 'Voice message' : (mType === 'video' ? 'Video' : (mType === 'sticker' ? 'Sticker' : (mType === 'file' ? (msgData.name || 'Document') : 'Photo'))),
             mediaSrc
         });
     }
@@ -1240,6 +1314,9 @@ document.addEventListener('DOMContentLoaded', () => {
             messageBubble.className = "sticker-bubble message-bubble relative overflow-visible border-none bg-transparent p-0";
         } else if (isImage || isVideo) {
             messageBubble.className = "received-message message-bubble message-bubble-media relative overflow-hidden border border-white/10";
+        } else if (isAudio) {
+            messageBubble.className = "received-message message-bubble voice-message-bubble relative overflow-hidden border border-white/10";
+            messageBubble.style.minWidth = "220px";
         } else {
             messageBubble.className = "received-message message-bubble file-document-bubble relative overflow-hidden border border-white/10";
             messageBubble.style.minWidth = "210px";
@@ -1288,6 +1365,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        } else if (isAudio) {
+            const subtitleText = size ? formatBytes(size) : 'Voice note';
+            bodyHtml = `
+                <div class="voice-card-content flex items-center p-2.5 rounded-xl bg-black/30 gap-3">
+                    <div class="voice-icon-box w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-full bg-[#181818] border border-white/15 text-[#ffb682]">
+                        <i class="fas fa-microphone text-base"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="file-title font-semibold text-sm text-white truncate">Voice message</div>
+                        <div class="file-subtitle text-xs text-white/85 font-mono mt-0.5">${subtitleText}</div>
+                        <div class="pending-eta-chip text-[11px] text-[#ffb682] font-medium mt-0.5 flex items-center gap-1">
+                            <span class="receiving-prefix font-medium">Receiving</span>
+                            <span class="pending-progress-text font-bold">0%</span>
+                            <span class="pending-eta-separator hidden">·</span>
+                            <span class="pending-eta-text hidden"></span>
+                        </div>
+                    </div>
+                    <div class="pending-progress-ring relative w-10 h-10 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="15" fill="none" class="stroke-white/15" stroke-width="3"></circle>
+                            <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#ff7320] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                        </svg>
+                        <span class="pending-progress-text absolute font-mono text-[9px] font-bold text-white">0%</span>
+                    </div>
+                </div>
+            `;
         } else {
             bodyHtml = `
                 <div class="file-card-content flex items-center p-2 rounded-xl bg-black/30 gap-3">
@@ -1327,7 +1430,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         incomingMediaTrackers.set(clientMsgId, { wrapper, estimator, expireTimer });
         getMessagesTarget().appendChild(wrapper);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        if (typeof scrollMessagesToBottom === 'function') {
+            scrollMessagesToBottom(true);
+        } else if (messagesDiv) {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
         return wrapper;
     }
 
@@ -1420,13 +1527,22 @@ document.addEventListener('DOMContentLoaded', () => {
             roomInstanceId: currentInstance,
             sessionToken,
             clientMsgId,
+            username,
             kind: messageType,
             name: mediaItem.file ? mediaItem.file.name : 'attachment',
             size: mediaItem.file ? mediaItem.file.size : 0,
             mime: fType,
             width: mediaItem.width || 0,
-            height: mediaItem.height || 0
+            height: mediaItem.height || 0,
+            durationMs: mediaItem.durationMs || (mediaItem.file?.durationMs || 0)
         });
+
+        const uploadTitle = messageType === 'audio' ? 'Sending voice note...' :
+                            (messageType === 'image' ? 'Sending photo...' :
+                            (messageType === 'video' ? 'Sending video...' :
+                            (messageType === 'snap' ? 'Sending video message...' :
+                            (messageType === 'sticker' ? 'Sending sticker...' : 'Sending file...'))));
+        showUploadProgress(uploadTitle, 0);
 
         const xhr = new XMLHttpRequest();
         let uploadTimedOut = false;
@@ -1434,6 +1550,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeUploads.has(clientMsgId)) {
                 uploadTimedOut = true;
                 try { xhr.abort(); } catch (e) {}
+                hideUploadProgress();
                 setPendingBubbleFailed(clientMsgId, 'Upload timed out. Tap retry.');
             }
         }, 30000);
@@ -1456,10 +1573,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const percent = Math.min(100, (e.loaded / e.total) * 100);
                 const etaText = estimator.update(e.loaded, e.total);
                 updatePendingBubbleProgress(clientMsgId, percent, etaText);
+                showUploadProgress(uploadTitle, percent);
 
                 // Broadcast live progress over WebSocket so everyone in the room sees real-time progress
                 const now = Date.now();
-                if (now - lastWsProgressEmit >= 180 || percent >= 100) {
+                if (now - lastWsProgressEmit >= 150 || percent >= 100) {
                     lastWsProgressEmit = now;
                     socket.emit("media-upload-progress", {
                         roomKey,
@@ -1474,6 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         xhr.onload = () => {
             clearTimeout(confirmTimeout);
+            hideUploadProgress();
             if (uploadTimedOut) return;
 
             if (roomInstanceId !== currentInstance) {
@@ -1498,7 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             name: mediaItem.file?.name || data.filename,
                             size: mediaItem.file?.size || data.size,
                             mimeType: fType || data.mimetype,
-                            durationMs: mediaItem.durationMs || 0
+                            durationMs: mediaItem.durationMs || (mediaItem.file?.durationMs || 0)
                         },
                         file: {
                             name: mediaItem.file?.name || data.filename,
@@ -1530,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         xhr.onerror = () => {
             clearTimeout(confirmTimeout);
+            hideUploadProgress();
             if (uploadTimedOut) return;
 
             if (roomInstanceId !== currentInstance) {
@@ -2582,7 +2702,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Restore composer row UI
                 if (voiceRecordingRow) voiceRecordingRow.classList.add('hidden');
-                if (composerRow) composerRow.classList.remove('hidden');
+                if (composerRow) {
+                    composerRow.classList.remove('hidden');
+                    composerRow.classList.remove('composer-recording-active');
+                }
                 isRecording = false;
 
                 if (discardRecording) {
@@ -2615,8 +2738,11 @@ document.addEventListener('DOMContentLoaded', () => {
             pausedDuration = 0;
             recordingPaused = false;
 
-            // In-place UI: hide composer row and show voice recording row in the exact same slot
-            if (composerRow) composerRow.classList.add('hidden');
+            // In-place UI: keep composer row mounted (opacity 0) and overlay voice recording row in the exact same slot
+            if (composerRow) {
+                composerRow.classList.remove('hidden');
+                composerRow.classList.add('composer-recording-active');
+            }
             if (voiceRecordingRow) voiceRecordingRow.classList.remove('hidden');
 
             if (voiceRecordPauseIcon) voiceRecordPauseIcon.className = 'fas fa-pause text-sm';
@@ -2656,7 +2782,10 @@ document.addEventListener('DOMContentLoaded', () => {
             audioRecorder.cleanup();
         }
         if (voiceRecordingRow) voiceRecordingRow.classList.add('hidden');
-        if (composerRow) composerRow.classList.remove('hidden');
+        if (composerRow) {
+            composerRow.classList.remove('hidden');
+            composerRow.classList.remove('composer-recording-active');
+        }
         socket.emit('recording:stop', { roomKey, userId: socket.id });
     }
 
@@ -2685,72 +2814,93 @@ document.addEventListener('DOMContentLoaded', () => {
         audioRecorder.stopRecording();
     }
 
-    // Send voice note directly to server
+    // Send voice note directly to server with instant pending bubble and live progress
     async function uploadAndSendVoiceNote(blob, durationMs) {
         if (!blob || blob.size === 0) return;
         const audioFile = new File([blob], `voice-${Date.now()}.webm`, {
             type: blob.type || 'audio/webm'
         });
+        audioFile.durationMs = durationMs;
 
-        const formData = new FormData();
-        formData.append('file', audioFile);
+        const clientMsgId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `voice-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const objectUrl = URL.createObjectURL(blob);
+        if (!window.localMediaBlobMap) window.localMediaBlobMap = new Map();
+        window.localMediaBlobMap.set(clientMsgId, objectUrl);
 
-        showToast('Sending voice note...');
-        try {
-            const res = await fetch(`${API_BASE}/upload`, {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            if (data && data.path) {
-                const messageId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                const messagePayload = {
-                    roomKey,
-                    username,
-                    id: messageId,
-                    message: {
-                        type: 'audio',
-                        content: data.path,
-                        durationMs: durationMs || 0
-                    },
-                    seenBy: []
-                };
+        const activeReply = replyContext ? {
+            id: replyContext.id,
+            senderName: replyContext.senderName || replyContext.sender,
+            type: replyContext.type || 'text',
+            snippet: replyContext.snippet || replyContext.previewText,
+            mediaSrc: replyContext.mediaSrc || null
+        } : null;
+        clearReplyContext();
 
-                if (replyContext) {
-                    messagePayload.replyTo = {
-                        messageId: replyContext.messageId,
-                        sender: replyContext.sender,
-                        previewText: replyContext.previewText
-                    };
-                    clearReplyContext();
+        const mediaItem = {
+            file: audioFile,
+            objectUrl,
+            clientMsgId,
+            type: 'audio',
+            durationMs: durationMs || 0,
+            replyTo: activeReply
+        };
+
+        createPendingMediaBubble({
+            file: audioFile,
+            objectUrl,
+            clientMsgId,
+            isSticker: false,
+            roomInstanceId,
+            onCancel: () => {
+                const active = activeUploads.get(clientMsgId);
+                if (active && active.xhr) {
+                    try { active.xhr.abort(); } catch (e) {}
                 }
-
-                displayMessage(username, messagePayload.message, messageId, [], messagePayload.replyTo);
-                socket.emit('chat-message', messagePayload);
-                scrollMessagesToBottom(true);
-            } else {
-                showToast('Failed to upload voice note');
+                removePendingBubble(clientMsgId);
+                if (objectUrl) {
+                    try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+                }
+                activeUploads.delete(clientMsgId);
+                hideUploadProgress();
+            },
+            onRetry: () => {
+                setPendingBubbleRetrying(clientMsgId);
+                dispatchMediaUpload(mediaItem);
+            },
+            onDelete: () => {
+                removePendingBubble(clientMsgId);
+                if (objectUrl) {
+                    try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+                }
+                activeUploads.delete(clientMsgId);
+                hideUploadProgress();
             }
-        } catch (err) {
-            console.error('Error sending voice note:', err);
-            showToast('Network error sending voice note');
-        }
+        });
+
+        dispatchMediaUpload(mediaItem);
+        scrollMessagesToBottom(true);
     }
 
-    // Wire recording row buttons
+    // Wire recording row buttons (prevent blur so mobile keyboard never dismisses)
     if (voiceRecordTrashBtn) {
+        voiceRecordTrashBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        voiceRecordTrashBtn.addEventListener('mousedown', (e) => e.preventDefault());
         voiceRecordTrashBtn.onclick = (e) => {
             e.preventDefault();
             cancelRecording();
         };
     }
     if (voiceRecordPauseBtn) {
+        voiceRecordPauseBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        voiceRecordPauseBtn.addEventListener('mousedown', (e) => e.preventDefault());
         voiceRecordPauseBtn.onclick = (e) => {
             e.preventDefault();
             togglePauseRecording();
         };
     }
     if (voiceRecordSendBtn) {
+        voiceRecordSendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        voiceRecordSendBtn.addEventListener('mousedown', (e) => e.preventDefault());
         voiceRecordSendBtn.onclick = (e) => {
             e.preventDefault();
             stopAndSendRecording();
@@ -3785,6 +3935,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
     }
+    if (fileBtn) {
+        fileBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        fileBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
+    if (cameraBtn) {
+        cameraBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        cameraBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    }
     if (emojiBtn) {
         emojiBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
@@ -4143,6 +4301,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (cameraBtn) {
         cameraBtn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
             cameraPressStartTime = Date.now();
             cameraPointerStartX = e.clientX;
             cameraPointerStartY = e.clientY;
@@ -4726,7 +4885,6 @@ document.addEventListener('DOMContentLoaded', () => {
             isSendingInProgress = false;
             sendBtn.removeAttribute('aria-busy');
             delete sendBtn.dataset.isBusy;
-            hideUploadProgress();
             sendBtn.classList.remove('opacity-60', 'cursor-not-allowed');
             updateSendButtonState();
         }
@@ -5544,6 +5702,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function onInputFocus() {
+            shouldKeepKeyboardOpen = true;
+            isUniversalBackDismissal = false;
+            try {
+                if (!history.state || history.state.chatKeyboard !== 'open') {
+                    history.pushState({ ...(history.state || {}), chatKeyboard: 'open' }, '');
+                }
+            } catch (e) {}
+
             window.scrollTo(0, 0);
             setTimeout(() => {
                 window.scrollTo(0, 0);
@@ -5558,6 +5724,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function onInputBlur() {
+            if (shouldKeepKeyboardOpen && !isUniversalBackDismissal) {
+                requestAnimationFrame(() => {
+                    if (shouldKeepKeyboardOpen && !isUniversalBackDismissal && messageInput) {
+                        messageInput.focus();
+                    }
+                });
+                return;
+            }
             setTimeout(() => {
                 window.scrollTo(0, 0);
                 updateViewportHeight();
@@ -5683,18 +5857,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (messagesDiv) {
-        // Dismiss soft keyboard when tapping outside composer on chat area
-        messagesDiv.addEventListener('pointerdown', (e) => {
-            if (document.activeElement === messageInput) {
-                if (!e.target.closest('#composerRow') && !e.target.closest('#voiceRecordingRow') && !e.target.closest('#mediaDraftsTray') && !e.target.closest('#media-picker')) {
-                    messageInput.blur();
-                    if (window.Capacitor?.Plugins?.Keyboard) {
-                        window.Capacitor.Plugins.Keyboard.hide();
-                    }
+    if (chatScreen) {
+        chatScreen.addEventListener('pointerdown', (e) => {
+            if (shouldKeepKeyboardOpen && !isUniversalBackDismissal) {
+                if (e.target.closest('a, button, input, textarea, .file-action-btn, .reply-cancel-btn, #previewModal, .desktop-reply-btn, .voice-play-btn, .voice-waveform-track, .voice-speed-btn, .voice-download-btn, .media-download-btn, .reaction-chip, #messageContextMenu, .modal')) {
+                    return;
+                }
+                e.preventDefault();
+                if (document.activeElement !== messageInput && messageInput) {
+                    messageInput.focus();
                 }
             }
+        });
+    }
 
+    if (messagesDiv) {
+        messagesDiv.addEventListener('pointerdown', (e) => {
             // Swipe-to-reply pointerdown
             if (e.isPrimary === false || (e.button && e.button !== 0)) return;
 
@@ -7932,8 +8110,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Handle popstate for back/forward navigation
+        // Handle popstate for back/forward navigation and mobile back gesture keyboard dismissal
         window.addEventListener("popstate", (e) => {
+            if (shouldKeepKeyboardOpen || document.activeElement === messageInput || (typeof isNativeKeyboardOpen !== 'undefined' && isNativeKeyboardOpen)) {
+                isUniversalBackDismissal = true;
+                shouldKeepKeyboardOpen = false;
+                if (messageInput) messageInput.blur();
+                if (window.Capacitor?.Plugins?.Keyboard) {
+                    window.Capacitor.Plugins.Keyboard.hide();
+                }
+                setTimeout(() => {
+                    isUniversalBackDismissal = false;
+                }, 400);
+                return;
+            }
             if (e.state && e.state.type === "file-room" && e.state.roomId) {
                 openFileRoomByIdentifier(e.state.roomId, true);
             } else if (window.location.pathname.startsWith("/share/")) {
@@ -8066,12 +8256,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 // 3. Close keyboard if open
-                if (isNativeKeyboardOpen || document.activeElement === messageInput) {
+                if (shouldKeepKeyboardOpen || isNativeKeyboardOpen || document.activeElement === messageInput) {
+                    isUniversalBackDismissal = true;
+                    shouldKeepKeyboardOpen = false;
                     messageInput.blur();
                     if (Keyboard) {
                         Keyboard.hide();
                     }
                     isNativeKeyboardOpen = false;
+                    setTimeout(() => {
+                        isUniversalBackDismissal = false;
+                    }, 400);
                     return;
                 }
                 // 4. Close preview modal if open

@@ -190,17 +190,25 @@ app.post("/upload", (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded." });
 
   const roomInstanceId = req.body?.roomInstanceId || req.query?.roomInstanceId || req.headers["x-room-instance-id"];
+  const roomKeyParam = req.body?.roomKey || req.query?.roomKey || req.headers["x-room-key"];
   const clientMsgId = req.body?.clientMsgId || req.query?.clientMsgId || req.headers["x-client-msg-id"];
 
+  let room = null;
   if (roomInstanceId) {
-    const room = findRoomByInstanceId(roomInstanceId);
-    if (!room) {
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        try { fs.unlinkSync(req.file.path); } catch (e) {}
-      }
-      return res.status(410).json({ error: "Room ended", code: "ROOM_ENDED" });
-    }
+    room = findRoomByInstanceId(roomInstanceId);
+  }
+  if (!room && roomKeyParam && rooms[roomKeyParam]) {
+    room = rooms[roomKeyParam];
+  }
 
+  if (!room && (roomInstanceId || roomKeyParam)) {
+    if (req.file.path && fs.existsSync(req.file.path)) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    return res.status(410).json({ error: "Room ended", code: "ROOM_ENDED" });
+  }
+
+  if (room) {
     if (!room.uploadDedupeMap) {
       room.uploadDedupeMap = new Map();
     }
@@ -1044,15 +1052,14 @@ io.on("connection", (socket) => {
 
   socket.on("media-start", (data) => {
     if (!data) return;
-    const { roomKey, roomInstanceId, sessionToken, clientMsgId, kind, name, size, mime, width, height } = data;
-    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || rooms[roomKey];
+    const { roomKey, roomInstanceId, sessionToken, clientMsgId, kind, name, size, mime, width, height, durationMs } = data;
+    const trimmedKey = typeof roomKey === "string" ? roomKey.trim() : "";
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || (trimmedKey && rooms[trimmedKey]);
     if (!room) return socket.emit("room-ended", { reason: "ended" });
-    if (sessionToken && !room.users.some(u => u.sessionToken === sessionToken)) return;
-    if (roomInstanceId && room.roomInstanceId !== roomInstanceId) return socket.emit("room-ended", { reason: "ended" });
 
     if (!room.pendingMedia) room.pendingMedia = new Map();
     const user = room.users.find(u => u.id === socket.id || (sessionToken && u.sessionToken === sessionToken));
-    const senderUsername = user ? user.username : (socket.username || 'Anonymous');
+    const senderUsername = (data.username && String(data.username).trim()) || (user ? user.username : (socket.username || 'Anonymous'));
 
     room.pendingMedia.set(clientMsgId, {
       clientMsgId,
@@ -1063,6 +1070,7 @@ io.on("connection", (socket) => {
       mime,
       width,
       height,
+      durationMs: durationMs || 0,
       timestamp: Date.now()
     });
 
@@ -1074,7 +1082,8 @@ io.on("connection", (socket) => {
       size,
       mime,
       width,
-      height
+      height,
+      durationMs: durationMs || 0
     });
   });
 
