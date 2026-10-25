@@ -851,11 +851,32 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function getResolvedMime(file) {
+        if (file && file.type && file.type !== 'application/octet-stream') return file.type;
+        const name = (file && file.name) ? file.name.toLowerCase() : '';
+        if (/\.(jpe?g|png|gif|webp|bmp|heic|heif|svg)$/i.test(name)) {
+            if (name.endsWith('.png')) return 'image/png';
+            if (name.endsWith('.gif')) return 'image/gif';
+            if (name.endsWith('.webp')) return 'image/webp';
+            return 'image/jpeg';
+        }
+        if (/\.(mp4|mov|webm|m4v|3gp|mkv|avi)$/i.test(name)) {
+            if (name.endsWith('.webm')) return 'video/webm';
+            if (name.endsWith('.mov')) return 'video/quicktime';
+            return 'video/mp4';
+        }
+        if (/\.(mp3|wav|ogg|m4a|aac|opus)$/i.test(name)) {
+            return 'audio/webm';
+        }
+        return (file && file.type) || 'application/octet-stream';
+    }
+
     function createPendingMediaBubble({ file, objectUrl, clientMsgId, isSticker, roomInstanceId, onCancel, onRetry, onDelete }) {
+        const mime = getResolvedMime(file);
         const isStickerMsg = isSticker || (file && file.isSticker) || false;
-        const isVideo = !isStickerMsg && file && file.type && file.type.startsWith('video');
-        const isImage = !isStickerMsg && file && file.type && file.type.startsWith('image');
-        const isAudio = !isStickerMsg && file && file.type && file.type.startsWith('audio');
+        const isVideo = !isStickerMsg && mime.startsWith('video');
+        const isImage = !isStickerMsg && mime.startsWith('image');
+        const isAudio = !isStickerMsg && mime.startsWith('audio');
 
         const domId = `msg-${clientMsgId}`;
         let wrapper = document.getElementById(domId);
@@ -874,8 +895,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const messageBubble = document.createElement("div");
             if (isStickerMsg) {
                 messageBubble.className = "sticker-bubble message-bubble pending-bubble relative overflow-visible border-none bg-transparent p-0 ml-auto";
+            } else if (isImage || isVideo) {
+                messageBubble.className = "sent-message message-bubble message-bubble-media pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
             } else {
-                messageBubble.className = "sent-message message-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
+                messageBubble.className = "sent-message message-bubble file-document-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
                 messageBubble.style.minWidth = "200px";
             }
 
@@ -883,9 +906,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isStickerMsg) {
                 mediaPreviewHtml = `
                     <div class="relative inline-block cursor-pointer">
-                        <img src="${objectUrl}" class="sticker-message opacity-75 blur-[0.5px]" alt="Sending sticker...">
+                        <img src="${objectUrl}" class="sticker-message opacity-85 transition-opacity duration-200" alt="Sending sticker...">
                         <!-- Centered Circular Progress Ring with X (Cancel) -->
-                        <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200">
                             <div class="pending-progress-ring relative w-10 h-10 flex items-center justify-center pointer-events-auto">
                                 <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
                                     <circle cx="18" cy="18" r="15" fill="none" class="stroke-black/50" stroke-width="3"></circle>
@@ -900,13 +923,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else if (isImage || isVideo) {
                 mediaPreviewHtml = `
-                    <div class="relative media-fixed-frame overflow-hidden rounded-xl bg-black/60">
+                    <div class="relative media-container media-fixed-frame overflow-hidden rounded-xl bg-black/60">
                         ${isImage
-                            ? `<img src="${objectUrl}" class="w-full h-full object-cover opacity-75 blur-[0.5px]" alt="Sending...">`
-                            : `<video src="${objectUrl}" class="w-full h-full object-cover opacity-75 blur-[0.5px]" muted></video>`
+                            ? `<img src="${objectUrl}" class="message-file-preview w-full h-full object-cover opacity-85 transition-opacity duration-200" alt="Photo">`
+                            : `<video src="${objectUrl}" class="message-file-preview w-full h-full object-cover opacity-85 transition-opacity duration-200" muted playsinline preload="auto"></video>`
                         }
                         <!-- Centered Circular Progress Ring with X (Cancel) -->
-                        <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200">
                             <div class="pending-progress-ring relative w-12 h-12 flex items-center justify-center pointer-events-auto">
                                 <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
                                     <circle cx="18" cy="18" r="15" fill="none" class="stroke-black/50" stroke-width="3"></circle>
@@ -929,7 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaPreviewHtml = `
                     <div class="file-card-content flex items-center p-2 rounded-xl bg-black/30 gap-3">
                         <div class="file-icon-box w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#181818] border border-white/10 text-[#ffb682]">
-                            ${getFileIcon({ type: file?.type, name: file?.name })}
+                            ${getFileIcon({ type: mime, name: file?.name })}
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="file-title font-semibold text-sm text-white truncate" title="${escapeHtml(file?.name || '')}">${escapeHtml(file?.name || 'attachment')}</div>
@@ -1097,7 +1120,91 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.remove();
         }
     }
+    function finalizePendingMediaBubble(clientMsgId, messagePayload) {
+        const domId = String(clientMsgId).startsWith('msg-') ? String(clientMsgId) : `msg-${clientMsgId}`;
+        const wrapper = document.getElementById(domId) ||
+            document.querySelector(`[data-client-msg-id="${clientMsgId}"]`) ||
+            document.getElementById(clientMsgId);
+
+        if (!wrapper) {
+            renderMessageBubble(messagePayload);
+            return;
+        }
+
+        const msgData = messagePayload.message || {};
+        const mediaSrc = resolveMediaUrl(msgData.content);
+        const mType = msgData.type || 'image';
+
+        wrapper.classList.remove('pending-message');
+        wrapper.removeAttribute('data-pending');
+        wrapper.setAttribute('data-msg-id', clientMsgId);
+
+        const bubble = wrapper.querySelector('.message-bubble');
+        if (bubble) {
+            bubble.classList.remove('pending-bubble', 'border-[#ff7320]/30');
+            const overlay = bubble.querySelector('.pending-overlay');
+            if (overlay) overlay.remove();
+            const etaChip = bubble.querySelector('.pending-eta-chip');
+            if (etaChip) etaChip.remove();
+            const ring = bubble.querySelector('.pending-progress-ring');
+            if (ring) ring.remove();
+            const actions = bubble.querySelector('.pending-actions');
+            if (actions) actions.remove();
+
+            const mediaEl = bubble.querySelector('img.message-file-preview, video.message-file-preview, img.sticker-message');
+            if (mediaEl) {
+                mediaEl.classList.remove('opacity-75', 'opacity-85', 'blur-[0.5px]');
+                mediaEl.style.opacity = '1';
+                mediaEl.style.filter = 'none';
+            }
+
+            const mediaContainer = bubble.querySelector('.media-container, .relative');
+            if (mediaContainer) {
+                mediaContainer.onclick = () => openPreview(mediaSrc, mType, clientMsgId);
+
+                // Add play overlay if video
+                if (mType === 'video' && !mediaContainer.querySelector('.video-play-overlay')) {
+                    const playOverlay = document.createElement('div');
+                    playOverlay.className = 'video-play-overlay absolute inset-0 flex items-center justify-center pointer-events-none';
+                    playOverlay.innerHTML = '<div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center shadow-lg text-white"><i class="fas fa-play text-base ml-0.5"></i></div>';
+                    mediaContainer.appendChild(playOverlay);
+                }
+
+                // Add download button if image or video
+                if ((mType === 'image' || mType === 'video') && !mediaContainer.querySelector('.media-download-btn')) {
+                    const dlBtn = document.createElement('a');
+                    dlBtn.href = mediaSrc;
+                    dlBtn.download = `${mType}-${Date.now()}.${mType === 'video' ? 'mp4' : 'jpg'}`;
+                    dlBtn.className = 'media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity';
+                    dlBtn.title = 'Download';
+                    dlBtn.onclick = (e) => e.stopPropagation();
+                    dlBtn.innerHTML = '<i class="fas fa-download text-xs"></i>';
+                    mediaContainer.appendChild(dlBtn);
+                }
+            }
+
+            // Append time indicator
+            if (!bubble.querySelector('.msg-time')) {
+                const timeEl = document.createElement('span');
+                timeEl.className = 'msg-time select-none ml-1.5 self-end text-[11px]';
+                timeEl.textContent = formatTime(new Date());
+                bubble.appendChild(timeEl);
+            }
+        }
+
+        // Maintain structured messageDataStore
+        if (!window.messageDataStore) window.messageDataStore = new Map();
+        window.messageDataStore.set(clientMsgId, {
+            id: clientMsgId,
+            senderName: username,
+            type: mType,
+            snippet: mType === 'video' ? 'Video' : mType === 'sticker' ? 'Sticker' : 'Photo',
+            mediaSrc
+        });
+    }
+
     window.createPendingMediaBubble = createPendingMediaBubble;
+    window.finalizePendingMediaBubble = finalizePendingMediaBubble;
     window.updatePendingBubbleProgress = updatePendingBubbleProgress;
     window.setPendingBubbleFailed = setPendingBubbleFailed;
     window.setPendingBubbleRetrying = setPendingBubbleRetrying;
@@ -1105,9 +1212,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Receiver UI: Media incoming placeholder
     function createReceiverMediaPlaceholder({ clientMsgId, username: senderName, kind, name, size, mime, width, height }) {
-        const isImage = kind === 'image' || (mime && mime.startsWith('image'));
-        const isVideo = kind === 'video' || (mime && mime.startsWith('video'));
-        const isAudio = kind === 'audio' || (mime && mime.startsWith('audio'));
+        let resolvedMime = mime || '';
+        if ((!resolvedMime || resolvedMime === 'application/octet-stream') && name) {
+            resolvedMime = getResolvedMime({ name });
+        }
+        const isImage = kind === 'image' || resolvedMime.startsWith('image');
+        const isVideo = kind === 'video' || resolvedMime.startsWith('video');
+        const isAudio = kind === 'audio' || resolvedMime.startsWith('audio');
 
         const domId = `msg-${clientMsgId}`;
         let wrapper = document.getElementById(domId);
@@ -1127,8 +1238,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageBubble = document.createElement("div");
         if (isSticker) {
             messageBubble.className = "sticker-bubble message-bubble relative overflow-visible border-none bg-transparent p-0";
+        } else if (isImage || isVideo) {
+            messageBubble.className = "received-message message-bubble message-bubble-media relative overflow-hidden border border-white/10";
         } else {
-            messageBubble.className = "received-message message-bubble relative overflow-hidden border border-white/10";
+            messageBubble.className = "received-message message-bubble file-document-bubble relative overflow-hidden border border-white/10";
             messageBubble.style.minWidth = "210px";
         }
 
@@ -1279,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const clientMsgId = mediaItem.clientMsgId;
         const currentInstance = roomInstanceId;
 
-        const fType = (mediaItem.file && mediaItem.file.type) ? mediaItem.file.type : '';
+        const fType = getResolvedMime(mediaItem.file);
         let messageType = 'video';
         if (mediaItem.type === 'snap' || mediaItem.isSnap) {
             messageType = 'snap';
@@ -1293,6 +1406,12 @@ document.addEventListener('DOMContentLoaded', () => {
             messageType = 'video';
         } else {
             messageType = 'file';
+        }
+
+        // Cache local objectUrl immediately so finalization can access it
+        if (mediaItem.objectUrl) {
+            if (!window.localMediaBlobMap) window.localMediaBlobMap = new Map();
+            window.localMediaBlobMap.set(clientMsgId, mediaItem.objectUrl);
         }
 
         // Emit media-start to alert others in the room
@@ -1327,15 +1446,29 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('sessionToken', sessionToken || '');
         formData.append('clientMsgId', clientMsgId);
 
-        const uploadUrl = `${API_BASE}/upload?roomInstanceId=${encodeURIComponent(currentInstance || '')}&clientMsgId=${encodeURIComponent(clientMsgId)}`;
+        const uploadUrl = `${API_BASE}/upload?roomInstanceId=${encodeURIComponent(currentInstance || '')}&roomKey=${encodeURIComponent(roomKey || '')}&clientMsgId=${encodeURIComponent(clientMsgId)}`;
         xhr.open('POST', uploadUrl, true);
 
         const estimator = createSpeedEstimator();
+        let lastWsProgressEmit = 0;
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percent = Math.min(100, (e.loaded / e.total) * 100);
                 const etaText = estimator.update(e.loaded, e.total);
                 updatePendingBubbleProgress(clientMsgId, percent, etaText);
+
+                // Broadcast live progress over WebSocket so everyone in the room sees real-time progress
+                const now = Date.now();
+                if (now - lastWsProgressEmit >= 180 || percent >= 100) {
+                    lastWsProgressEmit = now;
+                    socket.emit("media-upload-progress", {
+                        roomKey,
+                        roomInstanceId: currentInstance,
+                        clientMsgId,
+                        loaded: e.loaded,
+                        total: e.total
+                    });
+                }
             }
         };
 
@@ -1377,16 +1510,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         ...(mediaItem.replyTo && { replyTo: mediaItem.replyTo })
                     };
 
-                    // Replace pending bubble in place immediately from HTTP response
-                    renderMessageBubble({
-                        username,
-                        message: messagePayload.message,
-                        file: messagePayload.file,
-                        id: clientMsgId,
-                        clientMsgId,
-                        seenBy: [],
-                        replyTo: mediaItem.replyTo || null
-                    });
+                    // Finalize pending bubble smoothly in place with ZERO flicker
+                    finalizePendingMediaBubble(clientMsgId, messagePayload);
 
                     // Broadcast to room carrying clientMsgId
                     socket.emit("chat-message", messagePayload);
@@ -1394,10 +1519,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         socket.emit("file-message", messagePayload);
                     }
 
-                    if (mediaItem.objectUrl) {
-                        if (!window.localMediaBlobMap) window.localMediaBlobMap = new Map();
-                        window.localMediaBlobMap.set(clientMsgId, mediaItem.objectUrl);
-                    }
                     activeUploads.delete(clientMsgId);
                 } catch (err) {
                     setPendingBubbleFailed(clientMsgId, 'Failed to parse response');
@@ -2066,7 +2187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const objectUrl = URL.createObjectURL(file);
             if (!window.localMediaBlobMap) window.localMediaBlobMap = new Map();
             window.localMediaBlobMap.set(clientMsgId, objectUrl);
-            const fType = file.type || '';
+            const fType = getResolvedMime(file);
             const isSticker = isStickerGlobal || file.isSticker || (file.name && file.name.toLowerCase().includes('sticker')) || false;
             file.isSticker = isSticker;
 
@@ -3734,9 +3855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res = await fetch(image.webPath);
                         const blob = await res.blob();
                         const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-                        if (window.mediaDraft) {
-                            window.mediaDraft.add([file]);
-                        }
+                        sendMediaFilesDirectly([file]);
                     }
                 }).catch((err) => {
                     if (err && err.message && (err.message.includes('denied') || err.message.includes('permission'))) {
@@ -3760,8 +3879,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cameraPhotoInput) {
         cameraPhotoInput.onchange = () => {
             const files = Array.from(cameraPhotoInput.files || []);
-            if (files.length > 0 && window.mediaDraft) {
-                window.mediaDraft.add(files);
+            if (files.length > 0) {
+                sendMediaFilesDirectly(files);
             }
             cameraPhotoInput.value = "";
         };
@@ -4139,7 +4258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     messageInput.addEventListener("focus", () => {
-        mediaPicker.style.display = "none";
+        if (mediaPicker) mediaPicker.style.display = "none";
     });
 
     // Phase 13: Handle keyboard content (stickers/GIFs from Gboard, etc.)
@@ -4664,230 +4783,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelUploadModal.classList.add("hidden");
     };
 
-    emojiBtn.onclick = (e) => {
-        e.stopPropagation();
-        toggleMediaPicker();
-    };
-
-    function toggleMediaPicker() {
-        const isHidden = mediaPicker.classList.contains("hidden");
-        if (!isHidden) {
-            mediaPicker.classList.add("hidden");
-            scrollMessagesToBottom(true);
-            return;
-        }
-        mediaPicker.classList.remove("hidden");
-        mediaPicker.style.display = "";
-        mediaPicker.innerHTML = "";
-        scrollMessagesToBottom(true);
-
-        // Create tabs container
-        const tabsContainer = document.createElement("div");
-        tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4 flex-shrink-0";
-
-        const emojiTab = document.createElement("button");
-        emojiTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
-        emojiTab.textContent = "Emoji";
-        emojiTab.addEventListener("pointerdown", (e) => e.preventDefault());
-        emojiTab.onclick = () => showEmojiPicker();
-
-        const gifTab = document.createElement("button");
-        gifTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors";
-        gifTab.textContent = "GIFs";
-        gifTab.addEventListener("pointerdown", (e) => e.preventDefault());
-        gifTab.onclick = () => showGifPicker();
-
-        tabsContainer.appendChild(emojiTab);
-        tabsContainer.appendChild(gifTab);
-        mediaPicker.appendChild(tabsContainer);
-
-        // Content area
-        const contentArea = document.createElement("div");
-        contentArea.id = "media-picker-content";
-        mediaPicker.appendChild(contentArea);
-
-        // Show emoji by default
-        showEmojiPicker();
-
-        function activateTab(activeTab) {
-            [emojiTab, gifTab].forEach(t => {
-                if (t === activeTab) {
-                    t.classList.add("border-[#ff7320]", "text-[#ff7320]");
-                    t.classList.remove("border-transparent", "text-[#9a9a9a]");
-                } else {
-                    t.classList.remove("border-[#ff7320]", "text-[#ff7320]");
-                    t.classList.add("border-transparent", "text-[#9a9a9a]");
-                }
-            });
-        }
-
-        function showEmojiPicker() {
-            activateTab(emojiTab);
-
-            contentArea.innerHTML = "";
-            renderEmojis();
-
-            // Enrich emoji list from local emojis.json if not already loaded with full set
-            if (emojis.length < 150) {
-                fetch('emojis.json')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (Array.isArray(data) && data.length > 0) {
-                            emojis = data.map(emoji => emoji.unicode || emoji);
-                            renderEmojis();
-                        }
-                    })
-                    .catch(() => {
-                        // Standard built-in emojis are already rendered, so picker remains fully functional offline!
-                    });
-            }
-        }
-
-        function showGifPicker() {
-            activateTab(gifTab);
-
-            contentArea.innerHTML = "";
-            const searchInput = document.createElement("input");
-            searchInput.type = "text";
-            searchInput.placeholder = "Search for GIFs...";
-            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] mb-3 text-sm flex-shrink-0";
-            let searchTimeout = null;
-            searchInput.oninput = () => {
-                if (searchTimeout) clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    searchGifs(searchInput.value.trim());
-                }, 300);
-            };
-            contentArea.appendChild(searchInput);
-
-            const resultsDiv = document.createElement("div");
-            resultsDiv.className = "mt-3 grid grid-cols-3 gap-3";
-            resultsDiv.id = "gif-results";
-            contentArea.appendChild(resultsDiv);
-
-            function searchGifs(query) {
-                const gifResults = document.getElementById("gif-results");
-                if (gifResults) {
-                    gifResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]"><i class="fas fa-spinner fa-spin mr-1.5 text-sm text-[#ff7320]"></i>Loading GIFs...</div>';
-                }
-                const fetchUrl = absUrl(`/api/gifs?query=${encodeURIComponent(query || "trending")}`);
-                fetch(fetchUrl)
-                    .then(res => res.json())
-                    .then(data => {
-                        const targetResults = document.getElementById("gif-results");
-                        if (!targetResults) return;
-                        targetResults.innerHTML = "";
-
-                        if (data && data.error) {
-                            const errContainer = document.createElement("div");
-                            errContainer.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
-                            errContainer.innerHTML = `
-                                <div class="mb-2 text-[#ff7b7b]">${data.error}</div>
-                                <button type="button" class="gif-retry-btn px-3 py-1 bg-[#261a12] text-[#ffb682] border border-[#ffb682]/40 rounded-lg text-xs hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">Retry</button>
-                            `;
-                            errContainer.querySelector('.gif-retry-btn').onclick = () => searchGifs(query);
-                            targetResults.appendChild(errContainer);
-                            return;
-                        }
-
-                        if (data && data.data && data.data.length > 0) {
-                            data.data.forEach(gif => {
-                                const img = document.createElement("img");
-                                const imgUrl = gif.images?.fixed_height?.url || gif.images?.original?.url;
-                                if (!imgUrl) return;
-                                img.src = imgUrl;
-                                img.className = "cursor-pointer w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity";
-                                img.loading = "lazy";
-                                img.addEventListener("pointerdown", (e) => e.preventDefault());
-                                img.onclick = () => {
-                                    const messageId = `gif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                                    const messagePayload = {
-                                        roomKey,
-                                        roomInstanceId,
-                                        sessionToken,
-                                        username,
-                                        id: messageId,
-                                        clientMsgId: messageId,
-                                        message: { type: 'gif', content: img.src },
-                                        seenBy: []
-                                    };
-                                    if (replyContext) {
-                                        messagePayload.replyTo = {
-                                            messageId: replyContext.messageId,
-                                            sender: replyContext.sender,
-                                            previewText: replyContext.previewText
-                                        };
-                                        clearReplyContext();
-                                    }
-                                    displayMessage(username, messagePayload.message, messageId, [], messagePayload.replyTo);
-                                    socket.emit("chat-message", messagePayload);
-                                    mediaPicker.classList.add("hidden");
-                                    scrollMessagesToBottom(true);
-                                };
-                                targetResults.appendChild(img);
-                            });
-                        } else {
-                            targetResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]">No GIFs found. Try another search.</div>';
-                        }
-                    })
-                    .catch(err => {
-                        console.warn('GIF search error:', err);
-                        const targetResults = document.getElementById("gif-results");
-                        if (targetResults) {
-                            const errContainer = document.createElement("div");
-                            errContainer.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
-                            errContainer.innerHTML = `
-                                <div class="mb-2 text-[#ff7b7b]">Couldn't load GIFs. Check connection.</div>
-                                <button type="button" class="gif-retry-btn px-3 py-1 bg-[#261a12] text-[#ffb682] border border-[#ffb682]/40 rounded-lg text-xs hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">Retry</button>
-                            `;
-                            errContainer.querySelector('.gif-retry-btn').onclick = () => searchGifs(query);
-                            targetResults.innerHTML = "";
-                            targetResults.appendChild(errContainer);
-                        }
-                    });
-            }
-
-            searchGifs("trending");
-        }
-    }
-
-    // Dismiss media picker when clicking outside or pressing Escape
-    document.addEventListener("click", (e) => {
-        if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
-            if (!mediaPicker.contains(e.target) && !emojiBtn.contains(e.target)) {
-                mediaPicker.classList.add("hidden");
-            }
-        }
-    });
-
-    document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-            if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
-                mediaPicker.classList.add("hidden");
-            }
-        }
-    });
-
-    function renderEmojis() {
-        const contentArea = document.getElementById("media-picker-content");
-        if (!contentArea) return;
-
-        contentArea.innerHTML = "";
-        const emojiGrid = document.createElement("div");
-        emojiGrid.className = "grid grid-cols-8 gap-2";
-        emojis.forEach(emoji => {
-            const btn = document.createElement("button");
-            btn.innerHTML = emoji;
-            btn.className = "text-2xl p-2 rounded-lg hover:bg-[#2c2c2c] transition-colors cursor-pointer select-none";
-            btn.addEventListener("pointerdown", (e) => e.preventDefault());
-            btn.onclick = (e) => {
-                e.preventDefault();
-                insertTextIntoComposer(emoji);
-            };
-            emojiGrid.appendChild(btn);
-        });
-        contentArea.appendChild(emojiGrid);
-    }
+    // Built-in emoji/media picker removed; keyboard stickers and GIFs are handled natively
 
     function insertTextIntoComposer(text) {
         if (!messageInput) return;

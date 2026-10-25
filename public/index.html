@@ -402,13 +402,10 @@
             <!-- Media Previews Strip (Rewritten Draft System) -->
             <div id="mediaPreviews" class="hidden mb-2.5"></div>
 
-            <!-- Media Picker (Emoji & GIF) -->
-            <div id="media-picker" class="hidden h-64 overflow-y-auto p-4 custom-scrollbar"></div>
-
             <!-- Composer Row Wrapper (Relative container for seamless in-place voice overlay) -->
             <div class="composer-container relative w-full">
               <!-- Standard Input Bar + Send Button Row -->
-              <div id="composerRow" class="flex items-end gap-3 w-full">
+              <div id="composerRow" class="flex items-center gap-3 w-full">
                 <div class="composer-wrapper flex-1 flex items-center gap-1">
                   <!-- Attach button (paperclip) on far left -->
                   <button id="fileBtn" title="Attach file" type="button" class="composer-icon-btn">
@@ -421,15 +418,11 @@
                       style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;"
                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
                   </div>
-                  <!-- Emoji button -->
-                  <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
-                    <i class="far fa-smile text-base"></i>
-                  </button>
                   <!-- Camera button -->
                   <button id="cameraBtn" title="Camera" type="button" class="composer-icon-btn">
                     <i class="fas fa-camera text-base"></i>
                   </button>
-                  <input type="file" id="fileInput" class="hidden" multiple>
+                  <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,*/*">
                   <input type="file" id="cameraPhotoInput" class="hidden" accept="image/*,video/*">
                 </div>
                 <!-- Round action button (mic when empty, send when content exists) -->

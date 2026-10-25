@@ -137,6 +137,7 @@ app.post("/upload", (req, res, next) => {
   res.on("close", cleanup);
 
   const roomInstanceIdHeader = req.headers["x-room-instance-id"] || req.query?.roomInstanceId;
+  const roomKeyHeader = req.headers["x-room-key"] || req.query?.roomKey;
   const clientMsgIdHeader = req.headers["x-client-msg-id"] || req.query?.clientMsgId;
   const totalContentLength = Number(req.headers["content-length"]) || 0;
   let receivedBytes = 0;
@@ -146,14 +147,17 @@ app.post("/upload", (req, res, next) => {
   if (roomInstanceIdHeader) {
     uploadRoom = findRoomByInstanceId(roomInstanceIdHeader);
   }
+  if (!uploadRoom && roomKeyHeader && rooms[roomKeyHeader]) {
+    uploadRoom = rooms[roomKeyHeader];
+  }
 
   const onStreamData = (chunk) => {
     receivedBytes += chunk.length;
     const now = Date.now();
-    if (uploadRoom && clientMsgIdHeader && (now - lastProgressBroadcast >= 250 || receivedBytes >= totalContentLength)) {
+    if (uploadRoom && clientMsgIdHeader && (now - lastProgressBroadcast >= 200 || receivedBytes >= totalContentLength)) {
       lastProgressBroadcast = now;
       io.to(uploadRoom.roomKey).emit("media-progress", {
-        roomInstanceId: roomInstanceIdHeader,
+        roomInstanceId: roomInstanceIdHeader || uploadRoom.roomInstanceId,
         clientMsgId: clientMsgIdHeader,
         loaded: receivedBytes,
         total: totalContentLength
@@ -1072,6 +1076,20 @@ io.on("connection", (socket) => {
       width,
       height
     });
+  });
+
+  socket.on("media-upload-progress", (data) => {
+    if (!data) return;
+    const { roomKey, roomInstanceId, clientMsgId, loaded, total } = data;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || (roomKey && rooms[roomKey]);
+    if (room && clientMsgId) {
+      socket.to(room.roomKey).emit("media-progress", {
+        roomInstanceId,
+        clientMsgId,
+        loaded: Number(loaded) || 0,
+        total: Number(total) || 0
+      });
+    }
   });
 
   socket.on("media-cancel", (data) => {

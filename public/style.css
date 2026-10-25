@@ -1597,11 +1597,20 @@ body.light-mode #chat-input-container {
   width: 100%;
 }
 
+#composerRow {
+  display: flex !important;
+  align-items: center !important;
+}
+
 .composer-wrapper {
   background: #1c1c1c;
   border: 1px solid #333333;
   border-radius: 26px;
-  padding: 4px 8px;
+  padding: 2px 8px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
   transition: border-color 150ms ease;
 }
 
@@ -1633,6 +1642,7 @@ body.light-mode #chat-input-container {
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .composer-icon-btn:hover {
@@ -1650,7 +1660,7 @@ body.light-mode #chat-input-container {
   background: rgba(255, 123, 123, 0.15) !important;
 }
 
-/* Send/Mic round action button */
+/* Send/Mic round action button - strictly vertically centered with input */
 #sendBtn, .composer-round-btn {
   width: 48px;
   height: 48px;
@@ -1665,6 +1675,8 @@ body.light-mode #chat-input-container {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+  align-self: center !important;
+  margin: 0 !important;
   transition: background-color 150ms ease, transform 0.08s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
@@ -2349,6 +2361,10 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
     width: 44px !important;
     height: 44px !important;
     min-width: 44px !important;
+    min-height: 44px !important;
+    align-self: center !important;
+  }
+  .composer-wrapper {
     min-height: 44px !important;
   }
 }
