@@ -203,17 +203,19 @@ function withBusy(button, asyncFn, options = {}) {
     let wakeupTimer = null;
     if (serverWakeupNotice) {
         wakeupTimer = setTimeout(() => {
-            if (button.dataset.isBusy === "true") {
+            if (button.dataset.isBusy === "true" && (!window.socket || !window.socket.connected)) {
                 showToast("Waking up the server, this can take up to a minute", 5000);
             }
-        }, 5000);
+        }, 8000);
     }
 
     let timeoutOccurred = false;
     let timeoutTimer = setTimeout(() => {
-        timeoutOccurred = true;
-        showToast("Request timed out. Please try again.");
-        cleanup();
+        if (button.dataset.isBusy === "true") {
+            timeoutOccurred = true;
+            showToast("Request timed out. Please try again.");
+            cleanup();
+        }
     }, timeoutMs);
 
     const startTime = Date.now();
@@ -3908,6 +3910,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         withBusy(createRoomBtn, () => {
             window.currentRoomKey = roomKey;
+            if (socket && !socket.connected) {
+                socket.connect();
+            }
             socket.emit("create-room", {
                 roomKey,
                 username
@@ -3923,7 +3928,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 socket.once("room-exists", onDone);
                 socket.once("room-creation-error", onDone);
             });
-        }, { serverWakeupNotice: true, connectingText: "Connecting…" });
+        }, { serverWakeupNotice: (!socket || !socket.connected), connectingText: "Connecting…", timeoutMs: 25000 });
     };
 
     function performJoinRoom(targetKey, targetUsername, triggerBtn) {
@@ -3951,6 +3956,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (inviteJoinStatus && triggerBtn && (triggerBtn.id === "askJoinRoomBtn" || triggerBtn.id === "askToJoinBtn")) {
                 inviteJoinStatus.classList.remove("hidden");
             }
+            if (socket && !socket.connected) {
+                socket.connect();
+            }
             socket.emit("join-room", {
                 roomKey,
                 username
@@ -3968,7 +3976,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 socket.once("room-not-found", onDone);
                 socket.once("join-rejected", onDone);
             });
-        }, { serverWakeupNotice: true, connectingText: "Connecting…" });
+        }, { serverWakeupNotice: (!socket || !socket.connected), connectingText: "Connecting…", timeoutMs: 25000 });
     }
 
     joinRoomBtn.onclick = () => {
@@ -6764,10 +6772,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatScreen) chatScreen.style.display = "flex";
             if (fileRoomScreen) fileRoomScreen.style.display = "none";
 
-            clearMessages(true);
-            if (res.messages && Array.isArray(res.messages)) {
+            const isAlreadyInSameRoom = (window.currentRoomInstanceId === roomInstanceId) &&
+                                        chatScreen &&
+                                        chatScreen.style.display === "flex";
+
+            if (!isAlreadyInSameRoom) {
+                clearMessages(true);
+                if (res.messages && Array.isArray(res.messages)) {
+                    res.messages.forEach(msg => {
+                        renderMessageBubble(msg);
+                    });
+                }
+            } else if (res.messages && Array.isArray(res.messages)) {
+                // In active room: preserve existing DOM bubbles (including pending/uploaded media)
                 res.messages.forEach(msg => {
-                    renderMessageBubble(msg);
+                    const id = msg.id || msg.clientMsgId;
+                    const domId = String(id).startsWith('msg-') ? String(id) : `msg-${id}`;
+                    const existing = document.getElementById(domId) ||
+                        (msg.clientMsgId && document.querySelector(`[data-client-msg-id="${msg.clientMsgId}"]`));
+                    if (!existing) {
+                        renderMessageBubble(msg);
+                    }
                 });
             }
 
@@ -8479,33 +8504,57 @@ document.addEventListener('DOMContentLoaded', () => {
         const startHealthCheckTime = Date.now();
         let isConnected = false;
 
-        // Initially disable Create and Join buttons until backend is verified
-        if (createRoomBtn) createRoomBtn.disabled = true;
-        if (joinRoomBtn) joinRoomBtn.disabled = true;
-        if (statusEl) {
-            statusEl.classList.remove("hidden");
-            statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-[#ff7320]/15 text-[#ff7320]";
-            statusEl.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1.5"></i>Connecting to server…';
+        function markConnected() {
+            if (isConnected) return;
+            isConnected = true;
+            if (createRoomBtn) createRoomBtn.disabled = false;
+            if (joinRoomBtn) joinRoomBtn.disabled = false;
+            if (statusEl) {
+                if (!statusEl.classList.contains("hidden")) {
+                    statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-emerald-500/15 text-emerald-400";
+                    statusEl.innerHTML = '<i class="fas fa-check mr-1.5"></i>Connected to server';
+                    setTimeout(() => {
+                        statusEl.classList.add("hidden");
+                    }, 1000);
+                } else {
+                    statusEl.classList.add("hidden");
+                }
+            }
         }
 
+        // If socket is already connected right now, mark connected immediately
+        if (socket && socket.connected) {
+            markConnected();
+            return;
+        }
+
+        // Listen for immediate socket connection
+        if (socket) {
+            socket.once("connect", markConnected);
+        }
+
+        // Only show connecting notice if connection takes > 1200ms (meaning server is actually waking up)
+        const delayNoticeTimer = setTimeout(() => {
+            if (!isConnected && statusEl) {
+                statusEl.classList.remove("hidden");
+                statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-[#ff7320]/15 text-[#ff7320]";
+                statusEl.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1.5"></i>Connecting to server…';
+            }
+        }, 1200);
+
         async function checkHealth() {
-            if (isConnected) return;
+            if (isConnected) {
+                clearTimeout(delayNoticeTimer);
+                return;
+            }
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 4000);
                 const res = await fetch(`${API_BASE}/health`, { signal: controller.signal, cache: 'no-store' });
                 clearTimeout(timeoutId);
                 if (res.ok) {
-                    isConnected = true;
-                    if (createRoomBtn) createRoomBtn.disabled = false;
-                    if (joinRoomBtn) joinRoomBtn.disabled = false;
-                    if (statusEl) {
-                        statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-emerald-500/15 text-emerald-400";
-                        statusEl.innerHTML = '<i class="fas fa-check mr-1.5"></i>Connected to server';
-                        setTimeout(() => {
-                            statusEl.classList.add("hidden");
-                        }, 1500);
-                    }
+                    clearTimeout(delayNoticeTimer);
+                    markConnected();
                     return;
                 }
             } catch (e) {
@@ -8515,6 +8564,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const elapsed = Date.now() - startHealthCheckTime;
             if (elapsed >= 90000) {
                 if (statusEl) {
+                    statusEl.classList.remove("hidden");
                     statusEl.className = "mt-3 text-center text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200 bg-red-500/15 text-red-400";
                     statusEl.innerHTML = '<i class="fas fa-triangle-exclamation mr-1.5"></i>Unable to connect to server. Please check your network connection.';
                 }
@@ -8635,6 +8685,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const s = JSON.parse(raw);
             if (s && s.kind === "chat" && s.roomInstanceId && s.sessionToken) {
+                // If socket is already connected and user is actively in the chat room, avoid redundant re-resumption
+                if (socket && socket.connected && window.currentRoomInstanceId === s.roomInstanceId && chatScreen && chatScreen.style.display === "flex") {
+                    return;
+                }
                 if (socket && socket.connected) {
                     socket.emit("resume-session", {
                         roomInstanceId: s.roomInstanceId,

@@ -735,7 +735,24 @@ io.on("connection", (socket) => {
     if (!trimmedUsername) {
       return socket.emit("room-creation-error", "Please provide a valid codename.");
     }
-    if (rooms[trimmedKey]) return socket.emit("room-exists", "This room key is already taken.");
+    if (rooms[trimmedKey]) {
+      const existing = rooms[trimmedKey];
+      // If the admin is retrying or creating with their same socket/username, re-emit room-created
+      if (existing.admin && (existing.admin.id === socket.id || existing.admin.username.toLowerCase() === trimmedUsername.toLowerCase())) {
+        existing.admin.id = socket.id;
+        socket.join(trimmedKey);
+        return socket.emit("room-created", {
+          isAdmin: true,
+          roomKey: trimmedKey,
+          roomInstanceId: existing.roomInstanceId,
+          sessionToken: existing.admin.sessionToken,
+          memberId: existing.admin.memberId,
+          username: existing.admin.username,
+          expiresAt: existing.lastActivity + ROOM_TTL_MS
+        });
+      }
+      return socket.emit("room-exists", "This room key is already taken.");
+    }
     const roomInstanceId = crypto.randomUUID();
     const sessionToken = crypto.randomBytes(16).toString("hex");
     const memberId = crypto.randomUUID();

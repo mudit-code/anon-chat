@@ -6279,7 +6279,7 @@ body.light-mode .drag-drop-box {
 
 .toast-box {
   position: fixed;
-  top: 20px;
+  top: max(20px, calc(var(--sat, 0px) + 16px));
   left: 50%;
   transform: translateX(-50%) translateY(-24px);
   background: rgba(24, 24, 24, 0.96);
@@ -6300,6 +6300,13 @@ body.light-mode .drag-drop-box {
   align-items: center;
   gap: 10px;
   max-width: 90vw;
+}
+
+@media (max-width: 640px) {
+  .toast-box {
+    top: max(52px, calc(var(--sat, 0px) + 20px));
+    max-width: calc(100vw - 32px);
+  }
 }
 
 .toast-box.show {
