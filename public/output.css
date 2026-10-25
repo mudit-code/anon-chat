@@ -799,6 +799,10 @@ input:focus-visible,
   top: 0.75rem;
 }
 
+.top-5 {
+  top: 1.25rem;
+}
+
 .isolate {
   isolation: isolate;
 }
@@ -1066,6 +1070,10 @@ input:focus-visible,
   height: 1.5rem;
 }
 
+.h-7 {
+  height: 1.75rem;
+}
+
 .h-8 {
   height: 2rem;
 }
@@ -1182,6 +1190,10 @@ input:focus-visible,
   width: 1.5rem;
 }
 
+.w-7 {
+  width: 1.75rem;
+}
+
 .w-8 {
   width: 2rem;
 }
@@ -1212,6 +1224,10 @@ input:focus-visible,
 
 .w-\[7px\] {
   width: 7px;
+}
+
+.w-\[92\%\] {
+  width: 92%;
 }
 
 .w-\[92vw\] {
@@ -1280,22 +1296,6 @@ input:focus-visible,
 
 .transform {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(-25%);
-    animation-timing-function: cubic-bezier(0.8,0,1,1);
-  }
-
-  50% {
-    transform: none;
-    animation-timing-function: cubic-bezier(0,0,0.2,1);
-  }
-}
-
-.animate-bounce {
-  animation: bounce 1s infinite;
 }
 
 @keyframes fade-in {
@@ -1509,6 +1509,10 @@ input:focus-visible,
   white-space: nowrap;
 }
 
+.break-words {
+  overflow-wrap: break-word;
+}
+
 .rounded {
   border-radius: 0.25rem;
 }
@@ -1645,11 +1649,6 @@ input:focus-visible,
   background-color: rgb(12 12 12 / var(--tw-bg-opacity, 1));
 }
 
-.bg-\[\#111111\] {
-  --tw-bg-opacity: 1;
-  background-color: rgb(17 17 17 / var(--tw-bg-opacity, 1));
-}
-
 .bg-\[\#111\]\/90 {
   background-color: rgb(17 17 17 / 0.9);
 }
@@ -1666,6 +1665,10 @@ input:focus-visible,
 .bg-\[\#181818\] {
   --tw-bg-opacity: 1;
   background-color: rgb(24 24 24 / var(--tw-bg-opacity, 1));
+}
+
+.bg-\[\#181818\]\/95 {
+  background-color: rgb(24 24 24 / 0.95);
 }
 
 .bg-\[\#1a1a1a\] {
@@ -1732,6 +1735,10 @@ input:focus-visible,
 
 .bg-\[\#ff7320\]\/15 {
   background-color: rgb(255 115 32 / 0.15);
+}
+
+.bg-\[\#ff7320\]\/20 {
+  background-color: rgb(255 115 32 / 0.2);
 }
 
 .bg-\[\#ff7b7b\] {
@@ -2045,6 +2052,10 @@ input:focus-visible,
   padding-bottom: 0.75rem;
 }
 
+.pr-2 {
+  padding-right: 0.5rem;
+}
+
 .pt-0\.5 {
   padding-top: 0.125rem;
 }
@@ -2104,12 +2115,20 @@ input:focus-visible,
   font-size: 12px;
 }
 
+.text-\[13px\] {
+  font-size: 13px;
+}
+
 .text-\[14px\] {
   font-size: 14px;
 }
 
 .text-\[15\.5px\] {
   font-size: 15.5px;
+}
+
+.text-\[15px\] {
+  font-size: 15px;
 }
 
 .text-\[17px\] {
@@ -2298,6 +2317,10 @@ input:focus-visible,
 
 .text-white\/90 {
   color: rgb(255 255 255 / 0.9);
+}
+
+.text-white\/95 {
+  color: rgb(255 255 255 / 0.95);
 }
 
 .underline {
@@ -6252,33 +6275,37 @@ body.light-mode .drag-drop-box {
   border-color: #dc2626;
 }
 
-/* Toast Box */
+/* Toast Box - Top floating overlay */
 
 .toast-box {
   position: fixed;
-  bottom: 24px;
+  top: 20px;
   left: 50%;
-  transform: translateX(-50%) translateY(30px);
-  background: #1c1917;
+  transform: translateX(-50%) translateY(-24px);
+  background: rgba(24, 24, 24, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   color: #ffffff;
-  border: 1px solid #ffb682;
-  padding: 10px 20px;
-  border-radius: 9999px;
-  font-size: 13px;
+  border: 1px solid rgba(255, 115, 32, 0.6);
+  padding: 10px 18px;
+  border-radius: 16px;
+  font-size: 13.5px;
   font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65);
   opacity: 0;
   pointer-events: none;
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 100;
+  z-index: 99999;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  max-width: 90vw;
 }
 
 .toast-box.show {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* File Sharing Room - Dark & Light Mode Doodle Tile Backgrounds & Logo Orange */
@@ -6858,6 +6885,45 @@ html.loading-file-room #fileRoomScreen {
   transform: translateY(-50%) scale(0.94) !important;
 }
 
+/* ========================================================
+   MESSAGE SELECTION & MULTI-ACTIONS
+   ======================================================== */
+
+.message {
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.2s ease;
+  -moz-user-select: text;
+       user-select: text;
+  -webkit-user-select: text;
+}
+
+.message.selectable {
+  cursor: pointer;
+}
+
+.message.selected-message {
+  background-color: rgba(255, 115, 32, 0.14) !important;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1.5px rgba(255, 115, 32, 0.65);
+}
+
+.message-select-indicator {
+  display: none;
+}
+
+.selection-mode-active .message {
+  cursor: pointer;
+}
+
+.selection-mode-active .message * {
+  pointer-events: none;
+}
+
+.selection-mode-active #messagesInner {
+  -moz-user-select: none;
+       user-select: none;
+  -webkit-user-select: none;
+}
+
 @media (min-width: 768px) {
   .md\:hidden {
     display: none !important;
@@ -6872,6 +6938,10 @@ html.loading-file-room #fileRoomScreen {
 
 .hover\:border-\[\#ffb682\]\/60:hover {
   border-color: rgb(255 182 130 / 0.6);
+}
+
+.hover\:border-red-500\/50:hover {
+  border-color: rgb(239 68 68 / 0.5);
 }
 
 .hover\:bg-\[\#2a2a2a\]:hover {

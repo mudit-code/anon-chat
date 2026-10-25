@@ -42,10 +42,27 @@ function closeAppDialog(result) {
     }
 }
 
-function showToast(message, duration = 3000) {
+function showToast(message, duration = 5000) {
     const toast = document.getElementById("toastNotification");
     if (!toast) return;
-    toast.textContent = message;
+    const safeMsg = String(message || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    toast.innerHTML = `
+        <span class="flex-1 text-white text-[13px] font-medium leading-snug">${safeMsg}</span>
+        <button type="button" class="toast-close-btn text-[#9a9a9a] hover:text-white p-1 rounded transition-colors cursor-pointer" aria-label="Close">
+            <i class="fas fa-times text-xs"></i>
+        </button>
+    `;
+    const closeBtn = toast.querySelector('.toast-close-btn');
+    if (closeBtn) {
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            toast.classList.remove("show");
+            if (toast._timeout) clearTimeout(toast._timeout);
+        };
+    }
     toast.classList.add("show");
     if (toast._timeout) clearTimeout(toast._timeout);
     toast._timeout = setTimeout(() => {
@@ -716,10 +733,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Helper to clear messages container while preserving day chip
-    function clearMessages() {
+    function clearMessages(preservePending = false) {
         const inner = document.getElementById("messagesInner");
         if (inner) {
+            let pendingElements = [];
+            if (preservePending) {
+                pendingElements = Array.from(inner.querySelectorAll('.pending-message'));
+            }
             inner.innerHTML = '<div class="day-chip-wrapper" id="dayChip"><span class="day-chip">Today</span></div>';
+            pendingElements.forEach(el => inner.appendChild(el));
         } else {
             messagesDiv.innerHTML = "";
         }
@@ -888,8 +910,8 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.setAttribute('data-msg-id', clientMsgId);
             wrapper.setAttribute('data-client-msg-id', clientMsgId);
             wrapper.setAttribute('data-pending', 'true');
-            wrapper.setAttribute('data-room-instance-id', roomInstanceId || '');
             wrapper.className = "message flex flex-col items-end new-user pending-message";
+            bindMessageSelectionHandlers(wrapper, clientMsgId);
 
             const messageRow = document.createElement("div");
             messageRow.className = "flex flex-row items-center w-full justify-end message-row relative group";
@@ -1782,12 +1804,246 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ======== CHAT MESSAGE SELECTION & MULTI-ACTIONS (COPY / DELETE) ========
+    let selectionModeActive = false;
+    const selectedMessageIds = new Set();
+
+    function enterSelectionMode(messageId) {
+        if (!selectionModeActive) {
+            selectionModeActive = true;
+            document.body.classList.add('selection-mode-active');
+            const headerNormal = document.getElementById("chat-header-normal");
+            const headerSelection = document.getElementById("chat-header-selection");
+            if (headerNormal) headerNormal.classList.add("hidden");
+            if (headerSelection) headerSelection.classList.remove("hidden");
+        }
+        if (messageId) {
+            toggleMessageSelection(messageId);
+        }
+    }
+
+    function exitSelectionMode() {
+        selectionModeActive = false;
+        document.body.classList.remove('selection-mode-active');
+        selectedMessageIds.clear();
+        document.querySelectorAll('.message.selected-message').forEach(el => {
+            el.classList.remove('selected-message');
+        });
+        const headerNormal = document.getElementById("chat-header-normal");
+        const headerSelection = document.getElementById("chat-header-selection");
+        if (headerNormal) headerNormal.classList.remove("hidden");
+        if (headerSelection) headerSelection.classList.add("hidden");
+    }
+
+    function toggleMessageSelection(messageId) {
+        if (!messageId) return;
+        const strId = String(messageId);
+        const domId = strId.startsWith('msg-') ? strId : `msg-${strId}`;
+        const el = document.getElementById(domId) ||
+                   document.querySelector(`[data-client-msg-id="${strId}"]`) ||
+                   document.querySelector(`[data-msg-id="${strId}"]`) ||
+                   document.getElementById(strId);
+
+        if (selectedMessageIds.has(strId)) {
+            selectedMessageIds.delete(strId);
+            if (el) el.classList.remove('selected-message');
+        } else {
+            selectedMessageIds.add(strId);
+            if (el) el.classList.add('selected-message');
+        }
+
+        if (selectedMessageIds.size === 0) {
+            exitSelectionMode();
+            return;
+        }
+
+        const countText = document.getElementById("selectionCountText");
+        if (countText) {
+            countText.textContent = `${selectedMessageIds.size} selected`;
+        }
+    }
+
+    function bindMessageSelectionHandlers(el, messageId) {
+        if (!el || !messageId) return;
+        let pressTimer = null;
+        let touchMoved = false;
+
+        el.addEventListener('touchstart', (e) => {
+            touchMoved = false;
+            if (selectionModeActive) {
+                e.preventDefault();
+                return;
+            }
+            pressTimer = setTimeout(() => {
+                if (!touchMoved) {
+                    try { if (navigator.vibrate) navigator.vibrate(40); } catch (_) {}
+                    enterSelectionMode(messageId);
+                }
+            }, 450);
+        }, { passive: false });
+
+        el.addEventListener('touchmove', () => {
+            touchMoved = true;
+            if (pressTimer) clearTimeout(pressTimer);
+        }, { passive: true });
+
+        el.addEventListener('touchend', (e) => {
+            if (pressTimer) clearTimeout(pressTimer);
+            if (selectionModeActive && !touchMoved) {
+                e.preventDefault();
+                toggleMessageSelection(messageId);
+            }
+        });
+
+        el.addEventListener('touchcancel', () => {
+            if (pressTimer) clearTimeout(pressTimer);
+        });
+
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (!selectionModeActive) {
+                enterSelectionMode(messageId);
+            } else {
+                toggleMessageSelection(messageId);
+            }
+        });
+
+        el.addEventListener('click', (e) => {
+            if (selectionModeActive) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleMessageSelection(messageId);
+            }
+        });
+    }
+
+    async function copySelectedMessages() {
+        if (selectedMessageIds.size === 0) return;
+        const textsToCopy = [];
+        const allBubbles = document.querySelectorAll('#messagesInner .message');
+
+        allBubbles.forEach(msgEl => {
+            const id = msgEl.getAttribute('data-msg-id') || msgEl.getAttribute('data-client-msg-id');
+            if (id && selectedMessageIds.has(String(id))) {
+                const stored = window.messageDataStore?.get(id) || window.messageDataStore?.get(msgEl.id);
+                if (stored && stored.snippet) {
+                    textsToCopy.push(`[${stored.senderName || 'Anonymous'}]: ${stored.snippet}`);
+                } else {
+                    const textEl = msgEl.querySelector('.msg-text');
+                    const senderEl = msgEl.querySelector('.msg-sender');
+                    const sender = senderEl ? senderEl.textContent.trim() : 'Anonymous';
+                    if (textEl) {
+                        textsToCopy.push(`[${sender}]: ${textEl.textContent.trim()}`);
+                    } else {
+                        const fileTitle = msgEl.querySelector('.file-title');
+                        if (fileTitle) {
+                            textsToCopy.push(`[${sender}]: File: ${fileTitle.textContent.trim()}`);
+                        } else {
+                            const mediaImg = msgEl.querySelector('img.message-file-preview, img.sticker-message');
+                            if (mediaImg && mediaImg.src) {
+                                textsToCopy.push(`[${sender}]: ${mediaImg.src}`);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const combinedText = textsToCopy.filter(Boolean).join('\n\n');
+        if (combinedText) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(combinedText);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = combinedText;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                showToast('Copied to clipboard');
+            } catch (err) {
+                showToast('Failed to copy messages');
+            }
+        }
+        exitSelectionMode();
+    }
+
+    function deleteSelectedMessages() {
+        if (selectedMessageIds.size === 0) return;
+        const idsToDelete = Array.from(selectedMessageIds);
+
+        socket.emit("delete-messages", {
+            roomKey,
+            roomInstanceId,
+            sessionToken,
+            messageIds: idsToDelete
+        });
+
+        idsToDelete.forEach(id => {
+            const strId = String(id);
+            const domId = strId.startsWith('msg-') ? strId : `msg-${strId}`;
+            const el = document.getElementById(domId) ||
+                       document.querySelector(`[data-client-msg-id="${strId}"]`) ||
+                       document.querySelector(`[data-msg-id="${strId}"]`) ||
+                       document.getElementById(strId);
+            if (el) {
+                el.style.transition = 'opacity 0.2s, transform 0.2s';
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.95)';
+                setTimeout(() => el.remove(), 200);
+            }
+            if (window.messageDataStore) window.messageDataStore.delete(strId);
+        });
+
+        showToast(`${idsToDelete.length} message${idsToDelete.length > 1 ? 's' : ''} deleted`);
+        exitSelectionMode();
+    }
+
+    const cancelSelectionBtn = document.getElementById("cancelSelectionBtn");
+    const copySelectedBtn = document.getElementById("copySelectedBtn");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
+    if (cancelSelectionBtn) cancelSelectionBtn.onclick = exitSelectionMode;
+    if (copySelectedBtn) copySelectedBtn.onclick = copySelectedMessages;
+    if (deleteSelectedBtn) deleteSelectedBtn.onclick = deleteSelectedMessages;
+
     function renderMessageBubble(msgPayload) {
         if (!msgPayload) return null;
         const user = msgPayload.username || msgPayload.user;
-        const message = (typeof msgPayload.message === 'object' && msgPayload.message !== null)
-            ? msgPayload.message
-            : { type: msgPayload.type || 'text', content: msgPayload.content || msgPayload.message };
+        let message = msgPayload.message;
+        if (!message && msgPayload.file) {
+            let dType = 'file';
+            const fMime = msgPayload.file.type || msgPayload.file.mimeType || '';
+            if (fMime.startsWith('image/')) dType = 'image';
+            else if (fMime.startsWith('video/')) dType = 'video';
+            else if (fMime.startsWith('audio/')) dType = 'audio';
+            message = {
+                type: dType,
+                content: msgPayload.file.path || '',
+                name: msgPayload.file.name || 'Document',
+                size: msgPayload.file.size || 0,
+                mimeType: fMime
+            };
+        } else if (typeof message === 'string') {
+            message = { type: msgPayload.type || 'text', content: message };
+        } else if (typeof message !== 'object' || message === null) {
+            message = { type: msgPayload.type || 'text', content: msgPayload.content || msgPayload.message || '' };
+        }
+
+        if ((!message.type || message.type === 'text') && message.content && typeof message.content === 'string') {
+            const clean = message.content.split('?')[0].toLowerCase();
+            if (/\.(jpg|jpeg|png|webp)($|\?)/i.test(clean)) {
+                message.type = 'image';
+            } else if (/\.(mp4|webm|mov|m4v)($|\?)/i.test(clean)) {
+                message.type = 'video';
+            } else if (/\.(gif)($|\?)/i.test(clean)) {
+                message.type = 'gif';
+            } else if (/\.(mp3|wav|ogg|m4a|aac)($|\?)/i.test(clean)) {
+                message.type = 'audio';
+            }
+        }
+
         const id = msgPayload.id || msgPayload.messageId || msgPayload.clientMsgId || `msg-${Date.now()}`;
         const clientMsgId = msgPayload.clientMsgId || id;
         const seenBy = msgPayload.seenBy || [];
@@ -1824,8 +2080,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const wrapper = document.createElement("div");
         wrapper.id = domId;
         wrapper.setAttribute('data-msg-id', id);
-        wrapper.setAttribute('data-client-msg-id', clientMsgId);
         wrapper.className = `message flex flex-col ${user === username ? 'items-end' : 'items-start'} ${isConsecutive ? 'same-user' : 'new-user'}`;
+        if (selectedMessageIds.has(String(id)) || selectedMessageIds.has(String(clientMsgId))) {
+            wrapper.classList.add('selected-message');
+        }
+        bindMessageSelectionHandlers(wrapper, id || clientMsgId);
 
         if (isConsecutive) {
             wrapper.classList.add("consecutive");
@@ -2234,24 +2493,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ======== UPLOAD PROGRESS BANNER HELPERS ========
-    function showUploadProgress(title, percent) {
-        const banner = document.getElementById("uploadProgressBanner");
-        const titleEl = document.getElementById("uploadProgressTitle");
-        const percentEl = document.getElementById("uploadProgressPercent");
-        const barEl = document.getElementById("uploadProgressBar");
-        if (!banner) return;
-        banner.classList.remove("hidden");
-        if (titleEl && title) titleEl.textContent = title;
-        const clampedPercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
-        if (percentEl) percentEl.textContent = `${clampedPercent}%`;
-        if (barEl) barEl.style.width = `${clampedPercent}%`;
-    }
-
-    function hideUploadProgress() {
-        const banner = document.getElementById("uploadProgressBanner");
-        if (banner) banner.classList.add("hidden");
-    }
+    // ======== UPLOAD PROGRESS BANNER HELPERS (Banner removed per user request: media progress is shown inside media itself) ========
+    function showUploadProgress(title, percent) {}
+    function hideUploadProgress() {}
 
     // ======== DIRECT MEDIA SEND MODULE (NO DRAFT TRAY) ========
     function sendMediaFilesDirectly(files, options = {}) {
@@ -2682,6 +2926,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start audio recording - replaces composer in place
     async function startAudioRecording() {
         if (!checkCanRecord()) return;
+        if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+            shouldKeepKeyboardOpen = true;
+        }
 
         if (!audioRecorder) {
             audioRecorder = new AudioRecorder({ maxDuration: 180 }); // 3 minutes max
@@ -3556,18 +3803,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (splashActionTimer) clearTimeout(splashActionTimer);
     }
 
+    let sessionNoticeTimer = null;
     function showSessionNotice(text) {
         const notice = document.getElementById("sessionNotice");
         const noticeText = document.getElementById("sessionNoticeText");
         if (notice && noticeText) {
             noticeText.textContent = text || "Your last room has ended.";
             notice.classList.remove("hidden");
+            if (sessionNoticeTimer) clearTimeout(sessionNoticeTimer);
+            sessionNoticeTimer = setTimeout(() => {
+                notice.classList.add("hidden");
+            }, 5000);
         }
     }
 
     const closeSessionNoticeBtn = document.getElementById("closeSessionNoticeBtn");
     if (closeSessionNoticeBtn) {
         closeSessionNoticeBtn.onclick = () => {
+            if (sessionNoticeTimer) clearTimeout(sessionNoticeTimer);
             const notice = document.getElementById("sessionNotice");
             if (notice) notice.classList.add("hidden");
         };
@@ -3930,27 +4183,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize send button state
     updateSendButtonState();
 
-    // Prevent button pointerdown from stealing focus or closing keyboard
-    if (sendBtn) {
-        sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        sendBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
-    if (fileBtn) {
-        fileBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        fileBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
-    if (cameraBtn) {
-        cameraBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        cameraBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
-    if (emojiBtn) {
-        emojiBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
-    if (recordBtn) {
-        recordBtn.addEventListener('pointerdown', (e) => e.preventDefault());
-        recordBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    }
+    // Prevent button pointerdown/touchstart from stealing focus or closing mobile keyboard
+    [sendBtn, fileBtn, cameraBtn, emojiBtn, recordBtn].forEach(btn => {
+        if (!btn) return;
+        btn.addEventListener('pointerdown', (e) => {
+            if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+                shouldKeepKeyboardOpen = true;
+            }
+            e.preventDefault();
+        });
+        btn.addEventListener('mousedown', (e) => {
+            if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+                shouldKeepKeyboardOpen = true;
+            }
+            e.preventDefault();
+        });
+        btn.addEventListener('touchstart', (e) => {
+            if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+                shouldKeepKeyboardOpen = true;
+            }
+        }, { passive: true });
+    });
 
     // ============================================================
     // PHASE 9: CAMERA BUTTON (TAP = PHOTO, HOLD = CIRCULAR SNAP)
@@ -4354,6 +4607,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isCameraHolding) {
                 e.preventDefault();
                 return;
+            }
+            if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+                shouldKeepKeyboardOpen = true;
             }
             takePhoto();
         };
@@ -4899,12 +5155,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // File button triggers file input
     fileBtn.onclick = () => {
+        if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+            shouldKeepKeyboardOpen = true;
+        }
         fileInput.click();
     };
 
     // Record button toggles audio recording
     if (recordBtn) {
         recordBtn.onclick = () => {
+            if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
+                shouldKeepKeyboardOpen = true;
+            }
             if (isRecording) {
                 stopAudioRecording();
             } else {
@@ -5154,6 +5416,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function openPreview(src, type = 'image', messageId = null) {
+        // Explicitly minimize mobile keyboard when media is clicked and opened
+        isUniversalBackDismissal = true;
+        shouldKeepKeyboardOpen = false;
+        if (messageInput) {
+            try { messageInput.blur(); } catch (_) {}
+        }
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            try { document.activeElement.blur(); } catch (_) {}
+        }
+        if (window.Capacitor?.Plugins?.Keyboard) {
+            try { window.Capacitor.Plugins.Keyboard.hide(); } catch (_) {}
+        }
+        setTimeout(() => {
+            isUniversalBackDismissal = false;
+        }, 350);
+
         if (!previewModal || !previewContent) return;
         refreshGalleryItems();
 
@@ -6486,7 +6764,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatScreen) chatScreen.style.display = "flex";
             if (fileRoomScreen) fileRoomScreen.style.display = "none";
 
-            clearMessages();
+            clearMessages(true);
             if (res.messages && Array.isArray(res.messages)) {
                 res.messages.forEach(msg => {
                     renderMessageBubble(msg);
@@ -6682,6 +6960,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on("reactions-updated", ({ messageId, reactions }) => {
         updateMessageReactions(messageId, reactions);
+    });
+
+    socket.on("messages-deleted", ({ messageIds }) => {
+        if (!Array.isArray(messageIds)) return;
+        messageIds.forEach(id => {
+            const strId = String(id);
+            const domId = strId.startsWith('msg-') ? strId : `msg-${strId}`;
+            const el = document.getElementById(domId) ||
+                       document.querySelector(`[data-client-msg-id="${strId}"]`) ||
+                       document.querySelector(`[data-msg-id="${strId}"]`) ||
+                       document.getElementById(strId);
+            if (el) {
+                el.style.transition = 'opacity 0.2s, transform 0.2s';
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.95)';
+                setTimeout(() => el.remove(), 200);
+            }
+            if (window.messageDataStore) window.messageDataStore.delete(strId);
+            if (selectedMessageIds.has(strId)) {
+                selectedMessageIds.delete(strId);
+            }
+        });
+        if (selectedMessageIds.size === 0 && selectionModeActive) {
+            exitSelectionMode();
+        }
     });
 
     // Production-grade typing indicator handlers

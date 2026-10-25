@@ -186,19 +186,6 @@
     <div class="landing-right light-panel">
       <div class="landing-right-content">
 
-        <!-- Dismissible Session Notice (Phase 2) -->
-        <div id="sessionNotice"
-          class="hidden mb-4 p-3 bg-[#1e1e1e] border border-[#ff7320]/40 rounded-xl text-xs flex items-center justify-between text-white shadow-lg animate-fade-in">
-          <div class="flex items-center gap-2">
-            <i class="fas fa-circle-info text-[#ff7320] text-sm"></i>
-            <span id="sessionNoticeText">Your last room has ended</span>
-          </div>
-          <button id="closeSessionNoticeBtn" type="button"
-            class="text-[#9a9a9a] hover:text-white p-1 ml-2 transition-colors">
-            <i class="fas fa-times text-xs"></i>
-          </button>
-        </div>
-
         <!-- Chat Room Creation Panel -->
         <div id="panelChatRoom">
           <h2 class="landing-form-title font-heading font-bold tracking-tight">Start or join a room</h2>
@@ -303,32 +290,55 @@
   <!-- ================= CHAT SCREEN ================= -->
   <div id="chatScreen" style="display: none;">
     <!-- Chat Header -->
-    <div id="chat-header" class="flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <img src="/logo.png" alt="Anon Chat" class="header-logo">
-        <div class="flex flex-col header-brand-info">
-          <span class="font-heading font-bold text-[17px] text-white leading-tight header-title">Anon Chat</span>
-          <div class="header-subtitle text-[12px] text-[#9a9a9a] flex items-center gap-1.5 mt-0.5">
-            <span class="header-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block"></span>
-            <span class="header-status-text">Private room · <span id="headerOnlineCount"
-                class="header-online-count font-semibold">0</span> online</span>
+    <div id="chat-header" class="relative flex items-center justify-between">
+      <!-- Regular Header View -->
+      <div id="chat-header-normal" class="flex items-center justify-between w-full">
+        <div class="flex items-center space-x-3">
+          <img src="/logo.png" alt="Anon Chat" class="header-logo">
+          <div class="flex flex-col header-brand-info">
+            <span class="font-heading font-bold text-[17px] text-white leading-tight header-title">Anon Chat</span>
+            <div class="header-subtitle text-[12px] text-[#9a9a9a] flex items-center gap-1.5 mt-0.5">
+              <span class="header-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block"></span>
+              <span class="header-status-text">Private room · <span id="headerOnlineCount"
+                  class="header-online-count font-semibold">0</span> online</span>
+            </div>
           </div>
         </div>
+        <div class="flex items-center space-x-2">
+          <button id="themeToggleBtn" title="Switch to light mode" class="header-btn" aria-label="Toggle theme">
+            <i id="themeToggleIcon" class="fas fa-sun text-xs"></i>
+            <span class="header-btn-text" id="themeToggleText">Light</span>
+          </button>
+          <button id="mobileUsersBtn" title="View users" class="md:hidden header-btn relative">
+            <i class="fas fa-users text-sm"></i>
+            <span id="mobileUserCount"
+              class="absolute -top-1 -right-1 bg-[#ffb682] text-black text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">0</span>
+          </button>
+          <button id="leaveBtn" title="Leave chat" class="header-btn">
+            <i class="fas fa-sign-out-alt text-xs"></i>
+            <span class="header-btn-text">Leave</span>
+          </button>
+        </div>
       </div>
-      <div class="flex items-center space-x-2">
-        <button id="themeToggleBtn" title="Switch to light mode" class="header-btn" aria-label="Toggle theme">
-          <i id="themeToggleIcon" class="fas fa-sun text-xs"></i>
-          <span class="header-btn-text" id="themeToggleText">Light</span>
-        </button>
-        <button id="mobileUsersBtn" title="View users" class="md:hidden header-btn relative">
-          <i class="fas fa-users text-sm"></i>
-          <span id="mobileUserCount"
-            class="absolute -top-1 -right-1 bg-[#ffb682] text-black text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">0</span>
-        </button>
-        <button id="leaveBtn" title="Leave chat" class="header-btn">
-          <i class="fas fa-sign-out-alt text-xs"></i>
-          <span class="header-btn-text">Leave</span>
-        </button>
+
+      <!-- Selection Mode Header View -->
+      <div id="chat-header-selection" class="hidden flex items-center justify-between w-full animate-fade-in">
+        <div class="flex items-center space-x-3">
+          <button id="cancelSelectionBtn" type="button" class="header-btn" title="Cancel selection" aria-label="Cancel selection">
+            <i class="fas fa-times text-sm"></i>
+          </button>
+          <span id="selectionCountText" class="font-heading font-semibold text-[15px] text-white tracking-wide">1 selected</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="copySelectedBtn" type="button" class="header-btn" title="Copy selected messages" aria-label="Copy selected messages">
+            <i class="fas fa-copy text-xs text-[#ffb682]"></i>
+            <span class="header-btn-text">Copy</span>
+          </button>
+          <button id="deleteSelectedBtn" type="button" class="header-btn hover:border-red-500/50" title="Delete selected messages" aria-label="Delete selected messages">
+            <i class="fas fa-trash-alt text-xs text-red-400"></i>
+            <span class="header-btn-text text-red-400 font-semibold">Delete</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -380,23 +390,6 @@
               <span class="recording-pulse inline-flex items-center ml-1">
                 <span class="recording-dot"></span>
               </span>
-            </div>
-
-            <!-- Active Media Upload Progress Banner -->
-            <div id="uploadProgressBanner"
-              class="hidden mb-2.5 p-2.5 rounded-xl bg-[#1c1c1c] border border-[#ff7320]/40 text-xs shadow-lg">
-              <div class="flex items-center justify-between gap-2 mb-1.5">
-                <div class="flex items-center gap-2 min-w-0">
-                  <i class="fas fa-cloud-arrow-up text-[#ffb682] animate-bounce text-sm"></i>
-                  <span id="uploadProgressTitle" class="text-white font-medium truncate">Sending media...</span>
-                </div>
-                <span id="uploadProgressPercent" class="font-mono text-[#ffb682] font-semibold text-xs">0%</span>
-              </div>
-              <div class="w-full bg-[#111111] rounded-full h-1.5 overflow-hidden">
-                <div id="uploadProgressBar"
-                  class="bg-gradient-to-r from-[#ff7320] to-[#ffb682] h-full transition-all duration-150 rounded-full"
-                  style="width: 0%;"></div>
-              </div>
             </div>
 
             <!-- Media Previews Strip (Rewritten Draft System) -->
@@ -1132,6 +1125,21 @@
         </button>
       </div>
     </div>
+  </div>
+
+  <!-- Floating Top Overlay Session Notice Toast -->
+  <div id="sessionNotice"
+    class="hidden fixed top-5 left-1/2 -translate-x-1/2 z-[99999] w-[92%] max-w-sm p-3.5 bg-[#181818]/95 backdrop-blur-md border border-[#ff7320]/60 rounded-2xl text-xs flex items-center justify-between text-white shadow-2xl transition-all duration-300 pointer-events-auto">
+    <div class="flex items-center gap-2.5 min-w-0 pr-2">
+      <div class="w-7 h-7 rounded-full bg-[#ff7320]/20 flex items-center justify-center flex-shrink-0 text-[#ff7320]">
+        <i class="fas fa-circle-info text-sm"></i>
+      </div>
+      <span id="sessionNoticeText" class="font-medium text-sm text-white/95 leading-snug break-words">Your last room has ended</span>
+    </div>
+    <button id="closeSessionNoticeBtn" type="button"
+      class="text-[#9a9a9a] hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors flex-shrink-0 cursor-pointer" aria-label="Close notification">
+      <i class="fas fa-times text-sm"></i>
+    </button>
   </div>
 
   <!-- Toast Notification Container -->

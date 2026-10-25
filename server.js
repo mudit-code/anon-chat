@@ -1033,10 +1033,24 @@ io.on("connection", (socket) => {
       return socket.emit("file-uploaded", existing.entry);
     }
 
+    let detectedType = 'file';
+    if (file?.type) {
+      if (file.type.startsWith('image/')) detectedType = 'image';
+      else if (file.type.startsWith('video/')) detectedType = 'video';
+      else if (file.type.startsWith('audio/')) detectedType = 'audio';
+    }
+
     const entry = {
       id: messageId || clientMsgId || `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
       clientMsgId: clientMsgId || messageId,
       username,
+      message: {
+        type: detectedType,
+        content: file?.path || '',
+        name: file?.name || 'file',
+        size: file?.size || 0,
+        mimeType: file?.type || ''
+      },
       file,
       timestamp: Date.now(),
       seenBy: []
@@ -1150,6 +1164,43 @@ io.on("connection", (socket) => {
       messageId,
       reactions: reactionsObj
     });
+  });
+
+  // Delete message(s) synchronization handlers
+  socket.on("delete-messages", (data) => {
+    if (!data) return;
+    const { roomKey, roomInstanceId, messageIds } = data;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || (roomKey && rooms[roomKey]);
+    if (!room || !Array.isArray(messageIds) || messageIds.length === 0) return;
+
+    const idSet = new Set(messageIds.map(String));
+    room.messages = room.messages.filter(m => !idSet.has(String(m.id)) && !idSet.has(String(m.clientMsgId)));
+
+    if (room.dedupeMap) {
+      for (const id of idSet) {
+        room.dedupeMap.delete(id);
+      }
+    }
+    room.lastActivity = Date.now();
+    io.to(room.roomKey).emit("messages-deleted", { messageIds: Array.from(idSet) });
+  });
+
+  socket.on("delete-message", (data) => {
+    if (!data) return;
+    const messageId = data.messageId || data.id;
+    if (!messageId) return;
+    const roomKey = data.roomKey;
+    const roomInstanceId = data.roomInstanceId;
+    const room = (roomInstanceId && findRoomByInstanceId(roomInstanceId)) || (roomKey && rooms[roomKey]);
+    if (!room) return;
+
+    const targetId = String(messageId);
+    room.messages = room.messages.filter(m => String(m.id) !== targetId && String(m.clientMsgId) !== targetId);
+    if (room.dedupeMap) {
+      room.dedupeMap.delete(targetId);
+    }
+    room.lastActivity = Date.now();
+    io.to(room.roomKey).emit("messages-deleted", { messageIds: [targetId] });
   });
 
   // Production-grade typing indicators

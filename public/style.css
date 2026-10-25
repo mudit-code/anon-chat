@@ -3567,32 +3567,36 @@ body.light-mode .drag-drop-box {
   border-color: #dc2626;
 }
 
-/* Toast Box */
+/* Toast Box - Top floating overlay */
 .toast-box {
   position: fixed;
-  bottom: 24px;
+  top: 20px;
   left: 50%;
-  transform: translateX(-50%) translateY(30px);
-  background: #1c1917;
+  transform: translateX(-50%) translateY(-24px);
+  background: rgba(24, 24, 24, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   color: #ffffff;
-  border: 1px solid #ffb682;
-  padding: 10px 20px;
-  border-radius: 9999px;
-  font-size: 13px;
+  border: 1px solid rgba(255, 115, 32, 0.6);
+  padding: 10px 18px;
+  border-radius: 16px;
+  font-size: 13.5px;
   font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65);
   opacity: 0;
   pointer-events: none;
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 100;
+  z-index: 99999;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  max-width: 90vw;
 }
 
 .toast-box.show {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* File Sharing Room - Dark & Light Mode Doodle Tile Backgrounds & Logo Orange */
@@ -4144,4 +4148,40 @@ html.loading-file-room #fileRoomScreen {
 
 #previewPrevBtn:active, #previewNextBtn:active {
   transform: translateY(-50%) scale(0.94) !important;
+}
+
+/* ========================================================
+   MESSAGE SELECTION & MULTI-ACTIONS
+   ======================================================== */
+.message {
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.2s ease;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.message.selectable {
+  cursor: pointer;
+}
+
+.message.selected-message {
+  background-color: rgba(255, 115, 32, 0.14) !important;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1.5px rgba(255, 115, 32, 0.65);
+}
+
+.message-select-indicator {
+  display: none;
+}
+
+.selection-mode-active .message {
+  cursor: pointer;
+}
+
+.selection-mode-active .message * {
+  pointer-events: none;
+}
+
+.selection-mode-active #messagesInner {
+  user-select: none;
+  -webkit-user-select: none;
 }
