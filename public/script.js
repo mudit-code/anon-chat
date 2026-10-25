@@ -7232,6 +7232,107 @@ document.addEventListener('DOMContentLoaded', () => {
     initLandingChatAnimation();
 
     // ============================================================
+    // ANIMATED LIVE VAULT PREVIEW IN MOBILE VIEW (Screenshot 2)
+    // ============================================================
+    function initMobileVaultAnimation() {
+        const vaultList = document.getElementById("mobileDemoVaultFilesList");
+        const timerEl = document.getElementById("mobileVaultTimer");
+        if (!vaultList && !timerEl) return;
+
+        // Live countdown timer ticking down smoothly
+        let remainingSeconds = 1795; // 29:55
+        setInterval(() => {
+            if (document.hidden) return;
+            remainingSeconds = (remainingSeconds - 1 + 1800) % 1800;
+            const m = Math.floor(remainingSeconds / 60);
+            const s = remainingSeconds % 60;
+            const currentTimerEl = document.getElementById("mobileVaultTimer");
+            if (currentTimerEl) {
+                currentTimerEl.textContent = `${m}:${s < 10 ? '0' : ''}${s} left`;
+            }
+        }, 1000);
+
+        const vaultFilesPool = [
+            { name: "Project_brief.pdf", size: "1.2 MB", icon: "far fa-file-pdf" },
+            { name: "photos.zip", size: "48 MB", icon: "far fa-file-zipper" },
+            { name: "design_v3.fig", size: "6 MB", icon: "far fa-file-code" },
+            { name: "dataset_q3.csv", size: "3.4 MB", icon: "far fa-file-lines" },
+            { name: "audio_brief.mp3", size: "8.1 MB", icon: "far fa-file-audio" },
+            { name: "contract_signed.pdf", size: "2.1 MB", icon: "far fa-file-pdf" },
+            { name: "brand_assets.zip", size: "112 MB", icon: "far fa-file-zipper" },
+            { name: "financial_report.xlsx", size: "940 KB", icon: "far fa-file-excel" }
+        ];
+
+        let fileIndex = 3;
+        const MAX_FILES = 3;
+
+        function addNextVaultFile() {
+            const list = document.getElementById("mobileDemoVaultFilesList");
+            if (!list) return;
+            if (chatScreen && chatScreen.style.display !== "none") return;
+            if (document.hidden) return;
+
+            const fData = vaultFilesPool[fileIndex % vaultFilesPool.length];
+            fileIndex++;
+
+            const item = document.createElement("div");
+            item.className = "demo-vault-file-item animate-enter file-item-active";
+
+            const left = document.createElement("div");
+            left.className = "file-item-left";
+            left.innerHTML = `<i class="${fData.icon} file-icon"></i><span class="file-name">${fData.name}</span>`;
+
+            const right = document.createElement("div");
+            right.className = "file-item-right";
+            right.innerHTML = `<span class="file-size">${fData.size}</span><i class="fas fa-check file-check"></i>`;
+
+            item.appendChild(left);
+            item.appendChild(right);
+
+            // Remove active highlight from previous items
+            list.querySelectorAll(".demo-vault-file-item.file-item-active").forEach(el => {
+                el.classList.remove("file-item-active");
+            });
+
+            // Smoothly collapse and slide out oldest item if max reached
+            const activeItems = list.querySelectorAll(".demo-vault-file-item:not(.demo-exiting)");
+            if (activeItems.length >= MAX_FILES) {
+                const oldest = activeItems[0];
+                oldest.classList.add("demo-exiting");
+                const currentHeight = oldest.offsetHeight;
+                oldest.style.maxHeight = currentHeight + "px";
+                oldest.style.overflow = "hidden";
+                oldest.style.transition = "max-height 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), margin-bottom 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.4s ease";
+                oldest.style.opacity = "0";
+                oldest.style.maxHeight = "0px";
+                oldest.style.marginBottom = "0px";
+                oldest.style.paddingTop = "0px";
+                oldest.style.paddingBottom = "0px";
+
+                setTimeout(() => {
+                    if (oldest.parentNode) {
+                        oldest.parentNode.removeChild(oldest);
+                    }
+                }, 650);
+            }
+
+            list.appendChild(item);
+        }
+
+        function scheduleNextVaultFile() {
+            const delay = Math.floor(Math.random() * 1500) + 3200;
+            setTimeout(() => {
+                addNextVaultFile();
+                scheduleNextVaultFile();
+            }, delay);
+        }
+
+        scheduleNextVaultFile();
+    }
+
+    initMobileVaultAnimation();
+
+    // ============================================================
     // ANONYMOUS FILE SHARING ROOMS & DUAL TILE CAROUSEL CONTROLLER
     // ============================================================
     (function initAnonymousFileSharing() {
