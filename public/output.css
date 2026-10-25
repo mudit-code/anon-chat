@@ -1503,6 +1503,10 @@ input:focus-visible,
   overflow: hidden;
 }
 
+.overflow-visible {
+  overflow: visible;
+}
+
 .overflow-y-auto {
   overflow-y: auto;
 }
@@ -2147,10 +2151,6 @@ input:focus-visible,
   font-size: 7px;
 }
 
-.text-\[8px\] {
-  font-size: 8px;
-}
-
 .text-\[9px\] {
   font-size: 9px;
 }
@@ -2374,6 +2374,10 @@ input:focus-visible,
   opacity: 0.65;
 }
 
+.opacity-75 {
+  opacity: 0.75;
+}
+
 .shadow {
   --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
@@ -2426,6 +2430,11 @@ input:focus-visible,
 
 .blur {
   --tw-blur: blur(8px);
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+
+.blur-\[0\.5px\] {
+  --tw-blur: blur(0.5px);
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
@@ -4186,13 +4195,33 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   color: #78716c;
 }
 
-/* Sticker Bubble - borderless & transparent background */
+/* Sticker Bubble - strictly borderless & transparent background */
 
-.sticker-bubble {
+.sticker-bubble,
+.sticker-bubble.pending-bubble,
+.pending-message .sticker-bubble,
+.pending-failed .sticker-bubble,
+.message-bubble.sticker-bubble,
+.sent-message.sticker-bubble {
   background: transparent !important;
+  background-color: transparent !important;
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
+  min-width: 0 !important;
+  outline: none !important;
+}
+
+.sticker-bubble .pending-actions {
+  border-top: none !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px);
+  border-radius: 9999px !important;
+  padding: 4px 10px !important;
+  margin-top: 6px !important;
+  width: -moz-fit-content !important;
+  width: fit-content !important;
+  margin-left: auto !important;
 }
 
 .sticker-message {
@@ -4516,6 +4545,7 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
    ============================================================ */
 
 #mediaPreviews {
+  display: none !important;
   background: #141414;
   border: 1px solid #262626;
   border-radius: 16px;

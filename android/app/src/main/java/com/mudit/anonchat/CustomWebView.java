@@ -26,7 +26,9 @@ public class CustomWebView extends CapacitorWebView {
     public class KeyboardBridge {
         @JavascriptInterface
         public String getPendingData() {
-            return pendingBase64 != null ? pendingBase64 : "";
+            String data = pendingBase64;
+            pendingBase64 = "";
+            return data != null ? data : "";
         }
 
         @JavascriptInterface
@@ -146,22 +148,13 @@ public class CustomWebView extends CapacitorWebView {
                             pendingName = finalName;
 
                             post(() -> {
-                                // Trigger via JavaScriptInterface first (bypasses Android IPC 1MB buffer limit entirely)
+                                // Trigger via JavaScriptInterface (bypasses Android IPC 1MB buffer limit entirely)
                                 String js = "if (typeof window.handleAndroidKeyboardContent === 'function') { " +
                                             "    window.handleAndroidKeyboardContent(); " +
                                             "} else { " +
                                             "    window.dispatchEvent(new CustomEvent('keyboardContentReady')); " +
                                             "}";
                                 evaluateJavascript(js, null);
-
-                                // If payload is small enough (< 400KB), also dispatch direct CustomEvent fallback
-                                if (dataUrl.length() < 400000) {
-                                    String safeBase64 = dataUrl.replace("\\", "\\\\").replace("'", "\\'");
-                                    String safeMime = finalMime.replace("'", "\\'");
-                                    String safeName = finalName.replace("'", "\\'");
-                                    String fallbackJs = "window.dispatchEvent(new CustomEvent('keyboardContent', { detail: { mimeType: '" + safeMime + "', base64: '" + safeBase64 + "', name: '" + safeName + "' } }));";
-                                    evaluateJavascript(fallbackJs, null);
-                                }
                             });
                         }
                     } catch (Exception ex) {

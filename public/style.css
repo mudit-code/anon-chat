@@ -1645,12 +1645,31 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   color: #78716c;
 }
 
-/* Sticker Bubble - borderless & transparent background */
-.sticker-bubble {
+/* Sticker Bubble - strictly borderless & transparent background */
+.sticker-bubble,
+.sticker-bubble.pending-bubble,
+.pending-message .sticker-bubble,
+.pending-failed .sticker-bubble,
+.message-bubble.sticker-bubble,
+.sent-message.sticker-bubble {
   background: transparent !important;
+  background-color: transparent !important;
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
+  min-width: 0 !important;
+  outline: none !important;
+}
+
+.sticker-bubble .pending-actions {
+  border-top: none !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px);
+  border-radius: 9999px !important;
+  padding: 4px 10px !important;
+  margin-top: 6px !important;
+  width: fit-content !important;
+  margin-left: auto !important;
 }
 
 .sticker-message {
@@ -1945,6 +1964,7 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
    REWRITTEN MEDIA DRAFT SYSTEM
    ============================================================ */
 #mediaPreviews {
+  display: none !important;
   background: #141414;
   border: 1px solid #262626;
   border-radius: 16px;

@@ -43,8 +43,13 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-room-instance-id",
+    "x-client-msg-id",
+    "x-session-token"
+  ]
 };
 
 app.use(cors(corsOptions));
@@ -131,8 +136,8 @@ app.post("/upload", (req, res, next) => {
   res.on("finish", cleanup);
   res.on("close", cleanup);
 
-  const roomInstanceIdHeader = req.headers["x-room-instance-id"];
-  const clientMsgIdHeader = req.headers["x-client-msg-id"];
+  const roomInstanceIdHeader = req.headers["x-room-instance-id"] || req.query?.roomInstanceId;
+  const clientMsgIdHeader = req.headers["x-client-msg-id"] || req.query?.clientMsgId;
   const totalContentLength = Number(req.headers["content-length"]) || 0;
   let receivedBytes = 0;
   let lastProgressBroadcast = 0;
@@ -180,8 +185,8 @@ app.post("/upload", (req, res, next) => {
 }, (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded." });
 
-  const roomInstanceId = req.body?.roomInstanceId || req.headers["x-room-instance-id"];
-  const clientMsgId = req.body?.clientMsgId || req.headers["x-client-msg-id"];
+  const roomInstanceId = req.body?.roomInstanceId || req.query?.roomInstanceId || req.headers["x-room-instance-id"];
+  const clientMsgId = req.body?.clientMsgId || req.query?.clientMsgId || req.headers["x-client-msg-id"];
 
   if (roomInstanceId) {
     const room = findRoomByInstanceId(roomInstanceId);
