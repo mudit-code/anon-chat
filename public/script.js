@@ -4007,6 +4007,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (askToJoinScreen) askToJoinScreen.classList.add("hidden");
         if (roomUnavailableState) roomUnavailableState.classList.add("hidden");
         if (panelChatRoom) panelChatRoom.classList.remove("hidden");
+        const joinScreenEl = document.getElementById("joinScreen");
+        if (joinScreenEl) joinScreenEl.classList.remove("show-mobile-invite");
         pendingInviteKey = null;
         if (window.history && window.history.replaceState) {
             window.history.replaceState(null, '', window.location.pathname);
@@ -8348,6 +8350,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const askJoinRoomBtn = document.getElementById("askJoinRoomBtn") || document.getElementById("askToJoinBtn");
 
             function applyPeek(res) {
+                const joinScreenEl = document.getElementById("joinScreen");
+                if (joinScreenEl) joinScreenEl.classList.add("show-mobile-invite");
                 if (res && res.exists && !res.full) {
                     if (roomUnavailableState) roomUnavailableState.classList.add("hidden");
                     if (panelChatRoom) panelChatRoom.classList.add("hidden");
@@ -8770,7 +8774,459 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    document.querySelectorAll(".header-logo, .landing-logo-img, .landing-logo-header").forEach(el => {
+    document.querySelectorAll(".header-logo, .landing-logo-img, .landing-logo-header, .mobile-logo-img, .mobile-logo-wrap").forEach(el => {
         el.addEventListener("click", handleLogoTap);
     });
+
+    // ============================================================
+    // MOBILE FIRST HOME SCREEN & BOTTOM SHEET CONTROLLER
+    // ============================================================
+    function initMobileHome() {
+        const mobileHomeScreen = document.getElementById("mobileHomeScreen");
+        if (!mobileHomeScreen) return;
+
+        const MOBILE_ADJECTIVES = [
+            "paper", "quiet", "cosmic", "mint", "swift", "silent", "velvet", "amber",
+            "shadow", "frost", "bright", "golden", "silver", "solar", "lunar", "wild",
+            "calm", "neon", "mystic", "echo", "iron", "cedar", "ocean", "sage", "ruby",
+            "hazel", "drift", "clover", "copper", "breeze"
+        ];
+        const MOBILE_ANIMALS = [
+            "fox", "otter", "owl", "falcon", "badger", "wolf", "lynx", "bear", "hawk",
+            "tiger", "panda", "finch", "raven", "crane", "koala", "seal", "deer",
+            "sparrow", "jaguar", "nightjar", "heron", "beaver", "dolphin", "ferret"
+        ];
+
+        function getRandomItem(arr) {
+            if (window.crypto && window.crypto.getRandomValues) {
+                const buf = new Uint32Array(1);
+                window.crypto.getRandomValues(buf);
+                return arr[buf[0] % arr.length];
+            }
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function getRandomCodename() {
+            return `${getRandomItem(MOBILE_ADJECTIVES)}_${getRandomItem(MOBILE_ANIMALS)}`;
+        }
+
+        function getRandomRoomKey() {
+            const adj = getRandomItem(MOBILE_ADJECTIVES);
+            const animal = getRandomItem(MOBILE_ANIMALS);
+            let num = 42;
+            if (window.crypto && window.crypto.getRandomValues) {
+                const buf = new Uint32Array(1);
+                window.crypto.getRandomValues(buf);
+                num = (buf[0] % 90) + 10;
+            } else {
+                num = Math.floor(Math.random() * 90) + 10;
+            }
+            return `${adj}-${animal}-${num}`;
+        }
+
+        // Tabs & Content
+        const mobileTabChat = document.getElementById("mobileTabChat");
+        const mobileTabVault = document.getElementById("mobileTabVault");
+        const mobileHeroChat = document.getElementById("mobileHeroChat");
+        const mobileHeroVault = document.getElementById("mobileHeroVault");
+        const mobileTabContentChat = document.getElementById("mobileTabContentChat");
+        const mobileTabContentVault = document.getElementById("mobileTabContentVault");
+        const mobileTypingHint = document.getElementById("mobileTypingHint");
+
+        // Action cards
+        const mobileBtnOpenCreateSheet = document.getElementById("mobileBtnOpenCreateSheet");
+        const mobileBtnOpenJoinSheet = document.getElementById("mobileBtnOpenJoinSheet");
+
+        // Vault elements
+        const mobileVaultDropzone = document.getElementById("mobileVaultDropzone");
+        const mobileVaultKeyInput = document.getElementById("mobileVaultKeyInput");
+        const mobileVaultOpenBtn = document.getElementById("mobileVaultOpenBtn");
+
+        // Sheet elements
+        const mobileSheetBackdrop = document.getElementById("mobileSheetBackdrop");
+        const mobileBottomSheet = document.getElementById("mobileBottomSheet");
+        const mobileSheetTitle = document.getElementById("mobileSheetTitle");
+        const mobileSheetCloseBtn = document.getElementById("mobileSheetCloseBtn");
+        const mobileInputCodename = document.getElementById("mobileInputCodename");
+        const mobileShuffleCodenameBtn = document.getElementById("mobileShuffleCodenameBtn");
+        const mobileCreateKeyGroup = document.getElementById("mobileCreateKeyGroup");
+        const mobileInputCreateKey = document.getElementById("mobileInputCreateKey");
+        const mobileTogglePasswordBtn = document.getElementById("mobileTogglePasswordBtn");
+        const mobileEyeIcon = document.getElementById("mobileEyeIcon");
+        const mobileGenerateKeyBtn = document.getElementById("mobileGenerateKeyBtn");
+        const mobileJoinKeyGroup = document.getElementById("mobileJoinKeyGroup");
+        const mobileInputJoinKey = document.getElementById("mobileInputJoinKey");
+        const mobilePasteKeyBtn = document.getElementById("mobilePasteKeyBtn");
+        const mobilePrimarySubmitBtn = document.getElementById("mobilePrimarySubmitBtn");
+        const mobileSheetSwitchRow = document.getElementById("mobileSheetSwitchRow");
+
+        let currentSheetMode = "create";
+
+        function updateTypingHintText(name) {
+            const typingText = mobileTypingHint?.querySelector(".typing-text");
+            if (typingText) {
+                typingText.textContent = `${name || "paper_fox"} is typing…`;
+            }
+        }
+
+        // Prefill default codename on load if none exists
+        const initialSavedUser = localStorage.getItem("username") || (usernameInput ? usernameInput.value.trim() : "");
+        const defaultCodename = initialSavedUser || getRandomCodename();
+        if (mobileInputCodename && !mobileInputCodename.value.trim()) {
+            mobileInputCodename.value = defaultCodename;
+        }
+        if (usernameInput && !usernameInput.value.trim()) {
+            usernameInput.value = defaultCodename;
+        }
+        updateTypingHintText(defaultCodename);
+
+        // Tab switching
+        function setTab(tab) {
+            if (tab === "chat") {
+                if (mobileTabChat) {
+                    mobileTabChat.classList.add("active");
+                    mobileTabChat.setAttribute("aria-selected", "true");
+                }
+                if (mobileTabVault) {
+                    mobileTabVault.classList.remove("active");
+                    mobileTabVault.setAttribute("aria-selected", "false");
+                }
+                if (mobileHeroChat) mobileHeroChat.classList.remove("hidden");
+                if (mobileHeroVault) mobileHeroVault.classList.add("hidden");
+                if (mobileTabContentChat) mobileTabContentChat.classList.remove("hidden");
+                if (mobileTabContentVault) mobileTabContentVault.classList.add("hidden");
+            } else {
+                if (mobileTabVault) {
+                    mobileTabVault.classList.add("active");
+                    mobileTabVault.setAttribute("aria-selected", "true");
+                }
+                if (mobileTabChat) {
+                    mobileTabChat.classList.remove("active");
+                    mobileTabChat.setAttribute("aria-selected", "false");
+                }
+                if (mobileHeroVault) mobileHeroVault.classList.remove("hidden");
+                if (mobileHeroChat) mobileHeroChat.classList.add("hidden");
+                if (mobileTabContentVault) mobileTabContentVault.classList.remove("hidden");
+                if (mobileTabContentChat) mobileTabContentChat.classList.add("hidden");
+            }
+        }
+
+        if (mobileTabChat) mobileTabChat.onclick = () => setTab("chat");
+        if (mobileTabVault) mobileTabVault.onclick = () => setTab("vault");
+
+        // Sheet open / close
+        function openMobileSheet(mode = "create") {
+            currentSheetMode = mode;
+
+            // Make sure codename is pre-filled
+            if (mobileInputCodename && !mobileInputCodename.value.trim()) {
+                const saved = localStorage.getItem("username") || (usernameInput ? usernameInput.value.trim() : "");
+                mobileInputCodename.value = saved || getRandomCodename();
+            }
+
+            if (mode === "create") {
+                if (mobileSheetTitle) mobileSheetTitle.textContent = "Create a room";
+                if (mobileCreateKeyGroup) mobileCreateKeyGroup.classList.remove("hidden");
+                if (mobileJoinKeyGroup) mobileJoinKeyGroup.classList.add("hidden");
+                if (mobilePrimarySubmitBtn) mobilePrimarySubmitBtn.textContent = "Create room";
+
+                if (mobileSheetSwitchRow) {
+                    mobileSheetSwitchRow.innerHTML = '<span class="text-[#8F8A85] text-sm">Have a key?</span> <button type="button" id="mobileSwitchToJoinBtn" class="mobile-switch-link">Join a room</button>';
+                    const switchBtn = document.getElementById("mobileSwitchToJoinBtn");
+                    if (switchBtn) switchBtn.onclick = () => openMobileSheet("join");
+                }
+
+                // If key is empty, generate a random one
+                if (mobileInputCreateKey && !mobileInputCreateKey.value.trim()) {
+                    mobileInputCreateKey.value = getRandomRoomKey();
+                }
+            } else {
+                if (mobileSheetTitle) mobileSheetTitle.textContent = "Join a room";
+                if (mobileCreateKeyGroup) mobileCreateKeyGroup.classList.add("hidden");
+                if (mobileJoinKeyGroup) mobileJoinKeyGroup.classList.remove("hidden");
+                if (mobilePrimarySubmitBtn) mobilePrimarySubmitBtn.textContent = "Join room";
+
+                if (mobileSheetSwitchRow) {
+                    mobileSheetSwitchRow.innerHTML = '<span class="text-[#8F8A85] text-sm">Need a room?</span> <button type="button" id="mobileSwitchToJoinBtn" class="mobile-switch-link">Create a room</button>';
+                    const switchBtn = document.getElementById("mobileSwitchToJoinBtn");
+                    if (switchBtn) switchBtn.onclick = () => openMobileSheet("create");
+                }
+
+                if (mobileInputJoinKey && !mobileInputJoinKey.value.trim() && roomKeyInput && roomKeyInput.value.trim()) {
+                    mobileInputJoinKey.value = roomKeyInput.value.trim();
+                }
+            }
+
+            if (mobileSheetBackdrop) mobileSheetBackdrop.classList.remove("hidden");
+            if (mobileBottomSheet) {
+                mobileBottomSheet.classList.remove("hidden");
+                mobileBottomSheet.style.bottom = "0px";
+            }
+            document.body.classList.add("mobile-sheet-open");
+
+            try {
+                window.history.pushState({ mobileSheetOpen: true }, "");
+            } catch (e) {}
+
+            setTimeout(() => {
+                if (mode === "create") {
+                    if (mobileInputCreateKey) mobileInputCreateKey.focus();
+                } else {
+                    if (mobileInputJoinKey) mobileInputJoinKey.focus();
+                }
+            }, 180);
+        }
+
+        function closeMobileSheet() {
+            if (mobileSheetBackdrop) mobileSheetBackdrop.classList.add("hidden");
+            if (mobileBottomSheet) {
+                mobileBottomSheet.classList.add("hidden");
+                mobileBottomSheet.style.bottom = "0px";
+            }
+            document.body.classList.remove("mobile-sheet-open");
+            document.body.classList.remove("keyboard-open");
+        }
+
+        if (mobileBtnOpenCreateSheet) mobileBtnOpenCreateSheet.onclick = () => openMobileSheet("create");
+        if (mobileBtnOpenJoinSheet) mobileBtnOpenJoinSheet.onclick = () => openMobileSheet("join");
+        if (mobileSheetCloseBtn) mobileSheetCloseBtn.onclick = closeMobileSheet;
+        if (mobileSheetBackdrop) mobileSheetBackdrop.onclick = closeMobileSheet;
+
+        // Shuffle codename button
+        if (mobileShuffleCodenameBtn) {
+            mobileShuffleCodenameBtn.onclick = () => {
+                const newName = getRandomCodename();
+                if (mobileInputCodename) mobileInputCodename.value = newName;
+                if (usernameInput) usernameInput.value = newName;
+                updateTypingHintText(newName);
+            };
+        }
+
+        if (mobileInputCodename) {
+            mobileInputCodename.addEventListener("input", () => {
+                updateTypingHintText(mobileInputCodename.value.trim());
+            });
+        }
+
+        // Toggle Password Visibility
+        if (mobileTogglePasswordBtn && mobileInputCreateKey) {
+            mobileTogglePasswordBtn.onclick = () => {
+                const isPass = mobileInputCreateKey.type === "password";
+                mobileInputCreateKey.type = isPass ? "text" : "password";
+                if (mobileEyeIcon) {
+                    mobileEyeIcon.className = isPass ? "fas fa-eye-slash text-sm text-[#FF7A1F]" : "fas fa-eye text-sm text-[#8F8A85]";
+                }
+            };
+        }
+
+        // Generate Key button
+        if (mobileGenerateKeyBtn && mobileInputCreateKey) {
+            mobileGenerateKeyBtn.onclick = () => {
+                const key = getRandomRoomKey();
+                mobileInputCreateKey.value = key;
+                if (roomKeyInput) roomKeyInput.value = key;
+            };
+        }
+
+        // Paste Key button
+        if (mobilePasteKeyBtn && mobileInputJoinKey) {
+            mobilePasteKeyBtn.onclick = async () => {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        const text = await navigator.clipboard.readText();
+                        if (text && text.trim()) {
+                            mobileInputJoinKey.value = text.trim();
+                            showToast("Key pasted from clipboard");
+                            return;
+                        }
+                    }
+                    showToast("Clipboard is empty or access was denied.");
+                } catch (err) {
+                    showToast("Clipboard access denied. Please paste manually.");
+                }
+            };
+        }
+
+        // Submission logic
+        function submitMobileForm() {
+            const codename = (mobileInputCodename ? mobileInputCodename.value : "").trim();
+            if (!codename) {
+                showToast("Please enter a codename.");
+                if (mobileInputCodename) mobileInputCodename.focus();
+                return;
+            }
+
+            if (currentSheetMode === "create") {
+                const key = (mobileInputCreateKey ? mobileInputCreateKey.value : "").trim();
+                if (!key) {
+                    showToast("Please enter a room key.");
+                    if (mobileInputCreateKey) mobileInputCreateKey.focus();
+                    return;
+                }
+                if (key.length < 6) {
+                    showToast("Room key must be at least 6 characters.");
+                    if (mobileInputCreateKey) mobileInputCreateKey.focus();
+                    return;
+                }
+
+                if (usernameInput) usernameInput.value = codename;
+                if (roomKeyInput) roomKeyInput.value = key;
+                roomKey = key;
+                username = codename;
+                window.currentRoomKey = key;
+
+                withBusy(mobilePrimarySubmitBtn, () => {
+                    if (socket && !socket.connected) {
+                        socket.connect();
+                    }
+                    socket.emit("create-room", {
+                        roomKey,
+                        username
+                    });
+                    return new Promise((resolve) => {
+                        const onDone = () => {
+                            cleanup();
+                            closeMobileSheet();
+                            resolve();
+                        };
+                        function cleanup() {
+                            socket.off("room-created", onDone);
+                            socket.off("room-exists", onDone);
+                            socket.off("room-creation-error", onDone);
+                        }
+                        socket.once("room-created", onDone);
+                        socket.once("room-exists", onDone);
+                        socket.once("room-creation-error", onDone);
+                    });
+                }, { serverWakeupNotice: (!socket || !socket.connected), connectingText: "Connecting…", timeoutMs: 25000 });
+            } else {
+                const key = (mobileInputJoinKey ? mobileInputJoinKey.value : "").trim();
+                if (!key) {
+                    showToast("Please enter a room key.");
+                    if (mobileInputJoinKey) mobileInputJoinKey.focus();
+                    return;
+                }
+                if (key.length < 6) {
+                    showToast("Room key must be at least 6 characters.");
+                    if (mobileInputJoinKey) mobileInputJoinKey.focus();
+                    return;
+                }
+
+                if (usernameInput) usernameInput.value = codename;
+                if (roomKeyInput) roomKeyInput.value = key;
+
+                withBusy(mobilePrimarySubmitBtn, async () => {
+                    performJoinRoom(key, codename, mobilePrimarySubmitBtn);
+                }, { serverWakeupNotice: (!socket || !socket.connected), connectingText: "Connecting…", timeoutMs: 25000 });
+            }
+        }
+
+        if (mobilePrimarySubmitBtn) {
+            mobilePrimarySubmitBtn.onclick = submitMobileForm;
+        }
+
+        [mobileInputCodename, mobileInputCreateKey, mobileInputJoinKey].forEach(inp => {
+            if (inp) {
+                inp.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        submitMobileForm();
+                    }
+                });
+            }
+        });
+
+        // Close sheet on successful room joined
+        socket.on("room-joined", () => {
+            closeMobileSheet();
+        });
+        socket.on("room-created", () => {
+            closeMobileSheet();
+        });
+
+        // File Vault Actions
+        if (mobileVaultDropzone) {
+            mobileVaultDropzone.onclick = () => {
+                if (landingTileFileInput) {
+                    landingTileFileInput.click();
+                }
+            };
+        }
+
+        if (mobileVaultOpenBtn && mobileVaultKeyInput) {
+            const handleVaultOpen = () => {
+                const key = mobileVaultKeyInput.value.trim();
+                if (!key) {
+                    showToast("Please enter a room key or ID.");
+                    mobileVaultKeyInput.focus();
+                    return;
+                }
+                if (landingTileKeyInput) landingTileKeyInput.value = key;
+                withBusy(mobileVaultOpenBtn, async () => {
+                    await openFileRoomByIdentifier(key);
+                }, { serverWakeupNotice: true, connectingText: "Opening…" });
+            };
+
+            mobileVaultOpenBtn.onclick = handleVaultOpen;
+            mobileVaultKeyInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleVaultOpen();
+                }
+            });
+        }
+
+        // Back button navigation (Popstate & Capacitor App)
+        window.addEventListener("popstate", () => {
+            if (mobileBottomSheet && !mobileBottomSheet.classList.contains("hidden")) {
+                closeMobileSheet();
+            }
+        });
+
+        if (window.Capacitor?.Plugins?.App?.addListener) {
+            window.Capacitor.Plugins.App.addListener("backButton", () => {
+                if (mobileBottomSheet && !mobileBottomSheet.classList.contains("hidden")) {
+                    closeMobileSheet();
+                }
+            });
+        }
+
+        // Keyboard & Visual Viewport Positioning
+        function updateSheetForKeyboard() {
+            if (!mobileBottomSheet || mobileBottomSheet.classList.contains("hidden")) return;
+            if (window.visualViewport) {
+                const keyboardHeight = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+                if (keyboardHeight > 40) {
+                    document.body.classList.add("keyboard-open");
+                    mobileBottomSheet.style.bottom = `${keyboardHeight}px`;
+                } else {
+                    document.body.classList.remove("keyboard-open");
+                    mobileBottomSheet.style.bottom = "0px";
+                }
+            }
+        }
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", updateSheetForKeyboard);
+            window.visualViewport.addEventListener("scroll", updateSheetForKeyboard);
+        }
+
+        if (window.Capacitor?.Plugins?.Keyboard) {
+            window.Capacitor.Plugins.Keyboard.addListener("keyboardWillShow", (info) => {
+                document.body.classList.add("keyboard-open");
+                if (mobileBottomSheet && !mobileBottomSheet.classList.contains("hidden")) {
+                    const h = info?.keyboardHeight || 280;
+                    mobileBottomSheet.style.bottom = `${h}px`;
+                }
+            });
+            window.Capacitor.Plugins.Keyboard.addListener("keyboardWillHide", () => {
+                document.body.classList.remove("keyboard-open");
+                if (mobileBottomSheet) {
+                    mobileBottomSheet.style.bottom = "0px";
+                }
+            });
+        }
+    }
+
+    initMobileHome();
 });
