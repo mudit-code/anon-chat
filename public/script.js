@@ -7178,14 +7178,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.appendChild(sender);
                 item.appendChild(bubble);
 
-                // Smoothly collapse and slide out oldest item if max items reached
+                // Smoothly collapse and slide out oldest item if max items reached (strictly 3 for minimalist aesthetic)
                 const activeItems = demoList.querySelectorAll(".demo-bubble-item:not(.demo-exiting)");
-                const isMobileList = demoList.closest(".mobile-demo-chat-preview") !== null || demoList.id === "mobileDemoBubblesList";
-                let maxItems = 3;
-                if (isMobileList) {
-                    const listH = demoList.clientHeight || 280;
-                    maxItems = Math.max(4, Math.min(6, Math.floor((listH + 10) / 54)));
-                }
+                const maxItems = 3;
                 if (activeItems.length >= maxItems) {
                     const oldest = activeItems[0];
                     oldest.classList.add("demo-exiting");
@@ -7199,9 +7194,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     requestAnimationFrame(() => {
                         const isMobileList = demoList.closest(".mobile-demo-chat-preview") !== null || demoList.id === "mobileDemoBubblesList";
                         if (isMobileList) {
-                            oldest.style.transition = "max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1)";
+                            oldest.style.transition = "max-height 0.7s cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease-out, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)";
                             oldest.style.opacity = "0";
-                            oldest.style.transform = "translateY(-6px) scale(0.96)";
+                            oldest.style.transform = "translateY(-8px)";
                             oldest.style.maxHeight = "0px";
                             oldest.style.marginBottom = "0px";
                             oldest.style.paddingTop = "0px";
@@ -7221,7 +7216,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (oldest.parentNode) {
                             oldest.parentNode.removeChild(oldest);
                         }
-                    }, 680);
+                    }, 720);
                 }
 
                 demoList.appendChild(item);
@@ -7274,8 +7269,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: "financial_report.xlsx", size: "940 KB", icon: "far fa-file-excel" }
         ];
 
-        let fileIndex = 6;
-        const MAX_FILES = 4;
+        let fileIndex = 3;
+        const MAX_FILES = 3;
 
         function addNextVaultFile() {
             const list = document.getElementById("mobileDemoVaultFilesList");
@@ -7318,11 +7313,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.classList.remove("file-item-active");
             });
 
-            // Smoothly collapse and slide out oldest item if max reached
+            // Smoothly collapse and slide out oldest item if max reached (strictly 3 files)
             const activeItems = list.querySelectorAll(".demo-vault-file-item:not(.demo-exiting)");
-            const listH = list.clientHeight || 240;
-            const dynamicMaxFiles = Math.max(4, Math.min(6, Math.floor((listH + 10) / 46)));
-            if (activeItems.length >= dynamicMaxFiles) {
+            if (activeItems.length >= MAX_FILES) {
                 const oldest = activeItems[0];
                 oldest.classList.add("demo-exiting");
                 const currentHeight = oldest.offsetHeight;
@@ -7331,9 +7324,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 void oldest.offsetHeight; // Force reflow so starting height is committed
 
                 requestAnimationFrame(() => {
-                    oldest.style.transition = "max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1)";
+                    oldest.style.transition = "max-height 0.7s cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease-out, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)";
                     oldest.style.opacity = "0";
-                    oldest.style.transform = "translateY(-6px) scale(0.96)";
+                    oldest.style.transform = "translateY(-8px)";
                     oldest.style.maxHeight = "0px";
                     oldest.style.marginBottom = "0px";
                     oldest.style.paddingTop = "0px";
@@ -7344,7 +7337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (oldest.parentNode) {
                         oldest.parentNode.removeChild(oldest);
                     }
-                }, 680);
+                }, 720);
             }
 
             list.appendChild(item);

@@ -328,17 +328,18 @@
   margin-left: auto;
   margin-right: auto;
   width: 100%;
-  max-width: clamp(380px, 36vw, 540px);
+  max-width: clamp(420px, 44vw, 680px);
 }
 
 .landing-form-title {
   font-family: var(--font-heading);
   font-weight: 700 !important;
-  font-size: clamp(36px, min(4.8vw, 7.6vh), 72px) !important;
-  line-height: 1.05 !important;
+  font-size: clamp(28px, min(3.2vw, 5.2vh), 48px) !important;
+  line-height: 1.08 !important;
   letter-spacing: -0.025em !important;
   color: #0a0a0a;
   margin-bottom: clamp(6px, 1vh, 12px);
+  white-space: nowrap !important;
 }
 
 .landing-form-subtitle {
@@ -469,10 +470,11 @@
     margin-bottom: 5px;
   }
   .landing-form-title {
-    font-size: clamp(28px, 5.2vh, 36px) !important;
+    font-size: clamp(22px, 4.2vh, 32px) !important;
     font-weight: 700 !important;
-    line-height: 1.05 !important;
+    line-height: 1.08 !important;
     letter-spacing: -0.025em !important;
+    white-space: nowrap !important;
   }
   .landing-form-subtitle {
     margin-bottom: 8px;
@@ -4341,39 +4343,34 @@ html.loading-file-room #fileRoomScreen {
     letter-spacing: -0.025em;
   }
 
-  /* Main Home Content layout - Dynamic fluid filling without dead voids */
+  /* Main Home Content layout - Balanced, cool & minimalistic spacing */
   .mobile-home-main {
     position: relative;
     z-index: 1;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start !important;
-    gap: clamp(8px, 1.5vh, 16px) !important;
-    padding: calc(64px + max(env(safe-area-inset-top, 0px), 12px)) clamp(16px, 4.5vw, 22px) max(env(safe-area-inset-bottom, 0px), 14px) clamp(16px, 4.5vw, 22px) !important;
+    justify-content: space-between !important;
+    padding: calc(64px + max(env(safe-area-inset-top, 0px), 12px)) clamp(20px, 5.5vw, 26px) max(env(safe-area-inset-bottom, 0px), 16px) clamp(20px, 5.5vw, 26px) !important;
     box-sizing: border-box;
     min-height: calc(100dvh - max(env(safe-area-inset-top, 0px), 14px));
   }
 
-  /* Hero Section (Upper half - flexible dynamic container) */
+  /* Hero Section (Upper half - left aligned with balanced padding) */
   .mobile-hero-section {
-    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    padding-top: clamp(4px, 1.2vh, 14px);
+    padding-top: clamp(8px, 1.8vh, 18px);
     padding-bottom: 0;
     width: 100%;
-    min-height: 0;
   }
 
   .mobile-hero-block {
-    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     text-align: left;
     width: 100%;
-    min-height: 0;
   }
 
   /* Heading: Large, bold, left-aligned matching screenshot */
@@ -4461,25 +4458,22 @@ html.loading-file-room #fileRoomScreen {
     display: none !important;
   }
 
-  /* Animated Live Chat Preview in Mobile View (Full Width, dynamically fills vertical space) */
+  /* Animated Live Chat Preview in Mobile View (Compact Minimalist Frame) */
   .mobile-demo-chat-preview {
-    flex: 1 1 auto;
-    margin-top: clamp(12px, 2vh, 20px) !important;
-    margin-bottom: clamp(4px, 0.8vh, 8px) !important;
+    margin-top: clamp(14px, 2.5vh, 24px) !important;
+    margin-bottom: clamp(6px, 1vh, 10px) !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    min-height: 0;
   }
 
   .mobile-demo-chat-preview .demo-bubbles-list {
     width: 100% !important;
     max-width: 100% !important;
-    flex: 1 1 auto;
-    height: clamp(230px, 36vh, 410px) !important;
-    max-height: clamp(240px, 39vh, 440px) !important;
+    height: clamp(160px, 22vh, 185px) !important;
+    max-height: clamp(165px, 23vh, 190px) !important;
     overflow: hidden;
     position: relative;
     display: flex;
@@ -4503,20 +4497,23 @@ html.loading-file-room #fileRoomScreen {
     text-align: right;
   }
 
-  /* Smooth non-jumping entrance for mobile demo chat bubbles and vault files */
+  /* Smooth, silky, non-jumping entrance for mobile demo chat bubbles and vault files */
   .mobile-demo-chat-preview .demo-bubble-item.animate-enter,
   .demo-vault-file-item.animate-enter {
-    animation: mobileSmoothBubbleIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+    animation: mobileSmoothBubbleIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+    will-change: opacity, transform, filter;
   }
 
   @keyframes mobileSmoothBubbleIn {
     0% {
       opacity: 0;
-      transform: translateY(12px) scale(0.98);
+      transform: translateY(8px);
+      filter: blur(2.5px);
     }
     100% {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translateY(0);
+      filter: blur(0);
     }
   }
 
@@ -4576,24 +4573,22 @@ html.loading-file-room #fileRoomScreen {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
-  /* Animated Vault Preview in Mobile View (Full Width, dynamically fills vertical space) */
+  /* Animated Vault Preview in Mobile View (Compact Minimalist Frame) */
   .mobile-demo-vault-preview {
-    flex: 1 1 auto;
-    margin-top: clamp(12px, 2vh, 20px) !important;
-    margin-bottom: clamp(4px, 0.8vh, 8px) !important;
+    margin-top: clamp(14px, 2.5vh, 24px) !important;
+    margin-bottom: clamp(6px, 1vh, 10px) !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    min-height: 0;
   }
 
   .demo-vault-card {
     background: #141416 !important;
     border: 1px solid #2B2B2D !important;
     border-radius: 20px !important;
-    padding: clamp(10px, 1.8vh, 16px) clamp(12px, 3.5vw, 16px) !important;
+    padding: clamp(10px, 1.6vh, 14px) clamp(12px, 3.5vw, 16px) !important;
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6) !important;
     box-sizing: border-box !important;
     width: 100% !important;
@@ -4656,9 +4651,8 @@ html.loading-file-room #fileRoomScreen {
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    flex: 1 1 auto;
-    height: clamp(200px, 31vh, 360px) !important;
-    max-height: clamp(210px, 34vh, 380px) !important;
+    height: clamp(135px, 18vh, 150px) !important;
+    max-height: clamp(140px, 19vh, 155px) !important;
     overflow: hidden !important;
     position: relative !important;
   }
@@ -4806,15 +4800,16 @@ html.loading-file-room #fileRoomScreen {
     transform: scale(0.985);
   }
 
-  /* Lighter shade (#ffb682) on chat room button in hero page */
+  /* Orange Create Room Button (#FF7A1F) matching logo and active tab with dark contrast text */
   .mobile-action-card.primary-card {
-    background: #ffb682 !important;
-    color: #000000 !important;
+    background: #FF7A1F !important;
+    color: #140C06 !important;
     margin-bottom: 10px;
+    box-shadow: 0 4px 18px rgba(255, 122, 31, 0.28) !important;
   }
 
   .mobile-action-card.primary-card:active {
-    filter: brightness(0.95);
+    filter: brightness(0.92);
   }
 
   .mobile-action-card.secondary-card {
@@ -4840,7 +4835,8 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .primary-card .card-title {
-    color: #000000 !important;
+    color: #140C06 !important;
+    font-weight: 700 !important;
   }
 
   .secondary-card .card-title {
@@ -4853,8 +4849,9 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .primary-card .card-desc {
-    color: #000000 !important;
-    opacity: 0.88;
+    color: #140C06 !important;
+    opacity: 0.9 !important;
+    font-weight: 500 !important;
   }
 
   /* Small text white on secondary card */
@@ -4872,8 +4869,8 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .primary-card .card-icon-wrap {
-    color: #000000 !important;
-    font-size: 22px;
+    color: #140C06 !important;
+    font-size: 20px;
   }
 
   .secondary-card .card-icon-wrap {
