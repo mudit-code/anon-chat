@@ -328,18 +328,23 @@
   margin-left: auto;
   margin-right: auto;
   width: 100%;
-  max-width: clamp(420px, 44vw, 680px);
+  max-width: clamp(420px, 42vw, 680px);
 }
 
 .landing-form-title {
-  font-family: var(--font-heading);
+  font-family: var(--font-heading) !important;
   font-weight: 700 !important;
-  font-size: clamp(28px, min(3.2vw, 5.2vh), 48px) !important;
-  line-height: 1.08 !important;
+  font-size: clamp(36px, min(4.8vw, 7.6vh), 72px) !important;
+  line-height: 1.05 !important;
   letter-spacing: -0.025em !important;
-  color: #0a0a0a;
+  color: #0a0a0a !important;
   margin-bottom: clamp(6px, 1vh, 12px);
   white-space: nowrap !important;
+}
+
+#askToJoinScreen .landing-form-title,
+#roomUnavailableState .landing-form-title {
+  white-space: normal !important;
 }
 
 .landing-form-subtitle {
@@ -470,9 +475,10 @@
     margin-bottom: 5px;
   }
   .landing-form-title {
-    font-size: clamp(22px, 4.2vh, 32px) !important;
+    font-family: var(--font-heading) !important;
+    font-size: clamp(28px, 5.2vh, 36px) !important;
     font-weight: 700 !important;
-    line-height: 1.08 !important;
+    line-height: 1.05 !important;
     letter-spacing: -0.025em !important;
     white-space: nowrap !important;
   }
