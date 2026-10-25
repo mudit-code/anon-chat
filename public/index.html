@@ -290,8 +290,10 @@
     <div id="mobileHomeScreen" class="mobile-home-screen" aria-label="Mobile Home Screen">
       <!-- Background: Bright & visible doodle tile pattern (same as chat screen) -->
       <div class="mobile-doodle-bg" aria-hidden="true"></div>
+      <!-- Smooth black-to-transparent blend overlay for readable promotional text -->
+      <div class="mobile-doodle-vignette" aria-hidden="true"></div>
 
-      <!-- Top Header: Logo + "Anon Chat" -->
+      <!-- Top Header: Logo + "Anon Chat" (Sticky Navbar) -->
       <header class="mobile-home-header">
         <div class="mobile-logo-wrap">
           <img src="/logo.png" alt="Anon Chat" class="mobile-logo-img">
@@ -476,16 +478,18 @@
           <!-- File Vault Tab Pane -->
           <div id="mobileTabContentVault" class="mobile-tab-pane hidden">
             <div class="mobile-vault-card">
-              <!-- Dashed dropzone -->
+              <!-- Dashed dropzone with visible, longer dashes -->
               <button type="button" id="mobileVaultDropzone" class="mobile-vault-dropzone">
+                <svg class="vault-drop-border-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <rect x="1" y="1" width="98" height="98" rx="7" ry="7" fill="none" stroke="rgba(255, 255, 255, 0.42)" stroke-width="2" stroke-dasharray="8 5" vector-effect="non-scaling-stroke"></rect>
+                </svg>
                 <div class="vault-icon-circle">
-                  <i class="fas fa-cloud-arrow-up text-xl text-[#FF7A1F]"></i>
+                  <i class="fas fa-cloud-arrow-up text-lg text-[#FF7A1F]"></i>
                 </div>
-                <div class="vault-drop-title">Tap to add files</div>
-                <div class="vault-drop-browse">or <span class="browse-underline">browse device</span></div>
-                <div class="vault-drop-meta">
-                  <i class="fas fa-shield-halved text-[#FF7A1F] text-xs"></i>
-                  <span>Anonymous · Up to 500 MB · Auto-expires in 30m</span>
+                <div class="vault-drop-single-line">
+                  <span class="vault-drop-title">Tap to add files</span>
+                  <span class="vault-drop-or">or</span>
+                  <span class="browse-underline">browse device</span>
                 </div>
               </button>
 
@@ -500,6 +504,11 @@
                 </div>
               </div>
             </div>
+
+            <!-- Vault Tab Footer matching Chat Tab Footer for identical frame height -->
+            <footer class="mobile-chat-footer">
+              Encrypted in transit · Auto-deletes in 30 min
+            </footer>
           </div>
         </div>
       </div>

@@ -4270,19 +4270,43 @@ html.loading-file-room #fileRoomScreen {
     opacity: 0.95 !important;
   }
 
-  /* Top Header: Logo + "Anon Chat" (Main branding in center) */
+  /* Smooth black-to-transparent blend overlay for readable promotional text */
+  .mobile-doodle-vignette {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(
+      to top,
+      #0B0B0C 0%,
+      #0B0B0C 40%,
+      rgba(11, 11, 12, 0.94) 58%,
+      rgba(11, 11, 12, 0.75) 75%,
+      rgba(11, 11, 12, 0.35) 86%,
+      transparent 100%
+    );
+  }
+
+  /* Top Header: Logo + "Anon Chat" (Sticky Navbar) */
   .mobile-home-header {
-    position: relative;
-    z-index: 1;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding-top: max(env(safe-area-inset-top, 0px), 16px);
+    padding-top: max(env(safe-area-inset-top, 0px), 14px);
     padding-left: 20px;
     padding-right: 20px;
-    padding-bottom: 8px;
+    padding-bottom: 12px;
     flex-shrink: 0;
+    background: rgba(11, 11, 12, 0.82) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .mobile-logo-wrap {
@@ -4420,17 +4444,19 @@ html.loading-file-room #fileRoomScreen {
     display: none !important;
   }
 
-  /* Animated Live Chat Preview in Mobile View */
+  /* Animated Live Chat Preview in Mobile View (Full Width to eliminate empty space on right) */
   .mobile-demo-chat-preview {
     margin-top: 4px !important;
     margin-bottom: clamp(6px, 1.2vh, 12px);
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
     display: flex;
     flex-direction: column;
   }
 
   .mobile-demo-chat-preview .demo-bubbles-list {
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
     height: clamp(165px, 22vh, 210px);
     overflow: hidden;
     position: relative;
@@ -4438,13 +4464,14 @@ html.loading-file-room #fileRoomScreen {
     flex-direction: column;
     justify-content: flex-start;
     text-align: left;
+    margin: 0 !important;
   }
 
   .mobile-demo-chat-preview .demo-bubble-item {
     margin-bottom: 8px !important;
     will-change: transform, opacity, max-height, margin-bottom;
     width: fit-content;
-    max-width: 88%;
+    max-width: 92% !important;
     align-self: flex-start;
     text-align: left;
   }
@@ -4454,19 +4481,20 @@ html.loading-file-room #fileRoomScreen {
     text-align: right;
   }
 
-  /* Smooth non-jumping entrance for mobile demo chat bubbles */
-  .mobile-demo-chat-preview .demo-bubble-item.animate-enter {
-    animation: mobileSmoothBubbleIn 0.5s ease-out both !important;
+  /* Smooth non-jumping entrance for mobile demo chat bubbles and vault files */
+  .mobile-demo-chat-preview .demo-bubble-item.animate-enter,
+  .demo-vault-file-item.animate-enter {
+    animation: mobileSmoothBubbleIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both !important;
   }
 
   @keyframes mobileSmoothBubbleIn {
     0% {
       opacity: 0;
-      transform: translateY(4px);
+      transform: translateY(12px) scale(0.98);
     }
     100% {
       opacity: 1;
-      transform: translateY(0);
+      transform: translateY(0) scale(1);
     }
   }
 
@@ -4526,11 +4554,12 @@ html.loading-file-room #fileRoomScreen {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
-  /* Animated Vault Preview in Mobile View (Screenshot 2) */
+  /* Animated Vault Preview in Mobile View (Full Width) */
   .mobile-demo-vault-preview {
     margin-top: 4px !important;
     margin-bottom: clamp(6px, 1.2vh, 12px);
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -4544,6 +4573,7 @@ html.loading-file-room #fileRoomScreen {
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6) !important;
     box-sizing: border-box !important;
     width: 100% !important;
+    max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
   }
@@ -4601,6 +4631,7 @@ html.loading-file-room #fileRoomScreen {
     flex-direction: column !important;
     gap: 8px !important;
     width: 100% !important;
+    max-width: 100% !important;
     height: 152px !important;
     overflow: hidden !important;
     position: relative !important;
@@ -4622,10 +4653,6 @@ html.loading-file-room #fileRoomScreen {
   .demo-vault-file-item.file-item-active {
     background: #25160A !important;
     border: 1px solid rgba(255, 122, 31, 0.42) !important;
-  }
-
-  .demo-vault-file-item.animate-enter {
-    animation: mobileSmoothBubbleIn 0.5s ease-out both !important;
   }
 
   .file-item-left {
@@ -4715,26 +4742,29 @@ html.loading-file-room #fileRoomScreen {
     touch-action: manipulation;
   }
 
-  /* Lighter shade (#ffb682) on active tab */
+  /* Exact Logo Orange (#FF7A1F) on active selection of chat room and file vault */
   .mobile-seg-tab.active {
-    background: #ffb682 !important;
-    color: #000000 !important;
-    font-weight: 700;
+    background: #FF7A1F !important;
+    color: #140C06 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 10px rgba(255, 122, 31, 0.35);
   }
 
-  /* Tab Pane */
+  /* Tab Pane - Equal min-height for identical frame */
   .mobile-tab-pane {
     display: flex;
     flex-direction: column;
     width: 100%;
+    min-height: 196px;
   }
 
   /* Action Cards (Chat Room Tab) */
   .mobile-action-card {
     width: 100%;
-    min-height: 78px;
-    padding: 16px 20px;
-    border-radius: 20px;
+    min-height: 74px;
+    height: 74px;
+    padding: 14px 18px;
+    border-radius: 18px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -4754,7 +4784,7 @@ html.loading-file-room #fileRoomScreen {
   .mobile-action-card.primary-card {
     background: #ffb682 !important;
     color: #000000 !important;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .mobile-action-card.primary-card:active {
@@ -4825,95 +4855,116 @@ html.loading-file-room #fileRoomScreen {
     font-size: 18px;
   }
 
-  /* Chat Footer: Small text also white */
+  /* Chat & Vault Footers: Matched height and position */
   .mobile-chat-footer {
     color: #FFFFFF !important;
     opacity: 0.82;
     font-size: 12.5px;
     text-align: center;
-    margin-top: 16px;
-    padding-bottom: 4px;
+    margin-top: 14px;
+    padding-bottom: 2px;
     user-select: none;
+    line-height: 1.2;
   }
 
-  /* File Vault Card */
+  /* File Vault Card - Matched to exact total frame height of Chat Room (158px) */
   .mobile-vault-card {
     background: #161617;
     border: 1px solid #2B2B2D;
-    border-radius: 24px;
-    padding: 16px;
+    border-radius: 20px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    width: 100%;
+    height: 158px;
+    min-height: 158px;
+    max-height: 158px;
+    justify-content: space-between;
   }
 
+  /* Dashed dropzone with visible, longer dashes */
   .mobile-vault-dropzone {
+    position: relative;
     width: 100%;
-    border: 1.5px dashed #2B2B2D;
-    border-radius: 18px;
-    padding: 20px 14px;
-    background: transparent;
+    height: 60px;
+    min-height: 60px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
+    gap: 12px;
     cursor: pointer;
     box-sizing: border-box;
+    padding: 0 16px;
+    border: 1.8px dashed rgba(255, 255, 255, 0.38) !important;
     touch-action: manipulation;
     transition: background 0.15s ease, border-color 0.15s ease;
   }
 
+  .vault-drop-border-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    border-radius: 14px;
+  }
+
   .mobile-vault-dropzone:active {
-    background: rgba(255, 122, 31, 0.05);
-    border-color: #FF7A1F;
+    background: rgba(255, 122, 31, 0.08);
+    border-color: #FF7A1F !important;
   }
 
   .vault-icon-circle {
-    width: 48px;
-    height: 48px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
     border-radius: 50%;
     background: #27180E;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .vault-drop-single-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
   }
 
   .vault-drop-title {
-    font-size: 16px;
+    font-size: 14.5px;
     font-weight: 700;
     color: #FFFFFF;
     letter-spacing: -0.01em;
   }
 
-  .vault-drop-browse {
+  .vault-drop-or {
     font-size: 13.5px;
     color: #FFFFFF !important;
-    opacity: 0.92;
-    margin-top: 3px;
+    opacity: 0.85;
+    font-weight: 400;
   }
 
   .browse-underline {
+    font-size: 13.5px;
     color: #FF7A1F;
     text-decoration: underline;
     text-underline-offset: 3px;
     font-weight: 600;
   }
 
-  .vault-drop-meta {
-    font-size: 11.5px;
-    color: #FFFFFF !important;
-    opacity: 0.85;
-    margin-top: 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
   .mobile-vault-divider {
     height: 1px;
     background: #2B2B2D;
-    margin: 16px 0;
+    margin: 8px 0;
   }
 
   .mobile-vault-key-section {
@@ -4923,29 +4974,29 @@ html.loading-file-room #fileRoomScreen {
   }
 
   .mobile-vault-key-label {
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #FFFFFF;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
   }
 
   .mobile-vault-key-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
   }
 
   .mobile-vault-key-input {
     flex: 1;
     min-width: 0;
-    height: 48px;
+    height: 42px;
     background: #0B0B0C;
     border: 1px solid #2B2B2D;
-    border-radius: 12px;
+    border-radius: 10px;
     color: #FFFFFF;
-    font-size: 14.5px;
-    padding: 0 14px;
+    font-size: 13.5px;
+    padding: 0 12px;
     outline: none;
     box-sizing: border-box;
     transition: border-color 0.15s ease;
@@ -4953,18 +5004,18 @@ html.loading-file-room #fileRoomScreen {
 
   .mobile-vault-key-input:focus {
     border: 2px solid #FF7A1F !important;
-    padding: 0 13px !important;
+    padding: 0 11px !important;
   }
 
   .mobile-vault-open-btn {
-    height: 48px;
-    padding: 0 22px;
-    min-width: 76px;
+    height: 42px;
+    padding: 0 18px;
+    min-width: 70px;
     background: #242426;
     border: 1px solid #2B2B2D;
-    border-radius: 12px;
+    border-radius: 10px;
     color: #FFFFFF;
-    font-size: 14.5px;
+    font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
     touch-action: manipulation;

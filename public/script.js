@@ -7188,29 +7188,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     const currentHeight = oldest.offsetHeight;
                     oldest.style.maxHeight = currentHeight + "px";
                     oldest.style.overflow = "hidden";
-                    const isMobileList = demoList.closest(".mobile-demo-chat-preview") !== null || demoList.id === "mobileDemoBubblesList";
-                    if (isMobileList) {
-                        oldest.style.transition = "max-height 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), margin-bottom 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.4s ease";
-                        oldest.style.opacity = "0";
-                        oldest.style.maxHeight = "0px";
-                        oldest.style.marginBottom = "0px";
-                        oldest.style.paddingTop = "0px";
-                        oldest.style.paddingBottom = "0px";
-                    } else {
-                        oldest.style.transition = "max-height 0.58s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.58s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease, transform 0.58s cubic-bezier(0.16, 1, 0.3, 1)";
-                        oldest.style.opacity = "0";
-                        oldest.style.transform = "translateY(-14px) scale(0.93)";
-                        oldest.style.maxHeight = "0px";
-                        oldest.style.marginBottom = "0px";
-                        oldest.style.paddingTop = "0px";
-                        oldest.style.paddingBottom = "0px";
-                    }
+                    void oldest.offsetHeight; // Force reflow so starting height is committed
+
+                    requestAnimationFrame(() => {
+                        const isMobileList = demoList.closest(".mobile-demo-chat-preview") !== null || demoList.id === "mobileDemoBubblesList";
+                        if (isMobileList) {
+                            oldest.style.transition = "max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1)";
+                            oldest.style.opacity = "0";
+                            oldest.style.transform = "translateY(-6px) scale(0.96)";
+                            oldest.style.maxHeight = "0px";
+                            oldest.style.marginBottom = "0px";
+                            oldest.style.paddingTop = "0px";
+                            oldest.style.paddingBottom = "0px";
+                        } else {
+                            oldest.style.transition = "max-height 0.58s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.58s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease, transform 0.58s cubic-bezier(0.16, 1, 0.3, 1)";
+                            oldest.style.opacity = "0";
+                            oldest.style.transform = "translateY(-14px) scale(0.93)";
+                            oldest.style.maxHeight = "0px";
+                            oldest.style.marginBottom = "0px";
+                            oldest.style.paddingTop = "0px";
+                            oldest.style.paddingBottom = "0px";
+                        }
+                    });
 
                     setTimeout(() => {
                         if (oldest.parentNode) {
                             oldest.parentNode.removeChild(oldest);
                         }
-                    }, 650);
+                    }, 680);
                 }
 
                 demoList.appendChild(item);
@@ -7315,18 +7320,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentHeight = oldest.offsetHeight;
                 oldest.style.maxHeight = currentHeight + "px";
                 oldest.style.overflow = "hidden";
-                oldest.style.transition = "max-height 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), margin-bottom 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.4s ease";
-                oldest.style.opacity = "0";
-                oldest.style.maxHeight = "0px";
-                oldest.style.marginBottom = "0px";
-                oldest.style.paddingTop = "0px";
-                oldest.style.paddingBottom = "0px";
+                void oldest.offsetHeight; // Force reflow so starting height is committed
+
+                requestAnimationFrame(() => {
+                    oldest.style.transition = "max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1)";
+                    oldest.style.opacity = "0";
+                    oldest.style.transform = "translateY(-6px) scale(0.96)";
+                    oldest.style.maxHeight = "0px";
+                    oldest.style.marginBottom = "0px";
+                    oldest.style.paddingTop = "0px";
+                    oldest.style.paddingBottom = "0px";
+                });
 
                 setTimeout(() => {
                     if (oldest.parentNode) {
                         oldest.parentNode.removeChild(oldest);
                     }
-                }, 650);
+                }, 680);
             }
 
             list.appendChild(item);
