@@ -4158,19 +4158,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function sendDirectMediaUrl(mediaUrl, mediaType = 'gif') {
+        if (!mediaUrl) return;
+        const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const payload = {
+            roomKey,
+            username,
+            id: messageId,
+            message: { type: mediaType, content: mediaUrl },
+            seenBy: []
+        };
+        if (replyContext) {
+            payload.replyTo = {
+                messageId: replyContext.messageId,
+                sender: replyContext.sender,
+                previewText: replyContext.previewText
+            };
+            clearReplyContext();
+        }
+        displayMessage(username, payload.message, messageId, [], payload.replyTo);
+        socket.emit("chat-message", payload);
+        scrollMessagesToBottom(true);
+    }
+    window.sendDirectMediaUrl = sendDirectMediaUrl;
+
     function processKeyboardContent(detail) {
         if (!detail || !detail.base64) return;
         const file = dataUrlToFile(detail.base64, detail.name, detail.mimeType);
         if (file) {
-            if (window.mediaDraft && typeof window.mediaDraft.add === 'function') {
-                window.mediaDraft.add([file]);
-            } else {
-                handleMediaFilesFromExternal([file]);
-            }
+            file.isSticker = true;
+            handleMediaFilesFromExternal([file]);
         }
     }
 
     window.handleKeyboardContent = processKeyboardContent;
+    window.handleAndroidKeyboardContent = () => {
+        try {
+            if (window.AndroidKeyboardBridge) {
+                const base64 = window.AndroidKeyboardBridge.getPendingData();
+                const mime = window.AndroidKeyboardBridge.getPendingMime() || 'image/png';
+                const name = window.AndroidKeyboardBridge.getPendingName() || 'keyboard_media';
+                if (window.AndroidKeyboardBridge.clearPending) {
+                    window.AndroidKeyboardBridge.clearPending();
+                }
+                if (base64) {
+                    processKeyboardContent({ base64, mimeType: mime, name });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to read AndroidKeyboardBridge:', e);
+        }
+    };
+    window.addEventListener('keyboardContentReady', () => {
+        if (typeof window.handleAndroidKeyboardContent === 'function') {
+            window.handleAndroidKeyboardContent();
+        }
+    });
     window.addEventListener('keyboardContent', (e) => {
         if (e && e.detail) {
             processKeyboardContent(e.detail);
@@ -4189,7 +4232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         imageFiles.forEach(file => {
             if (pastedMedia.length + itemsToAdd.length < MAX_MEDIA_ITEMS) {
                 const objectUrl = URL.createObjectURL(file);
-                itemsToAdd.push({ file, objectUrl });
+                itemsToAdd.push({ file, objectUrl, isSticker: file.isSticker || false });
             }
         });
 
@@ -4211,7 +4254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Paste handler supporting files, direct image URLs, and text
+    // Paste handler supporting files, HTML copied images (GIFs/stickers), direct image URLs, and text
     messageInput.addEventListener('paste', async (event) => {
         // 1. Check for image files in clipboardData
         const files = event.clipboardData?.files;
@@ -4240,7 +4283,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 2. Check for pasted direct image/GIF URLs (Giphy, Tenor, direct .gif/.png/.webp)
+        // 2. Check for HTML clipboard containing <img> tags (Giphy, Tenor, Web images, Discord)
+        const html = event.clipboardData ? event.clipboardData.getData('text/html') : '';
+        if (html && html.includes('<img')) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const img = doc.querySelector('img');
+                if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://') || img.src.startsWith('data:'))) {
+                    event.preventDefault();
+                    if (img.src.startsWith('data:')) {
+                        const file = dataUrlToFile(img.src, `pasted-${Date.now()}`);
+                        if (file) {
+                            file.isSticker = true;
+                            handleMediaFilesFromExternal([file]);
+                            return;
+                        }
+                    } else {
+                        // Attempt to fetch as blob to preserve full animation (e.g. GIF)
+                        fetch(img.src)
+                            .then(r => r.blob())
+                            .then(blob => {
+                                const ext = blob.type.includes('gif') ? 'gif' : blob.type.includes('webp') ? 'webp' : 'png';
+                                const file = new File([blob], `pasted-${Date.now()}.${ext}`, { type: blob.type });
+                                file.isSticker = true;
+                                handleMediaFilesFromExternal([file]);
+                            })
+                            .catch(() => {
+                                sendDirectMediaUrl(img.src, img.src.includes('.gif') ? 'gif' : 'sticker');
+                            });
+                        return;
+                    }
+                }
+            } catch (_) {}
+        }
+
+        // 3. Check for pasted direct image/GIF URLs (Giphy, Tenor, direct .gif/.png/.webp)
         const pastedText = event.clipboardData ? event.clipboardData.getData('text/plain').trim() : '';
         const isDirectImageUrl = /^https?:\/\/.+\.(gif|webp|png|jpe?g)($|\?)/i.test(pastedText) ||
             /^https?:\/\/(media[0-9]*\.giphy\.com|c\.tenor\.com|tenor\.com\/view|i\.giphy\.com)\/.+/i.test(pastedText);
@@ -4248,31 +4326,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasTypedText = (messageInput.value || '').trim().length > 0;
         if (isDirectImageUrl && !hasTypedText) {
             event.preventDefault();
-            const isGif = pastedText.toLowerCase().includes('.gif') || pastedText.includes('giphy');
+            const isGif = pastedText.toLowerCase().includes('.gif') || pastedText.includes('giphy') || pastedText.includes('tenor');
             const msgType = isGif ? 'gif' : 'image';
-            const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            const payload = {
-                roomKey,
-                username,
-                id: messageId,
-                message: { type: msgType, content: pastedText },
-                seenBy: []
-            };
-            if (replyContext) {
-                payload.replyTo = {
-                    messageId: replyContext.messageId,
-                    sender: replyContext.sender,
-                    previewText: replyContext.previewText
-                };
-                clearReplyContext();
-            }
-            displayMessage(username, payload.message, messageId, [], payload.replyTo);
-            socket.emit("chat-message", payload);
-            scrollMessagesToBottom(true);
+            sendDirectMediaUrl(pastedText, msgType);
             return;
         }
 
-        // 3. Plain text paste: prevent rich HTML tags from leaking into contenteditable
+        // 4. Plain text paste: prevent rich HTML tags from leaking into contenteditable
         event.preventDefault();
         const plainText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
         document.execCommand('insertText', false, plainText);
@@ -4324,6 +4384,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 .then(blob => {
                                     const ext = blob.type.split('/')[1] || 'png';
                                     const file = new File([blob], `sticker-${Date.now()}.${ext}`, { type: blob.type });
+                                    file.isSticker = true;
                                     handleMediaFilesFromExternal([file]);
                                 })
                                 .catch(() => {});

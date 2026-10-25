@@ -4,10 +4,12 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.AttributeSet;
 import android.util.Base64;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.webkit.JavascriptInterface;
 import androidx.core.view.inputmethod.EditorInfoCompat;
 import androidx.core.view.inputmethod.InputConnectionCompat;
 import androidx.core.view.inputmethod.InputContentInfoCompat;
@@ -17,16 +19,51 @@ import java.io.InputStream;
 
 public class CustomWebView extends CapacitorWebView {
 
+    private volatile String pendingBase64 = "";
+    private volatile String pendingMime = "image/png";
+    private volatile String pendingName = "keyboard_media";
+
+    public class KeyboardBridge {
+        @JavascriptInterface
+        public String getPendingData() {
+            return pendingBase64 != null ? pendingBase64 : "";
+        }
+
+        @JavascriptInterface
+        public String getPendingMime() {
+            return pendingMime != null ? pendingMime : "image/png";
+        }
+
+        @JavascriptInterface
+        public String getPendingName() {
+            return pendingName != null ? pendingName : "keyboard_media";
+        }
+
+        @JavascriptInterface
+        public void clearPending() {
+            pendingBase64 = "";
+            pendingMime = "image/png";
+            pendingName = "keyboard_media";
+        }
+    }
+
     public CustomWebView(Context context) {
         super(context, null);
+        initBridge();
     }
 
     public CustomWebView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        initBridge();
     }
 
     public CustomWebView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs);
+        initBridge();
+    }
+
+    private void initBridge() {
+        addJavascriptInterface(new KeyboardBridge(), "AndroidKeyboardBridge");
     }
 
     @Override
@@ -37,12 +74,24 @@ public class CustomWebView extends CapacitorWebView {
         }
 
         // Advertise image/GIF/sticker MIME types to IME (Gboard, Samsung Keyboard, etc.)
-        EditorInfoCompat.setContentMimeTypes(outAttrs, new String[]{
+        String[] mimeTypes = new String[]{
             "image/gif",
             "image/png",
             "image/jpeg",
             "image/webp"
-        });
+        };
+        EditorInfoCompat.setContentMimeTypes(outAttrs, mimeTypes);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            outAttrs.contentMimeTypes = mimeTypes;
+        }
+
+        // Ensure EditorInfo signals a multi-line text input field so Gboard shows GIF/sticker tabs
+        if (outAttrs.inputType == 0 || outAttrs.inputType == InputType.TYPE_NULL) {
+            outAttrs.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
+        } else {
+            outAttrs.inputType |= InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+        }
+        outAttrs.imeOptions |= EditorInfo.IME_ACTION_SEND | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
 
         InputConnectionCompat.OnCommitContentListener callback = new InputConnectionCompat.OnCommitContentListener() {
             @Override
@@ -74,7 +123,7 @@ public class CustomWebView extends CapacitorWebView {
                             byte[] data = new byte[8192];
                             int nRead;
                             int totalRead = 0;
-                            final int MAX_SIZE = 10 * 1024 * 1024; // 10 MB cap
+                            final int MAX_SIZE = 15 * 1024 * 1024; // 15 MB cap
 
                             while ((nRead = is.read(data, 0, data.length)) != -1) {
                                 totalRead += nRead;
@@ -92,13 +141,27 @@ public class CustomWebView extends CapacitorWebView {
                             final String finalMime = mimeType;
                             final String finalName = label;
 
+                            pendingBase64 = dataUrl;
+                            pendingMime = finalMime;
+                            pendingName = finalName;
+
                             post(() -> {
-                                String safeBase64 = dataUrl.replace("\\", "\\\\").replace("'", "\\'");
-                                String safeMime = finalMime.replace("'", "\\'");
-                                String safeName = finalName.replace("'", "\\'");
-                                String js = "if (typeof window.handleKeyboardContent === 'function') { window.handleKeyboardContent({ mimeType: '" + safeMime + "', base64: '" + safeBase64 + "', name: '" + safeName + "' }); } " +
-                                            "window.dispatchEvent(new CustomEvent('keyboardContent', { detail: { mimeType: '" + safeMime + "', base64: '" + safeBase64 + "', name: '" + safeName + "' } }));";
+                                // Trigger via JavaScriptInterface first (bypasses Android IPC 1MB buffer limit entirely)
+                                String js = "if (typeof window.handleAndroidKeyboardContent === 'function') { " +
+                                            "    window.handleAndroidKeyboardContent(); " +
+                                            "} else { " +
+                                            "    window.dispatchEvent(new CustomEvent('keyboardContentReady')); " +
+                                            "}";
                                 evaluateJavascript(js, null);
+
+                                // If payload is small enough (< 400KB), also dispatch direct CustomEvent fallback
+                                if (dataUrl.length() < 400000) {
+                                    String safeBase64 = dataUrl.replace("\\", "\\\\").replace("'", "\\'");
+                                    String safeMime = finalMime.replace("'", "\\'");
+                                    String safeName = finalName.replace("'", "\\'");
+                                    String fallbackJs = "window.dispatchEvent(new CustomEvent('keyboardContent', { detail: { mimeType: '" + safeMime + "', base64: '" + safeBase64 + "', name: '" + safeName + "' } }));";
+                                    evaluateJavascript(fallbackJs, null);
+                                }
                             });
                         }
                     } catch (Exception ex) {
