@@ -556,6 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let initialPinchDistance = null;
     let initialPinchZoom = 1;
     let hasPreviewDragged = false;
+    let isMediaDragging = false;
 
     // Production-grade typing indicator state
     let isTyping = false;
@@ -4867,7 +4868,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Lightbox modal elements & gesture state (PHASE 8)
     const previewZoomIndicator = document.getElementById("previewZoomIndicator");
-    const previewZoomResetBtn = document.getElementById("previewZoomResetBtn");
 
     previewZoom = 1;
     previewPanX = 0;
@@ -4907,8 +4907,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previewZoom <= 1) {
             previewZoom = 1;
             img.classList.remove('zoomed');
+            img.draggable = true;
         } else {
             img.classList.add('zoomed');
+            img.draggable = false;
         }
         img.style.transform = `translate(${previewPanX}px, ${previewPanY}px) scale(${previewZoom})`;
         if (previewZoomIndicator) {
@@ -4918,9 +4920,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let previewOpenedTime = 0;
+    let lastPreviewClosedTime = 0;
 
     function closePreviewModal() {
         if (!previewModal) return;
+        lastPreviewClosedTime = Date.now();
         previewModal.classList.add('hidden');
         previewModal.style.setProperty('display', 'none', 'important');
         if (previewContent) previewContent.innerHTML = "";
@@ -4996,10 +5000,51 @@ document.addEventListener('DOMContentLoaded', () => {
         const isVid = item.type === 'video';
         if (isVid) {
             previewContent.innerHTML = `<video src="${item.src}" controls autoplay playsinline class="max-w-[96vw] max-h-[80vh] object-contain rounded-lg"></video>`;
-            if (previewZoomResetBtn) previewZoomResetBtn.classList.add('hidden');
         } else {
-            previewContent.innerHTML = `<img id="previewActiveImage" src="${item.src}" class="preview-zoomable-img" draggable="false" alt="Preview">`;
-            if (previewZoomResetBtn) previewZoomResetBtn.classList.remove('hidden');
+            previewContent.innerHTML = `<img id="previewActiveImage" src="${item.src}" class="preview-zoomable-img" draggable="true" alt="Preview" style="cursor: grab !important; -webkit-user-drag: element !important; user-select: auto !important;">`;
+            const activeImg = document.getElementById("previewActiveImage");
+            if (activeImg) {
+                activeImg.draggable = true;
+                activeImg.addEventListener('dragstart', (e) => {
+                    isMediaDragging = true;
+                    activePointers.clear();
+                    try {
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'copyMove';
+                            const fullUrl = activeImg.src.startsWith('http') || activeImg.src.startsWith('data:') 
+                                ? activeImg.src 
+                                : new URL(activeImg.src, window.location.origin).href;
+                            e.dataTransfer.setData('text/uri-list', fullUrl);
+                            e.dataTransfer.setData('URL', fullUrl);
+                            e.dataTransfer.setData('text/plain', fullUrl);
+                            e.dataTransfer.setData('text/html', `<img src="${fullUrl}" alt="Media">`);
+                            try {
+                                const cleanUrl = fullUrl.split('?')[0];
+                                const ext = cleanUrl.split('.').pop().toLowerCase();
+                                const mime = (ext === 'png') ? 'image/png' : ((ext === 'webp') ? 'image/webp' : ((ext === 'gif') ? 'image/gif' : 'image/jpeg'));
+                                const filename = cleanUrl.split('/').pop() || `media-${Date.now()}.${ext || 'jpg'}`;
+                                e.dataTransfer.setData('DownloadURL', `${mime}:${filename}:${fullUrl}`);
+                            } catch (_) {}
+                        }
+                    } catch (_) {}
+                });
+                activeImg.addEventListener('dragend', () => {
+                    setTimeout(() => {
+                        isMediaDragging = false;
+                    }, 200);
+                });
+            }
+        }
+
+        // Update circular navigation arrow visibility based on gallery length
+        const prevBtn = document.getElementById('previewPrevBtn');
+        const nextBtn = document.getElementById('previewNextBtn');
+        const hasMultiple = galleryItems && galleryItems.length > 1;
+        if (prevBtn) {
+            prevBtn.style.setProperty('display', hasMultiple ? 'flex' : 'none', 'important');
+        }
+        if (nextBtn) {
+            nextBtn.style.setProperty('display', hasMultiple ? 'flex' : 'none', 'important');
         }
 
         if (previewModal) {
@@ -5083,10 +5128,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const previewPrevBtn = document.getElementById('previewPrevBtn');
-    if (previewPrevBtn) previewPrevBtn.onclick = (e) => { e.stopPropagation(); loadGalleryItem(currentGalleryIndex - 1); };
+    if (previewPrevBtn) {
+        previewPrevBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!galleryItems || galleryItems.length <= 1) return;
+            const prevIdx = (currentGalleryIndex - 1 + galleryItems.length) % galleryItems.length;
+            loadGalleryItem(prevIdx);
+        };
+    }
 
     const previewNextBtn = document.getElementById('previewNextBtn');
-    if (previewNextBtn) previewNextBtn.onclick = (e) => { e.stopPropagation(); loadGalleryItem(currentGalleryIndex + 1); };
+    if (previewNextBtn) {
+        previewNextBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!galleryItems || galleryItems.length <= 1) return;
+            const nextIdx = (currentGalleryIndex + 1) % galleryItems.length;
+            loadGalleryItem(nextIdx);
+        };
+    }
 
     const previewDownloadBtn = document.getElementById('previewDownloadBtn');
     if (previewDownloadBtn) {
@@ -5235,17 +5294,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (previewZoomResetBtn) {
-        previewZoomResetBtn.onclick = (e) => {
-            e.stopPropagation();
-            const img = document.getElementById("previewActiveImage");
-            previewZoom = 1;
-            previewPanX = 0;
-            previewPanY = 0;
-            applyPreviewTransform(img);
-        };
-    }
-
     if (previewModal) {
         // Mouse Wheel Zoom toward cursor (1x to 5x)
         previewModal.addEventListener('wheel', (e) => {
@@ -5273,21 +5321,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Pointer Events for Pinch, Pan, and Tap-to-Close
         previewModal.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('#previewTopBar') ||
-                e.target.closest('#previewBottomBar') ||
-                e.target.closest('#previewEmojiPickerPopover') ||
-                e.target.closest('#previewPrevBtn') ||
-                e.target.closest('#previewNextBtn') ||
-                e.target.closest('#previewZoomResetBtn') ||
-                e.target.closest('#previewFullscreenBtn') ||
-                e.target.closest('#closePreview')) return;
+            if (e.target.closest('button, a, input, textarea, #previewEmojiPickerPopover, .viewer-reactions-bar')) return;
+            if (isMediaDragging) return;
             const img = document.getElementById("previewActiveImage");
 
             activePointers.set(e.pointerId, {
                 x: e.clientX,
                 y: e.clientY,
                 startX: e.clientX,
-                startY: e.clientY
+                startY: e.clientY,
+                pointerType: e.pointerType
             });
 
             if (activePointers.size === 1) {
@@ -5307,7 +5350,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         previewModal.addEventListener('pointermove', (e) => {
-            if (!activePointers.has(e.pointerId)) return;
+            if (isMediaDragging || !activePointers.has(e.pointerId)) return;
             const ptr = activePointers.get(e.pointerId);
             ptr.x = e.clientX;
             ptr.y = e.clientY;
@@ -5337,6 +5380,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const handlePointerEnd = (e) => {
+            if (isMediaDragging) {
+                activePointers.clear();
+                return;
+            }
             const ptr = activePointers.get(e.pointerId);
             if (activePointers.has(e.pointerId)) {
                 activePointers.delete(e.pointerId);
@@ -5346,29 +5393,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (img) img.classList.remove('is-dragging');
                 isPanning = false;
 
-                // Swipe left/right gallery navigation (when not zoomed)
-                if (!hadMultiTouch && previewZoom === 1 && ptr && maxPointerMovement > 40) {
+                // Swipe left/right gallery navigation (ONLY for touch gestures, not mouse drag!)
+                if (!hadMultiTouch && previewZoom === 1 && ptr && ptr.pointerType === 'touch' && maxPointerMovement > 40) {
                     const deltaX = e.clientX - ptr.startX;
                     if (deltaX < -40) {
-                        loadGalleryItem(currentGalleryIndex + 1);
+                        if (galleryItems && galleryItems.length > 1) {
+                            loadGalleryItem((currentGalleryIndex + 1) % galleryItems.length);
+                        }
                         return;
                     } else if (deltaX > 40) {
-                        loadGalleryItem(currentGalleryIndex - 1);
+                        if (galleryItems && galleryItems.length > 1) {
+                            loadGalleryItem((currentGalleryIndex - 1 + galleryItems.length) % galleryItems.length);
+                        }
                         return;
                     }
                 }
 
-                // Tap-to-close (backdrop and image, but not top bar, bottom bar, emoji picker, or video controls)
-                if (!hadMultiTouch && maxPointerMovement <= 8) {
-                    if (Date.now() - previewOpenedTime < 350) return;
-                    if (!e.target.closest('#previewTopBar') &&
-                        !e.target.closest('#previewBottomBar') &&
-                        !e.target.closest('#previewEmojiPickerPopover') &&
-                        !e.target.closest('#previewPrevBtn') &&
-                        !e.target.closest('#previewNextBtn') &&
-                        !e.target.closest('video')) {
-                        closePreviewModal();
+                function handleBackdropTapOrClick(ev) {
+                    if (isMediaDragging) return;
+                    // Guard: If clicking directly on or inside the actual media, DO NOT close
+                    if (ev.target.closest('#previewActiveImage, #previewContent img, #previewContent video, #previewContent audio, .preview-zoomable-img')) {
+                        return;
                     }
+
+                    // Guard: If clicking an interactive button or control, DO NOT close
+                    if (ev.target.closest('button, a, input, textarea, #previewEmojiPickerPopover, .viewer-reactions-bar')) {
+                        return;
+                    }
+
+                    // Popover: If emoji picker popover is open, close only the popover
+                    if (previewEmojiPickerPopover && !previewEmojiPickerPopover.classList.contains('hidden')) {
+                        if (!previewEmojiPickerPopover.contains(ev.target)) {
+                            previewEmojiPickerPopover.classList.add('hidden');
+                            return;
+                        }
+                    }
+
+                    // Gesture guard: If actively panning a zoomed image or multi-touch pinching, DO NOT close
+                    if (isPanning || hadMultiTouch) {
+                        return;
+                    }
+
+                    // Anywhere else on screen tapped/clicked -> take user back to chat!
+                    if (ev.stopPropagation) ev.stopPropagation();
+                    closePreviewModal();
+                }
+
+                // If pointer movement was within tap/click range (<= 25px, not a swipe or drag)
+                if (!hadMultiTouch && maxPointerMovement <= 25) {
+                    handleBackdropTapOrClick(e);
                 }
             }
         };
@@ -5376,13 +5449,52 @@ document.addEventListener('DOMContentLoaded', () => {
         previewModal.addEventListener('pointerup', handlePointerEnd);
         previewModal.addEventListener('pointercancel', handlePointerEnd);
 
+        // Click-to-close listener for desktop mouse and standard click events
+        function onPreviewModalClick(e) {
+            if (isMediaDragging) return;
+            // Guard: If clicking directly on or inside the actual media, DO NOT close
+            if (e.target.closest('#previewActiveImage, #previewContent img, #previewContent video, #previewContent audio, .preview-zoomable-img')) {
+                return;
+            }
+
+            // Guard: If clicking an interactive button or control, DO NOT close
+            if (e.target.closest('button, a, input, textarea, #previewEmojiPickerPopover, .viewer-reactions-bar')) {
+                return;
+            }
+
+            // Popover: If emoji picker popover is open, close only the popover
+            if (previewEmojiPickerPopover && !previewEmojiPickerPopover.classList.contains('hidden')) {
+                if (!previewEmojiPickerPopover.contains(e.target)) {
+                    previewEmojiPickerPopover.classList.add('hidden');
+                    return;
+                }
+            }
+
+            // If user did a large drag (> 25px) or multi-touch, do not close on click
+            if (hadMultiTouch || maxPointerMovement > 25) {
+                return;
+            }
+
+            e.stopPropagation();
+            closePreviewModal();
+        }
+
+        previewModal.addEventListener('click', onPreviewModalClick);
+        if (previewContent) {
+            previewContent.addEventListener('click', onPreviewModalClick);
+        }
+
         // Escape, ArrowLeft, ArrowRight keys for modal
         window.addEventListener('keydown', (e) => {
             if (!previewModal || previewModal.classList.contains('hidden')) return;
             if (e.key === 'ArrowLeft') {
-                loadGalleryItem(currentGalleryIndex - 1);
+                if (galleryItems && galleryItems.length > 1) {
+                    loadGalleryItem((currentGalleryIndex - 1 + galleryItems.length) % galleryItems.length);
+                }
             } else if (e.key === 'ArrowRight') {
-                loadGalleryItem(currentGalleryIndex + 1);
+                if (galleryItems && galleryItems.length > 1) {
+                    loadGalleryItem((currentGalleryIndex + 1) % galleryItems.length);
+                }
             } else if (e.key === 'Escape') {
                 closePreviewModal();
             }
@@ -5390,6 +5502,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     messagesDiv.addEventListener('click', (e) => {
+        if (Date.now() - lastPreviewClosedTime < 300) {
+            return; // Guard against click bleed-through from closing the preview modal
+        }
         if (e.target.closest('a, button, .media-download-btn, .file-action-btn, .desktop-reply-btn, .quoted-reply, .reaction-chip')) {
             return;
         }

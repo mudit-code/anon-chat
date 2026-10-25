@@ -663,6 +663,9 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.waitForTimeout(100);
     await expect(modal).toBeHidden();
 
+    // Verify leftmost full page view button (previewZoomResetBtn) is removed
+    expect(await page.locator('#previewZoomResetBtn').count()).toBe(0);
+
     // 6. Test Close button
     await page.evaluate(({ dummyPng }) => {
       (window as any).openPreview(dummyPng, 'image');
@@ -672,7 +675,25 @@ test.describe('Audit Suite - Current Behavior', () => {
     await page.waitForTimeout(100);
     await expect(modal).toBeHidden();
 
-    console.log('PHASE 8 Result: zoom, pan gesture guard, tap-to-close, escape, and close button all passed');
+    // 7. Clicking actual media area does NOT close modal, but clicking backdrop does
+    await page.evaluate(({ dummyPng }) => {
+      (window as any).openPreview(dummyPng, 'image');
+    }, { dummyPng });
+    await expect(modal).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.locator('#previewActiveImage').click();
+    await page.waitForTimeout(100);
+    await expect(modal).toBeVisible();
+
+    // Click screen outside actual media area takes user back to chat
+    await page.evaluate(() => {
+      const content = document.getElementById('previewContent');
+      content?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await page.waitForTimeout(100);
+    await expect(modal).toBeHidden();
+
+    console.log('PHASE 8 Result: zoom, pan gesture guard, tap-to-close, escape, close button, and media area tap guard all passed');
   });
 
   // PHASE 9: Camera button: tap = photo, hold = circular snap

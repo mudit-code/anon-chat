@@ -2351,18 +2351,19 @@ body.light-mode .context-menu-item:hover {
   object-fit: contain;
   transition: transform 0.1s ease-out;
   transform-origin: center center;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
+  cursor: grab !important;
+  touch-action: pan-x pan-y !important;
+  user-select: auto !important;
+  -webkit-user-select: auto !important;
+  -webkit-user-drag: element !important;
 }
 
 .preview-zoomable-img.zoomed {
-  cursor: move;
+  cursor: grab !important;
 }
 
 .preview-zoomable-img.is-dragging {
-  cursor: grabbing;
+  cursor: grabbing !important;
   transition: none !important;
 }
 
@@ -3919,8 +3920,13 @@ html.loading-file-room #fileRoomScreen {
   align-items: center;
   justify-content: center;
   overflow: hidden !important;
-  touch-action: none;
+  touch-action: auto !important;
+  cursor: default !important;
   box-sizing: border-box !important;
+}
+
+#previewContent {
+  cursor: default !important;
 }
 
 #previewModal.hidden {
@@ -3942,6 +3948,7 @@ html.loading-file-room #fileRoomScreen {
   padding-top: max(env(safe-area-inset-top, 0px), 8px) !important;
   background: linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%) !important;
   pointer-events: auto !important;
+  cursor: default !important;
   box-sizing: border-box !important;
 }
 
@@ -3959,6 +3966,7 @@ html.loading-file-room #fileRoomScreen {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px) !important;
   background: linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 60%, transparent 100%) !important;
   pointer-events: auto !important;
+  cursor: default !important;
   box-sizing: border-box !important;
 }
 
@@ -3980,8 +3988,49 @@ html.loading-file-room #fileRoomScreen {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7) !important;
 }
 
-#closePreview, #previewBackBtn, #previewZoomResetBtn, #previewFullscreenBtn, #previewDownloadBtn, #previewShareBtn, #previewPrevBtn, #previewNextBtn, #previewReactPlusBtn {
+#closePreview, #previewBackBtn, #previewFullscreenBtn, #previewDownloadBtn, #previewShareBtn, #previewPrevBtn, #previewNextBtn, #previewReactPlusBtn {
   cursor: pointer !important;
   pointer-events: auto !important;
   z-index: 100003 !important;
+}
+
+#previewPrevBtn, #previewNextBtn {
+  position: fixed !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  transition: all 0.2s ease !important;
+}
+
+#previewPrevBtn {
+  left: 16px !important;
+  left: max(16px, env(safe-area-inset-left, 16px)) !important;
+  right: auto !important;
+}
+
+#previewNextBtn {
+  right: 16px !important;
+  right: max(16px, env(safe-area-inset-right, 16px)) !important;
+  left: auto !important;
+}
+
+#previewPrevBtn:hover, #previewNextBtn:hover {
+  background-color: rgba(0, 0, 0, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  transform: translateY(-50%) scale(1.08) !important;
+}
+
+#previewPrevBtn:active, #previewNextBtn:active {
+  transform: translateY(-50%) scale(0.94) !important;
 }
