@@ -7126,8 +7126,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ANIMATED LIVE CHAT IN LANDING SAMPLE PREVIEW
     // ============================================================
     function initLandingChatAnimation() {
-        const demoList = document.getElementById("demoBubblesList");
-        if (!demoList) return;
+        const demoLists = document.querySelectorAll(".demo-bubbles-list");
+        if (!demoLists || demoLists.length === 0) return;
 
         // Rich pool of realistic, anonymous chat messages
         const conversationPool = [
@@ -7162,51 +7162,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const msgData = conversationPool[currentIndex % conversationPool.length];
             currentIndex++;
 
-            const item = document.createElement("div");
-            item.className = `demo-bubble-item animate-enter ${msgData.isSelf ? "text-right" : ""}`;
+            const activeLists = document.querySelectorAll(".demo-bubbles-list");
+            activeLists.forEach(demoList => {
+                const item = document.createElement("div");
+                item.className = `demo-bubble-item animate-enter ${msgData.isSelf ? "text-right" : ""}`;
 
-            const sender = document.createElement("div");
-            sender.className = "demo-sender-label";
-            sender.textContent = msgData.sender;
+                const sender = document.createElement("div");
+                sender.className = "demo-sender-label";
+                sender.textContent = msgData.sender;
 
-            const bubble = document.createElement("div");
-            bubble.className = msgData.isSelf ? "demo-bubble-orange" : "demo-bubble-dark";
-            bubble.textContent = msgData.text;
+                const bubble = document.createElement("div");
+                bubble.className = msgData.isSelf ? "demo-bubble-orange" : "demo-bubble-dark";
+                bubble.textContent = msgData.text;
 
-            item.appendChild(sender);
-            item.appendChild(bubble);
+                item.appendChild(sender);
+                item.appendChild(bubble);
 
-            // Smoothly collapse and slide out oldest item if max items reached
-            const activeItems = demoList.querySelectorAll(".demo-bubble-item:not(.demo-exiting)");
-            if (activeItems.length >= MAX_ITEMS) {
-                const oldest = activeItems[0];
-                oldest.classList.add("demo-exiting");
+                // Smoothly collapse and slide out oldest item if max items reached
+                const activeItems = demoList.querySelectorAll(".demo-bubble-item:not(.demo-exiting)");
+                if (activeItems.length >= MAX_ITEMS) {
+                    const oldest = activeItems[0];
+                    oldest.classList.add("demo-exiting");
 
-                // Get exact computed height before initiating smooth collapse
-                const currentHeight = oldest.offsetHeight;
-                oldest.style.maxHeight = currentHeight + "px";
-                oldest.style.overflow = "hidden";
-                oldest.style.transition = "max-height 0.58s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.58s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease, transform 0.58s cubic-bezier(0.16, 1, 0.3, 1)";
+                    // Get exact computed height before initiating smooth collapse
+                    const currentHeight = oldest.offsetHeight;
+                    oldest.style.maxHeight = currentHeight + "px";
+                    oldest.style.overflow = "hidden";
+                    oldest.style.transition = "max-height 0.58s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.58s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease, transform 0.58s cubic-bezier(0.16, 1, 0.3, 1)";
 
-                // Force reflow so transition begins from current rendered height
-                oldest.offsetHeight;
+                    // Force reflow so transition begins from current rendered height
+                    oldest.offsetHeight;
 
-                // Seamlessly collapse height and margins to 0 with deceleration curve
-                oldest.style.opacity = "0";
-                oldest.style.transform = "translateY(-14px) scale(0.93)";
-                oldest.style.maxHeight = "0px";
-                oldest.style.marginBottom = "0px";
-                oldest.style.paddingTop = "0px";
-                oldest.style.paddingBottom = "0px";
+                    // Seamlessly collapse height and margins to 0 with deceleration curve
+                    oldest.style.opacity = "0";
+                    oldest.style.transform = "translateY(-14px) scale(0.93)";
+                    oldest.style.maxHeight = "0px";
+                    oldest.style.marginBottom = "0px";
+                    oldest.style.paddingTop = "0px";
+                    oldest.style.paddingBottom = "0px";
 
-                setTimeout(() => {
-                    if (oldest.parentNode) {
-                        oldest.parentNode.removeChild(oldest);
-                    }
-                }, 600);
-            }
+                    setTimeout(() => {
+                        if (oldest.parentNode) {
+                            oldest.parentNode.removeChild(oldest);
+                        }
+                    }, 600);
+                }
 
-            demoList.appendChild(item);
+                demoList.appendChild(item);
+            });
         }
 
         // Random pacing between 2.6s and 4.2s for authentic conversation feel

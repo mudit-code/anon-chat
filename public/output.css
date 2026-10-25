@@ -7010,7 +7010,7 @@ html.loading-file-room #fileRoomScreen {
     font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
-  /* Inline SVG background pattern */
+  /* Mobile Doodle Background (Bright & clearly visible doodle pattern) */
 
   .mobile-doodle-bg {
     position: absolute;
@@ -7019,7 +7019,10 @@ html.loading-file-room #fileRoomScreen {
     height: 100%;
     pointer-events: none;
     z-index: 0;
-    opacity: 1;
+    background-image: url('/doodle-tile-chat-dark.svg') !important;
+    background-size: 380px 380px;
+    background-repeat: repeat;
+    opacity: 0.95 !important;
   }
 
   /* Top Header: Logo + "Anon Chat" */
@@ -7175,6 +7178,69 @@ html.loading-file-room #fileRoomScreen {
 
   body.keyboard-open .mobile-typing-hint {
     display: none !important;
+  }
+
+  /* Animated Live Chat Preview in Mobile View */
+
+  .mobile-demo-chat-preview {
+    margin-top: clamp(10px, 1.8vh, 18px);
+    margin-bottom: clamp(4px, 1vh, 10px);
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .mobile-demo-chat-preview .demo-bubbles-list {
+    width: 100%;
+    max-width: 100%;
+    height: clamp(165px, 22vh, 210px);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .mobile-demo-chat-preview .demo-bubble-item {
+    margin-bottom: 8px !important;
+  }
+
+  .mobile-demo-chat-preview .demo-sender-label {
+    font-size: 11.5px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .mobile-demo-chat-preview .demo-bubble-dark,
+  .mobile-demo-chat-preview .demo-bubble-orange {
+    font-size: 13.5px !important;
+    padding: 8px 14px !important;
+    border-radius: 14px !important;
+    line-height: 1.35 !important;
+    max-width: 90%;
+  }
+
+  .mobile-demo-chat-preview .demo-bubble-dark {
+    background: #18181b !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    border-top-left-radius: 4px !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .mobile-demo-chat-preview .demo-bubble-orange {
+    background: #FF7A1F !important;
+    color: #1A0F05 !important;
+    font-weight: 600 !important;
+    border-bottom-right-radius: 4px !important;
+    box-shadow: 0 4px 16px rgba(255, 122, 31, 0.25) !important;
+  }
+
+  .mobile-demo-chat-preview .demo-caption {
+    display: block !important;
+    font-size: 11.5px !important;
+    color: #8F8A85 !important;
+    margin-top: 4px !important;
+    margin-bottom: 0 !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
   /* Lower Section: Segmented Control + Cards */
