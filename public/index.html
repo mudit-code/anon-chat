@@ -20,8 +20,8 @@
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/output.css?v=4.2">
-  <link rel="stylesheet" href="/style.css?v=4.2">
+  <link rel="stylesheet" href="/output.css?v=8.0">
+  <link rel="stylesheet" href="/style.css?v=8.0">
   <script>
     (function () {
       try {
@@ -306,27 +306,27 @@
           <!-- Chat Room Hero -->
           <div id="mobileHeroChat" class="mobile-hero-block">
             <h1 class="mobile-heading font-heading">Talk &amp; share without a name attached.</h1>
-            <p class="mobile-subline">Private rooms and file vaults. No account, no email.</p>
+            <p class="mobile-subline">Create encrypted chat rooms or ephemeral file vaults in seconds. No account, no email, zero traces.</p>
 
             <!-- Live Animated Chat Preview in Mobile View -->
             <div class="demo-chat-preview mobile-demo-chat-preview" aria-hidden="true">
               <div class="demo-bubbles-list" id="mobileDemoBubblesList">
-                <div class="demo-bubble-item text-right">
-                  <div class="demo-sender-label">you as nightjar</div>
-                  <div class="demo-bubble-orange">
-                    Welcome neon_ghost!
+                <div class="demo-bubble-item">
+                  <div class="demo-sender-label">quiet_otter</div>
+                  <div class="demo-bubble-dark">
+                    None. End-to-end and ephemeral ✨
                   </div>
                 </div>
                 <div class="demo-bubble-item">
                   <div class="demo-sender-label">neon_ghost</div>
                   <div class="demo-bubble-dark">
-                    Room self-destructs after we leave, right?
+                    Hey folks, just dropped in.
                   </div>
                 </div>
-                <div class="demo-bubble-item">
-                  <div class="demo-sender-label">paper_fox</div>
-                  <div class="demo-bubble-dark">
-                    Yep, wiped completely in 30 mins.
+                <div class="demo-bubble-item text-right">
+                  <div class="demo-sender-label">you as nightjar</div>
+                  <div class="demo-bubble-orange">
+                    Welcome neon_ghost!
                   </div>
                 </div>
               </div>
@@ -347,50 +347,81 @@
           <!-- File Vault Hero -->
           <div id="mobileHeroVault" class="mobile-hero-block hidden">
             <h1 class="mobile-heading font-heading">Drop files. Share a key. Gone in 30 minutes.</h1>
-            <p class="mobile-subline">Ephemeral vaults up to 500 MB. No account.</p>
+            <p class="mobile-subline">Ephemeral vaults up to 500 MB. No account, zero traces.</p>
 
             <!-- Live Animated Vault Preview in Mobile View (Screenshot 2) -->
             <div class="demo-vault-preview mobile-demo-vault-preview" aria-hidden="true">
               <div class="demo-vault-card">
+                <!-- Vault Header -->
                 <div class="demo-vault-header">
                   <div class="demo-vault-key-badge">
-                    <i class="fas fa-lock"></i>
-                    <span class="font-mono">vault-9482</span>
+                    <svg class="vault-svg-icon" viewBox="0 0 24 24" fill="none" stroke="#FF7A1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span class="vault-key-text">vault-9482</span>
                   </div>
                   <div class="demo-vault-meta">
-                    <span class="demo-vault-meta-label">Example vault · </span><span id="mobileVaultTimer" class="font-mono">29:55 left</span>
+                    <span class="vault-meta-label">Example vault · </span>
+                    <span id="mobileVaultTimer" class="vault-timer-display font-mono">29:55 left</span>
                   </div>
                 </div>
+
+                <!-- Glowing Accent Divider Line -->
                 <div class="demo-vault-divider"></div>
+
+                <!-- Live Animated Files List -->
                 <div class="demo-vault-files-list" id="mobileDemoVaultFilesList">
                   <div class="demo-vault-file-item file-item-active">
                     <div class="file-item-left">
-                      <i class="far fa-file-pdf file-icon"></i>
+                      <svg class="file-svg-icon" viewBox="0 0 24 24" fill="none" stroke="#FF7A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                      </svg>
                       <span class="file-name">Project_brief.pdf</span>
                     </div>
                     <div class="file-item-right">
                       <span class="file-size">1.2 MB</span>
-                      <i class="fas fa-check file-check"></i>
+                      <svg class="file-check-icon" viewBox="0 0 24 24" fill="none" stroke="#ffb682" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
                     </div>
                   </div>
                   <div class="demo-vault-file-item">
                     <div class="file-item-left">
-                      <i class="far fa-file-zipper file-icon"></i>
+                      <svg class="file-svg-icon" viewBox="0 0 24 24" fill="none" stroke="#FF7A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="10" y1="12" x2="10.01" y2="12"></line>
+                        <line x1="10" y1="15" x2="10.01" y2="15"></line>
+                        <line x1="10" y1="18" x2="10.01" y2="18"></line>
+                      </svg>
                       <span class="file-name">photos.zip</span>
                     </div>
                     <div class="file-item-right">
                       <span class="file-size">48 MB</span>
-                      <i class="fas fa-check file-check"></i>
+                      <svg class="file-check-icon" viewBox="0 0 24 24" fill="none" stroke="#ffb682" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
                     </div>
                   </div>
                   <div class="demo-vault-file-item">
                     <div class="file-item-left">
-                      <i class="far fa-file-code file-icon"></i>
+                      <svg class="file-svg-icon" viewBox="0 0 24 24" fill="none" stroke="#FF7A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <path d="M10 13l-2 2 2 2"></path>
+                        <path d="M14 13l2 2-2 2"></path>
+                      </svg>
                       <span class="file-name">design_v3.fig</span>
                     </div>
                     <div class="file-item-right">
                       <span class="file-size">6 MB</span>
-                      <i class="fas fa-check file-check"></i>
+                      <svg class="file-check-icon" viewBox="0 0 24 24" fill="none" stroke="#ffb682" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -1402,7 +1433,7 @@
 
   <script src="/socket.io.min.js"></script>
   <script src="/audioRecorder.js"></script>
-  <script src="/script.js?v=5.1"></script>
+  <script src="/script.js?v=8.0"></script>
 </body>
 
 </html>
