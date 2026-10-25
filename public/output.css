@@ -7115,22 +7115,26 @@ html.loading-file-room #fileRoomScreen {
     min-height: calc(100dvh - max(env(safe-area-inset-top, 0px), 14px));
   }
 
-  /* Hero Section (Upper half - left aligned with balanced padding) */
+  /* Hero Section (Upper half - flexible dynamic container) */
 
   .mobile-hero-section {
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    padding-top: clamp(8px, 1.8vh, 18px);
+    padding-top: clamp(6px, 1.5vh, 16px);
     padding-bottom: 0;
     width: 100%;
+    min-height: 0;
   }
 
   .mobile-hero-block {
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     text-align: left;
     width: 100%;
+    min-height: 0;
   }
 
   /* Heading: Large, bold, left-aligned matching screenshot */
@@ -7239,11 +7243,11 @@ html.loading-file-room #fileRoomScreen {
     display: none !important;
   }
 
-  /* Animated Live Chat Preview in Mobile View (Compact Minimalist Frame) */
+  /* Animated Live Chat Preview in Mobile View (Compact Minimalist Frame - Vertically Centered) */
 
   .mobile-demo-chat-preview {
-    margin-top: clamp(14px, 2.5vh, 24px) !important;
-    margin-bottom: clamp(6px, 1vh, 10px) !important;
+    margin-top: auto !important;
+    margin-bottom: auto !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex;
@@ -7360,11 +7364,11 @@ html.loading-file-room #fileRoomScreen {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
-  /* Animated Vault Preview in Mobile View (Compact Minimalist Frame) */
+  /* Animated Vault Preview in Mobile View (Compact Minimalist Frame - Vertically Centered) */
 
   .mobile-demo-vault-preview {
-    margin-top: clamp(14px, 2.5vh, 24px) !important;
-    margin-bottom: clamp(6px, 1vh, 10px) !important;
+    margin-top: auto !important;
+    margin-bottom: auto !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex;
@@ -7517,7 +7521,7 @@ html.loading-file-room #fileRoomScreen {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    margin-top: clamp(6px, 1.2vh, 12px) !important;
+    margin-top: 0 !important;
     padding-top: 0 !important;
   }
 
