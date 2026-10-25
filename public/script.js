@@ -7181,7 +7181,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Smoothly collapse and slide out oldest item if max items reached
                 const activeItems = demoList.querySelectorAll(".demo-bubble-item:not(.demo-exiting)");
                 const isMobileList = demoList.closest(".mobile-demo-chat-preview") !== null || demoList.id === "mobileDemoBubblesList";
-                const maxItems = isMobileList ? 4 : 3;
+                let maxItems = 3;
+                if (isMobileList) {
+                    const listH = demoList.clientHeight || 280;
+                    maxItems = Math.max(4, Math.min(6, Math.floor((listH + 10) / 54)));
+                }
                 if (activeItems.length >= maxItems) {
                     const oldest = activeItems[0];
                     oldest.classList.add("demo-exiting");
@@ -7270,7 +7274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: "financial_report.xlsx", size: "940 KB", icon: "far fa-file-excel" }
         ];
 
-        let fileIndex = 4;
+        let fileIndex = 6;
         const MAX_FILES = 4;
 
         function addNextVaultFile() {
@@ -7316,7 +7320,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Smoothly collapse and slide out oldest item if max reached
             const activeItems = list.querySelectorAll(".demo-vault-file-item:not(.demo-exiting)");
-            if (activeItems.length >= MAX_FILES) {
+            const listH = list.clientHeight || 240;
+            const dynamicMaxFiles = Math.max(4, Math.min(6, Math.floor((listH + 10) / 46)));
+            if (activeItems.length >= dynamicMaxFiles) {
                 const oldest = activeItems[0];
                 oldest.classList.add("demo-exiting");
                 const currentHeight = oldest.offsetHeight;

@@ -328,17 +328,21 @@
   margin-left: auto;
   margin-right: auto;
   width: 100%;
-  max-width: clamp(340px, 32vw, 480px);
+  max-width: clamp(380px, 36vw, 540px);
 }
 
 .landing-form-title {
-  font-size: clamp(24px, min(2.4vw, 3.8vh), 36px);
+  font-family: var(--font-heading);
+  font-weight: 700 !important;
+  font-size: clamp(36px, min(4.8vw, 7.6vh), 72px) !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.025em !important;
   color: #0a0a0a;
-  margin-bottom: clamp(4px, 0.6vh, 8px);
+  margin-bottom: clamp(6px, 1vh, 12px);
 }
 
 .landing-form-subtitle {
-  font-size: clamp(13px, 1.6vh, 16px);
+  font-size: clamp(14px, min(1.2vw, 2.1vh), 18px);
   color: #5c5c5c;
   margin-bottom: clamp(14px, 2.4vh, 26px);
 }
@@ -465,7 +469,10 @@
     margin-bottom: 5px;
   }
   .landing-form-title {
-    font-size: 22px;
+    font-size: clamp(28px, 5.2vh, 36px) !important;
+    font-weight: 700 !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.025em !important;
   }
   .landing-form-subtitle {
     margin-bottom: 8px;
@@ -4334,32 +4341,39 @@ html.loading-file-room #fileRoomScreen {
     letter-spacing: -0.025em;
   }
 
-  /* Main Home Content layout */
+  /* Main Home Content layout - Dynamic fluid filling without dead voids */
   .mobile-home-main {
     position: relative;
     z-index: 1;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    padding: calc(68px + max(env(safe-area-inset-top, 0px), 14px)) 20px max(env(safe-area-inset-bottom, 0px), 16px) 20px !important;
+    justify-content: flex-start !important;
+    gap: clamp(8px, 1.5vh, 16px) !important;
+    padding: calc(64px + max(env(safe-area-inset-top, 0px), 12px)) clamp(16px, 4.5vw, 22px) max(env(safe-area-inset-bottom, 0px), 14px) clamp(16px, 4.5vw, 22px) !important;
     box-sizing: border-box;
     min-height: calc(100dvh - max(env(safe-area-inset-top, 0px), 14px));
   }
 
-  /* Hero Section (Upper half - left aligned as in screenshot) */
+  /* Hero Section (Upper half - flexible dynamic container) */
   .mobile-hero-section {
-    padding-top: clamp(6px, 1.8vh, 18px);
-    padding-bottom: 6px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding-top: clamp(4px, 1.2vh, 14px);
+    padding-bottom: 0;
     width: 100%;
+    min-height: 0;
   }
 
   .mobile-hero-block {
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     text-align: left;
     width: 100%;
+    min-height: 0;
   }
 
   /* Heading: Large, bold, left-aligned matching screenshot */
@@ -4447,20 +4461,25 @@ html.loading-file-room #fileRoomScreen {
     display: none !important;
   }
 
-  /* Animated Live Chat Preview in Mobile View (Full Width with added top padding) */
+  /* Animated Live Chat Preview in Mobile View (Full Width, dynamically fills vertical space) */
   .mobile-demo-chat-preview {
-    margin-top: clamp(16px, 2.8vh, 24px) !important;
-    margin-bottom: clamp(6px, 1.2vh, 12px);
+    flex: 1 1 auto;
+    margin-top: clamp(12px, 2vh, 20px) !important;
+    margin-bottom: clamp(4px, 0.8vh, 8px) !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
+    min-height: 0;
   }
 
   .mobile-demo-chat-preview .demo-bubbles-list {
     width: 100% !important;
     max-width: 100% !important;
-    height: clamp(210px, 30vh, 265px) !important;
+    flex: 1 1 auto;
+    height: clamp(230px, 36vh, 410px) !important;
+    max-height: clamp(240px, 39vh, 440px) !important;
     overflow: hidden;
     position: relative;
     display: flex;
@@ -4557,22 +4576,24 @@ html.loading-file-room #fileRoomScreen {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
-  /* Animated Vault Preview in Mobile View (Full Width with added top padding) */
+  /* Animated Vault Preview in Mobile View (Full Width, dynamically fills vertical space) */
   .mobile-demo-vault-preview {
-    margin-top: clamp(16px, 2.8vh, 24px) !important;
-    margin-bottom: clamp(6px, 1.2vh, 12px);
+    flex: 1 1 auto;
+    margin-top: clamp(12px, 2vh, 20px) !important;
+    margin-bottom: clamp(4px, 0.8vh, 8px) !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    min-height: 0;
   }
 
   .demo-vault-card {
     background: #141416 !important;
     border: 1px solid #2B2B2D !important;
     border-radius: 20px !important;
-    padding: 14px 16px !important;
+    padding: clamp(10px, 1.8vh, 16px) clamp(12px, 3.5vw, 16px) !important;
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6) !important;
     box-sizing: border-box !important;
     width: 100% !important;
@@ -4635,7 +4656,9 @@ html.loading-file-room #fileRoomScreen {
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: clamp(195px, 27vh, 245px) !important;
+    flex: 1 1 auto;
+    height: clamp(200px, 31vh, 360px) !important;
+    max-height: clamp(210px, 34vh, 380px) !important;
     overflow: hidden !important;
     position: relative !important;
   }
@@ -4706,11 +4729,12 @@ html.loading-file-room #fileRoomScreen {
     flex-shrink: 0 !important;
   }
 
-  /* Lower Section: Segmented Control + Cards (Uses area above it, no massive dead gap) */
+  /* Lower Section: Segmented Control + Cards (Dynamic fluid sizing) */
   .mobile-actions-section {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    margin-top: clamp(12px, 2.5vh, 22px) !important;
+    margin-top: clamp(6px, 1.2vh, 12px) !important;
     padding-top: 0 !important;
   }
 
@@ -4721,19 +4745,19 @@ html.loading-file-room #fileRoomScreen {
     border: 1px solid #2B2B2D;
     border-radius: 14px;
     padding: 4px;
-    height: 48px;
+    height: clamp(42px, 5.2vh, 48px);
     box-sizing: border-box;
-    margin-bottom: 14px;
+    margin-bottom: clamp(8px, 1.2vh, 12px);
   }
 
   .mobile-seg-tab {
     flex: 1;
     height: 100%;
-    min-height: 40px;
+    min-height: 34px;
     border: none;
     border-radius: 10px;
     font-family: inherit;
-    font-size: 14.5px;
+    font-size: clamp(13.5px, 3.8vw, 14.5px);
     font-weight: 600;
     cursor: pointer;
     background: transparent;
@@ -4758,15 +4782,14 @@ html.loading-file-room #fileRoomScreen {
     display: flex;
     flex-direction: column;
     width: 100%;
-    min-height: 196px;
   }
 
   /* Action Cards (Chat Room Tab) */
   .mobile-action-card {
     width: 100%;
-    min-height: 74px;
-    height: 74px;
-    padding: 14px 18px;
+    min-height: clamp(66px, 8.5vh, 76px);
+    height: clamp(66px, 8.5vh, 76px);
+    padding: clamp(10px, 1.5vh, 14px) clamp(14px, 4vw, 18px);
     border-radius: 18px;
     display: flex;
     align-items: center;
@@ -4864,13 +4887,13 @@ html.loading-file-room #fileRoomScreen {
     opacity: 0.82;
     font-size: 12.5px;
     text-align: center;
-    margin-top: 14px;
+    margin-top: clamp(8px, 1.4vh, 14px);
     padding-bottom: 2px;
     user-select: none;
     line-height: 1.2;
   }
 
-  /* File Vault Card - Matched to exact total frame height of Chat Room (158px) */
+  /* File Vault Card - Matched to exact total frame height of Chat Room */
   .mobile-vault-card {
     background: #161617;
     border: 1px solid #2B2B2D;
@@ -4880,9 +4903,9 @@ html.loading-file-room #fileRoomScreen {
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    height: 158px;
-    min-height: 158px;
-    max-height: 158px;
+    height: clamp(142px, 18vh, 162px);
+    min-height: clamp(142px, 18vh, 162px);
+    max-height: clamp(142px, 18vh, 162px);
     justify-content: space-between;
   }
 
