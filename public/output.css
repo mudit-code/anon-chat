@@ -7046,10 +7046,10 @@ html.loading-file-room #fileRoomScreen {
     background: linear-gradient(
       to bottom,
       #0B0B0C 0px,
-      #0B0B0C calc(185px + max(env(safe-area-inset-top, 0px), 14px)),
-      rgba(11, 11, 12, 0.85) calc(205px + max(env(safe-area-inset-top, 0px), 14px)),
-      rgba(11, 11, 12, 0.25) calc(225px + max(env(safe-area-inset-top, 0px), 14px)),
-      transparent calc(245px + max(env(safe-area-inset-top, 0px), 14px)),
+      #0B0B0C calc(205px + max(env(safe-area-inset-top, 0px), 14px)),
+      rgba(11, 11, 12, 0.85) calc(225px + max(env(safe-area-inset-top, 0px), 14px)),
+      rgba(11, 11, 12, 0.25) calc(245px + max(env(safe-area-inset-top, 0px), 14px)),
+      transparent calc(265px + max(env(safe-area-inset-top, 0px), 14px)),
       transparent 100%
     );
   }
@@ -7121,7 +7121,7 @@ html.loading-file-room #fileRoomScreen {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    padding-top: clamp(6px, 1.5vh, 16px);
+    padding-top: clamp(18px, 3.2vh, 32px);
     padding-bottom: 0;
     width: 100%;
     min-height: 0;
