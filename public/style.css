@@ -1355,6 +1355,62 @@ body.light-mode .desktop-reply-btn {
   cursor: pointer;
 }
 
+/* Fixed ratio frame for images and videos (consistent 4:3 bubble dimensions) */
+.media-fixed-frame {
+  width: min(72vw, 250px) !important;
+  aspect-ratio: 4 / 3 !important;
+  height: auto !important;
+  max-height: none !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.media-fixed-frame img.message-file-preview,
+.media-fixed-frame video.message-file-preview,
+.media-fixed-frame img,
+.media-fixed-frame video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* Disable native text selection and touch callout on all chat elements */
+#chatScreen,
+#chatScreen *:not(input):not(textarea),
+#messages,
+#messages *:not(input):not(textarea),
+.message,
+.message *:not(input):not(textarea),
+.message-bubble,
+.message-bubble *:not(input):not(textarea),
+.sent-message,
+.sent-message *:not(input):not(textarea),
+.received-message,
+.received-message *:not(input):not(textarea),
+.sticker-bubble,
+.sticker-bubble *,
+.media-container,
+.media-container *,
+.message-file-preview,
+img,
+video {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+#messageInput,
+#messageInput *,
+input[type="text"],
+textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
+
 .video-play-overlay {
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
@@ -1661,6 +1717,13 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   outline: none !important;
 }
 
+.message.items-end .sticker-bubble,
+.pending-message .sticker-bubble,
+.sent-message.sticker-bubble {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+
 .sticker-bubble .pending-actions {
   border-top: none !important;
   background: rgba(0, 0, 0, 0.75) !important;
@@ -1677,6 +1740,7 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   max-height: 170px;
   object-fit: contain;
   display: block;
+  margin-left: auto;
 }
 
 /* In-Place WhatsApp-Style Voice Recording Row */

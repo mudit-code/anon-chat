@@ -869,13 +869,13 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.className = "message flex flex-col items-end new-user pending-message";
 
             const messageRow = document.createElement("div");
-            messageRow.className = "flex flex-col w-full justify-end message-row";
+            messageRow.className = "flex flex-row items-center w-full justify-end message-row relative group";
 
             const messageBubble = document.createElement("div");
             if (isStickerMsg) {
-                messageBubble.className = "sticker-bubble message-bubble pending-bubble relative overflow-visible border-none bg-transparent p-0";
+                messageBubble.className = "sticker-bubble message-bubble pending-bubble relative overflow-visible border-none bg-transparent p-0 ml-auto";
             } else {
-                messageBubble.className = "sent-message message-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30";
+                messageBubble.className = "sent-message message-bubble pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
                 messageBubble.style.minWidth = "200px";
             }
 
@@ -900,10 +900,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else if (isImage || isVideo) {
                 mediaPreviewHtml = `
-                    <div class="relative w-full max-h-[260px] overflow-hidden rounded-xl bg-black/60">
+                    <div class="relative media-fixed-frame overflow-hidden rounded-xl bg-black/60">
                         ${isImage
-                            ? `<img src="${objectUrl}" class="w-full h-auto object-cover opacity-65 blur-[1px]" alt="Sending...">`
-                            : `<video src="${objectUrl}" class="w-full h-auto object-cover opacity-65 blur-[1px]" muted></video>`
+                            ? `<img src="${objectUrl}" class="w-full h-full object-cover opacity-75 blur-[0.5px]" alt="Sending...">`
+                            : `<video src="${objectUrl}" class="w-full h-full object-cover opacity-75 blur-[0.5px]" muted></video>`
                         }
                         <!-- Centered Circular Progress Ring with X (Cancel) -->
                         <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1120,20 +1120,41 @@ document.addEventListener('DOMContentLoaded', () => {
         wrapper.setAttribute('data-incoming', 'true');
         wrapper.className = "message flex flex-col items-start new-user incoming-media-placeholder";
 
+        const isSticker = kind === 'sticker';
         const messageRow = document.createElement("div");
-        messageRow.className = "flex flex-col w-full justify-start message-row";
+        messageRow.className = "flex flex-row items-center w-full justify-start message-row relative group";
 
         const messageBubble = document.createElement("div");
-        messageBubble.className = "received-message message-bubble relative overflow-hidden border border-white/10";
-        messageBubble.style.minWidth = "210px";
+        if (isSticker) {
+            messageBubble.className = "sticker-bubble message-bubble relative overflow-visible border-none bg-transparent p-0";
+        } else {
+            messageBubble.className = "received-message message-bubble relative overflow-hidden border border-white/10";
+            messageBubble.style.minWidth = "210px";
+        }
 
         const senderHtml = `<div class="msg-sender text-xs font-semibold mb-1" style="color: ${getSenderColor(senderName)};">~${escapeHtml(senderName)}</div>`;
 
         let bodyHtml = '';
-        if (isImage || isVideo) {
-            const aspectStyle = (width && height) ? `style="aspect-ratio: ${width} / ${height};"` : 'style="height: 180px;"';
+        if (isSticker) {
             bodyHtml = `
-                <div class="relative w-full overflow-hidden rounded-xl bg-black/40 flex items-center justify-center" ${aspectStyle}>
+                <div class="relative inline-block cursor-pointer">
+                    <div class="w-[140px] h-[140px] rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <i class="fas fa-note-sticky text-3xl text-white/30"></i>
+                    </div>
+                    <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="pending-progress-ring relative w-10 h-10 flex items-center justify-center">
+                            <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-black/50" stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#ff7320] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                            </svg>
+                            <span class="pending-progress-text absolute font-mono text-[9px] font-bold text-white">0%</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (isImage || isVideo) {
+            bodyHtml = `
+                <div class="relative media-fixed-frame overflow-hidden rounded-xl bg-black/40 flex items-center justify-center">
                     <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 flex items-center justify-center">
                         <i class="fas ${isImage ? 'fa-image' : 'fa-film'} text-3xl text-white/20"></i>
                     </div>
@@ -1374,7 +1395,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (mediaItem.objectUrl) {
-                        try { URL.revokeObjectURL(mediaItem.objectUrl); } catch (e) {}
+                        if (!window.localMediaBlobMap) window.localMediaBlobMap = new Map();
+                        window.localMediaBlobMap.set(clientMsgId, mediaItem.objectUrl);
                     }
                     activeUploads.delete(clientMsgId);
                 } catch (err) {
@@ -1644,40 +1666,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/\n/g, '<br>');
             contentHtml = escapedContent;
         } else if (message.type === 'sticker') {
+            const localBlob = (user === username && clientMsgId && window.localMediaBlobMap) ? window.localMediaBlobMap.get(clientMsgId) : null;
             const mediaSrc = resolveMediaUrl(message.content);
-            messageBubble.className = 'sticker-bubble message-bubble';
+            const displayMediaSrc = localBlob || mediaSrc;
+            messageBubble.className = 'sticker-bubble message-bubble' + (user === username ? ' ml-auto' : '');
             contentHtml = `
                 <div class="relative group cursor-pointer" onclick="openPreview('${mediaSrc}', 'sticker', '${id}')">
-                    <img src="${mediaSrc}" class="sticker-message cursor-pointer" loading="lazy">
+                    <img src="${displayMediaSrc}" class="sticker-message cursor-pointer" loading="lazy">
                     <a href="${mediaSrc}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
         } else {
             messageBubble.className = `${bubbleClass} message-bubble message-bubble-media`;
+            const localBlob = (user === username && clientMsgId && window.localMediaBlobMap) ? window.localMediaBlobMap.get(clientMsgId) : null;
             const mediaSrc = resolveMediaUrl(message.content);
+            const displayMediaSrc = localBlob || mediaSrc;
             if (message.type === 'gif') {
                 contentHtml = `
                 <div class="relative group media-container cursor-pointer overflow-hidden rounded-xl" onclick="openPreview('${mediaSrc}', 'gif', '${id}')">
-                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy">
+                    <img src="${displayMediaSrc}" class="message-file-preview cursor-pointer" loading="lazy">
                     <a href="${mediaSrc}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'image') {
-                const aspectStyle = (message.width && message.height) ? `style="aspect-ratio: ${message.width} / ${message.height};"` : '';
                 contentHtml = `
-                <div class="relative group media-container overflow-hidden rounded-xl cursor-pointer" ${aspectStyle} onclick="openPreview('${mediaSrc}', 'image', '${id}')">
-                    <img src="${mediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" ${message.width ? `width="${message.width}"` : ''} ${message.height ? `height="${message.height}"` : ''} alt="Photo">
+                <div class="relative group media-container media-fixed-frame overflow-hidden rounded-xl cursor-pointer" onclick="openPreview('${mediaSrc}', 'image', '${id}')">
+                    <img src="${displayMediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" alt="Photo">
                     <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download text-xs"></i>
                     </a>
                 </div>`;
             } else if (message.type === 'video') {
-                const aspectStyle = (message.width && message.height) ? `style="aspect-ratio: ${message.width} / ${message.height};"` : '';
                 contentHtml = `
-                <div class="relative group media-container overflow-hidden rounded-xl cursor-pointer" ${aspectStyle} onclick="openPreview('${mediaSrc}', 'video', '${id}')">
-                    <video src="${mediaSrc}" class="message-file-preview cursor-pointer" preload="metadata" playsinline></video>
+                <div class="relative group media-container media-fixed-frame overflow-hidden rounded-xl cursor-pointer" onclick="openPreview('${mediaSrc}', 'video', '${id}')">
+                    <video src="${displayMediaSrc}" class="message-file-preview cursor-pointer" preload="metadata" playsinline></video>
                     <div class="video-play-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center shadow-lg text-white">
                             <i class="fas fa-play text-base ml-0.5"></i>
@@ -2040,6 +2064,8 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const file of list) {
             const clientMsgId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `media-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
             const objectUrl = URL.createObjectURL(file);
+            if (!window.localMediaBlobMap) window.localMediaBlobMap = new Map();
+            window.localMediaBlobMap.set(clientMsgId, objectUrl);
             const fType = file.type || '';
             const isSticker = isStickerGlobal || file.isSticker || (file.name && file.name.toLowerCase().includes('sticker')) || false;
             file.isSticker = isSticker;
@@ -5779,8 +5805,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ignore drags within 24px of the left screen edge (Android back gesture safe zone)
             if (e.clientX <= 24) return;
 
-            // Ignore only actual interactive controls (allow swipe starting anywhere else on media/file bubbles)
-            if (e.target.closest('a, button, input, textarea, .message-file-preview, .sticker-message, .media-container, .snap-container, img, video, .file-action-btn, .reply-cancel-btn, #previewModal, .desktop-reply-btn, .quoted-reply, .voice-play-btn, .voice-waveform-track, .voice-speed-btn, .voice-download-btn, .media-download-btn, .reaction-chip, #messageContextMenu')) {
+            // Ignore only actual interactive action buttons/inputs
+            if (e.target.closest('a, button, input, textarea, .file-action-btn, .reply-cancel-btn, #previewModal, .desktop-reply-btn, .voice-play-btn, .voice-waveform-track, .voice-speed-btn, .voice-download-btn, .media-download-btn, .reaction-chip, #messageContextMenu')) {
                 return;
             }
 
@@ -5819,6 +5845,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 450);
         });
 
+        // Prevent native text selection on messages
+        messagesDiv.addEventListener('selectstart', (e) => {
+            if (e.target.closest('input, textarea, #messageInput')) return;
+            e.preventDefault();
+        });
+
         // Delegated click handler for tapping quoted replies
         messagesDiv.addEventListener('click', (e) => {
             const quote = e.target.closest('.quoted-reply');
@@ -5847,13 +5879,22 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
         });
 
+        let swipeJustFinished = false;
+        window.addEventListener('click', (e) => {
+            if (swipeJustFinished) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
         const handlePointerMove = (e) => {
             if (activePointerId === null || e.pointerId !== activePointerId || !activeSwipeBubble) return;
 
             const deltaX = e.clientX - pointerStartX;
             const deltaY = Math.abs(e.clientY - pointerStartY);
+            const absDeltaX = Math.abs(deltaX);
 
-            if (deltaX > 6 || deltaY > 6) {
+            if (absDeltaX > 6 || deltaY > 6) {
                 if (longPressTimeout) {
                     clearTimeout(longPressTimeout);
                     longPressTimeout = null;
@@ -5862,7 +5903,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!isSwipeLocked) {
                 // If vertical movement beats horizontal, user is scrolling vertically
-                if (deltaY > 10 && deltaY > Math.abs(deltaX)) {
+                if (deltaY > 10 && deltaY > absDeltaX) {
                     try {
                         activeSwipeBubble.releasePointerCapture(activePointerId);
                     } catch (_) {}
@@ -5873,8 +5914,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                // Horizontal movement > 8px that beats vertical: lock into drag
-                if (deltaX > 8 && deltaX > deltaY) {
+                // Horizontal movement > 8px that beats vertical: lock into drag (supports left & right)
+                if (absDeltaX > 8 && absDeltaX > deltaY) {
                     isSwipeLocked = true;
                     try {
                         activeSwipeBubble.setPointerCapture(activePointerId);
@@ -5887,13 +5928,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isSwipeLocked) {
                 if (e.cancelable) e.preventDefault();
 
-                // Rubber-band calculation up to max ~72px
-                let moveX = 0;
-                if (deltaX > 0) {
-                    const raw = deltaX * 0.75;
-                    moveX = raw < 56 ? raw : 56 + (raw - 56) * 0.35;
-                    moveX = Math.min(Math.max(0, moveX), 72);
-                }
+                // Rubber-band calculation up to max ~72px in either direction
+                const sign = deltaX >= 0 ? 1 : -1;
+                const raw = absDeltaX * 0.75;
+                const move = raw < 56 ? raw : 56 + (raw - 56) * 0.35;
+                const moveX = sign * Math.min(Math.max(0, move), 72);
                 currentClampedX = moveX;
 
                 if (swipeRafId) cancelAnimationFrame(swipeRafId);
@@ -5914,19 +5953,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (activeSwipeIcon) {
                         activeSwipeIcon.classList.add('visible');
-                        const progress = Math.min(1, currentClampedX / 56);
-                        activeSwipeIcon.style.opacity = String(Math.min(1, currentClampedX / 30));
+                        const absMove = Math.abs(currentClampedX);
+                        const progress = Math.min(1, absMove / 50);
+                        activeSwipeIcon.style.opacity = String(Math.min(1, absMove / 22));
                         activeSwipeIcon.style.transform = `translateY(-50%) scale(${0.5 + progress * 0.65})`;
 
-                        // Position icon immediately to the left of the swiped bubble on both own & received messages
                         if (activeSwipeBubble && activeSwipeRow) {
                             const bubbleRect = activeSwipeBubble.getBoundingClientRect();
                             const rowRect = activeSwipeRow.getBoundingClientRect();
-                            const iconLeft = Math.max(0, bubbleRect.left - rowRect.left - 38);
-                            activeSwipeIcon.style.left = `${iconLeft}px`;
+                            if (currentClampedX >= 0) {
+                                // Swiping right: position icon to the left of the bubble
+                                const iconLeft = Math.max(0, bubbleRect.left - rowRect.left - 38);
+                                activeSwipeIcon.style.left = `${iconLeft}px`;
+                                activeSwipeIcon.style.right = 'auto';
+                            } else {
+                                // Swiping left: position icon to the right of the bubble
+                                const iconRight = Math.max(0, rowRect.right - bubbleRect.right - 38);
+                                activeSwipeIcon.style.right = `${iconRight}px`;
+                                activeSwipeIcon.style.left = 'auto';
+                            }
                         }
 
-                        if (currentClampedX >= 56) {
+                        if (absMove >= 50) {
                             if (!activeSwipeIcon.classList.contains('threshold-ready')) {
                                 activeSwipeIcon.classList.add('threshold-ready');
                                 if (window.Capacitor?.Plugins?.Haptics) {
@@ -5951,7 +5999,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (activePointerId !== null && e.pointerId === activePointerId) {
                 if (isSwipeLocked && activeSwipeWrapper && activeSwipeBubble) {
-                    const isReady = currentClampedX >= 56 || (activeSwipeIcon && activeSwipeIcon.classList.contains('threshold-ready'));
+                    const isReady = Math.abs(currentClampedX) >= 50 || (activeSwipeIcon && activeSwipeIcon.classList.contains('threshold-ready'));
                     if (isReady) {
                         const targetId = activeSwipeWrapper.id;
                         setReplyContext(targetId);
@@ -5961,6 +6009,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             navigator.vibrate(35);
                         }
                     }
+                    swipeJustFinished = true;
+                    setTimeout(() => { swipeJustFinished = false; }, 350);
                 }
 
                 try {
