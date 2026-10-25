@@ -7037,10 +7037,10 @@ html.loading-file-room #fileRoomScreen {
     background: linear-gradient(
       to bottom,
       #0B0B0C 0px,
-      #0B0B0C calc(210px + max(env(safe-area-inset-top, 0px), 14px)),
-      rgba(11, 11, 12, 0.85) calc(235px + max(env(safe-area-inset-top, 0px), 14px)),
-      rgba(11, 11, 12, 0.3) calc(255px + max(env(safe-area-inset-top, 0px), 14px)),
-      transparent calc(280px + max(env(safe-area-inset-top, 0px), 14px)),
+      #0B0B0C calc(185px + max(env(safe-area-inset-top, 0px), 14px)),
+      rgba(11, 11, 12, 0.85) calc(205px + max(env(safe-area-inset-top, 0px), 14px)),
+      rgba(11, 11, 12, 0.25) calc(225px + max(env(safe-area-inset-top, 0px), 14px)),
+      transparent calc(245px + max(env(safe-area-inset-top, 0px), 14px)),
       transparent 100%
     );
   }
@@ -7138,19 +7138,20 @@ html.loading-file-room #fileRoomScreen {
     max-width: 18ch;
   }
 
-  /* Sub text: Left-aligned, white, small */
+  /* Sub text: Full width, natural text flow without unnecessary wrapping */
 
   .mobile-subline {
-    font-size: 13px !important;
+    font-size: 13.5px !important;
     color: #FFFFFF !important;
-    opacity: 0.82;
-    line-height: 1.4;
+    opacity: 0.85;
+    line-height: 1.45;
     margin-top: 0;
-    margin-bottom: 16px;
+    margin-bottom: 0px !important;
     font-weight: 400;
     text-align: left !important;
     align-self: flex-start !important;
-    max-width: 34ch;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   /* Decorative Typing Hint */
@@ -7227,10 +7228,10 @@ html.loading-file-room #fileRoomScreen {
     display: none !important;
   }
 
-  /* Animated Live Chat Preview in Mobile View (Full Width to eliminate empty space on right) */
+  /* Animated Live Chat Preview in Mobile View (Full Width with added top padding) */
 
   .mobile-demo-chat-preview {
-    margin-top: 4px !important;
+    margin-top: clamp(16px, 2.8vh, 24px) !important;
     margin-bottom: clamp(6px, 1.2vh, 12px);
     width: 100% !important;
     max-width: 100% !important;
@@ -7241,7 +7242,7 @@ html.loading-file-room #fileRoomScreen {
   .mobile-demo-chat-preview .demo-bubbles-list {
     width: 100% !important;
     max-width: 100% !important;
-    height: clamp(165px, 22vh, 210px);
+    height: clamp(210px, 30vh, 265px) !important;
     overflow: hidden;
     position: relative;
     display: flex;
@@ -7343,10 +7344,10 @@ html.loading-file-room #fileRoomScreen {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   }
 
-  /* Animated Vault Preview in Mobile View (Full Width) */
+  /* Animated Vault Preview in Mobile View (Full Width with added top padding) */
 
   .mobile-demo-vault-preview {
-    margin-top: 4px !important;
+    margin-top: clamp(16px, 2.8vh, 24px) !important;
     margin-bottom: clamp(6px, 1.2vh, 12px);
     width: 100% !important;
     max-width: 100% !important;
@@ -7422,7 +7423,7 @@ html.loading-file-room #fileRoomScreen {
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: 152px !important;
+    height: clamp(195px, 27vh, 245px) !important;
     overflow: hidden !important;
     position: relative !important;
   }
@@ -7493,13 +7494,13 @@ html.loading-file-room #fileRoomScreen {
     flex-shrink: 0 !important;
   }
 
-  /* Lower Section: Segmented Control + Cards */
+  /* Lower Section: Segmented Control + Cards (Uses area above it, no massive dead gap) */
 
   .mobile-actions-section {
     display: flex;
     flex-direction: column;
-    margin-top: auto;
-    padding-top: 16px;
+    margin-top: clamp(12px, 2.5vh, 22px) !important;
+    padding-top: 0 !important;
   }
 
   /* Segmented Control */
@@ -8116,6 +8117,40 @@ html.loading-file-room #fileRoomScreen {
   body.mobile-sheet-open {
     overflow: hidden !important;
     touch-action: none !important;
+  }
+
+  /* Mobile-only header cleanup: remove "Auto-deletes in: " */
+
+  .vault-header-auto-deletes {
+    display: none !important;
+  }
+
+  /* Mobile-only dropzone cleanup: remove "total per room" */
+
+  .room-drop-total-per {
+    display: none !important;
+  }
+
+  /* Mobile-only compact download button: remove "Download" text, keep icon */
+
+  .btn-file-dl span {
+    display: none !important;
+  }
+
+  .btn-file-dl {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    border-radius: 8px !important;
+  }
+
+  .btn-file-dl i {
+    font-size: 13px !important;
+    margin: 0 !important;
   }
 }
 

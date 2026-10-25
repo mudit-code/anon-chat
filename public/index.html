@@ -331,6 +331,12 @@
                     Welcome neon_ghost!
                   </div>
                 </div>
+                <div class="demo-bubble-item">
+                  <div class="demo-sender-label">paper_fox</div>
+                  <div class="demo-bubble-dark">
+                    Yep, wiped completely in 30 mins.
+                  </div>
+                </div>
               </div>
               <p class="demo-caption">Example room. Codenames only.</p>
             </div>
@@ -421,6 +427,23 @@
                     </div>
                     <div class="file-item-right">
                       <span class="file-size">6 MB</span>
+                      <svg class="file-check-icon" viewBox="0 0 24 24" fill="none" stroke="#ffb682" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="demo-vault-file-item">
+                    <div class="file-item-left">
+                      <svg class="file-svg-icon" viewBox="0 0 24 24" fill="none" stroke="#FF7A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                      </svg>
+                      <span class="file-name">dataset_q3.csv</span>
+                    </div>
+                    <div class="file-item-right">
+                      <span class="file-size">3.4 MB</span>
                       <svg class="file-check-icon" viewBox="0 0 24 24" fill="none" stroke="#ffb682" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -1043,7 +1066,7 @@
           <div class="text-[12px] text-[#9a9a9a] flex items-center gap-1.5 mt-0.5 file-room-subtitle">
             <span
               class="file-room-status-dot w-[7px] h-[7px] rounded-full bg-[#ffb682] inline-block animate-pulse"></span>
-            <span>Ephemeral Vault · Auto-deletes in: <span id="fileRoomCountdown"
+            <span>Ephemeral Vault · <span class="vault-header-auto-deletes">Auto-deletes in: </span><span id="fileRoomCountdown"
                 class="font-mono text-[#ffb682] font-semibold file-room-countdown">30:00</span></span>
           </div>
         </div>
@@ -1129,7 +1152,7 @@
                 Drag & drop files here, or <span class="text-[#ffb682] underline font-medium">browse device</span>
               </div>
               <div class="text-[11px] text-[#737373] mt-2">
-                Supported: Any file type · Max 500 MB total per room
+                Supported: Any file type · Max 500 MB<span class="room-drop-total-per"> total per room</span>
               </div>
             </div>
 

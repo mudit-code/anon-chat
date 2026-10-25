@@ -7180,7 +7180,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Smoothly collapse and slide out oldest item if max items reached
                 const activeItems = demoList.querySelectorAll(".demo-bubble-item:not(.demo-exiting)");
-                if (activeItems.length >= MAX_ITEMS) {
+                const isMobileList = demoList.closest(".mobile-demo-chat-preview") !== null || demoList.id === "mobileDemoBubblesList";
+                const maxItems = isMobileList ? 4 : 3;
+                if (activeItems.length >= maxItems) {
                     const oldest = activeItems[0];
                     oldest.classList.add("demo-exiting");
 
@@ -7268,8 +7270,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: "financial_report.xlsx", size: "940 KB", icon: "far fa-file-excel" }
         ];
 
-        let fileIndex = 3;
-        const MAX_FILES = 3;
+        let fileIndex = 4;
+        const MAX_FILES = 4;
 
         function addNextVaultFile() {
             const list = document.getElementById("mobileDemoVaultFilesList");
