@@ -608,18 +608,36 @@ button[aria-busy="true"],
   }
 }
 
-/* Keyboard focus states */
+/* Remove outlines from all text inputs completely so only the cursor blinks */
 
-input:focus-visible,
+input,
+  textarea,
+  [contenteditable] {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:focus,
+  input:focus-visible,
+  textarea:focus,
   textarea:focus-visible,
-  button:focus-visible {
-  outline: 3px solid var(--o-light);
+  [contenteditable]:focus,
+  [contenteditable]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keyboard focus states for buttons only */
+
+button:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible {
+  outline: 2px solid var(--o-light);
   outline-offset: 2px;
 }
 
-.light-panel input:focus-visible,
-  .light-panel button:focus-visible {
-  outline: 3px solid #0a0a0a !important;
+.light-panel button:focus-visible {
+  outline: 2px solid #0a0a0a !important;
   outline-offset: 2px !important;
 }
 
@@ -3276,10 +3294,11 @@ input:focus-visible,
     font-size: 14px !important;
   }
 
-  .landing-input:focus {
-    border-color: #0f0f11 !important;
+  .landing-input:focus,
+  .landing-input:focus-visible {
+    border-color: #d4d4d8 !important;
     outline: none !important;
-    box-shadow: 0 0 0 3px rgba(15, 15, 17, 0.08) !important;
+    box-shadow: none !important;
   }
 
   .landing-buttons-row {
@@ -7829,9 +7848,13 @@ html.loading-file-room #fileRoomScreen {
     transition: border-color 0.15s ease;
   }
 
-  .mobile-vault-key-input:focus {
-    border: 2px solid #FF7A1F !important;
-    padding: 0 11px !important;
+  .mobile-vault-key-input:focus,
+  .mobile-vault-key-input:focus-visible {
+    border: 1px solid #2B2B2D !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 0 12px !important;
+    caret-color: #FF7A1F;
   }
 
   .mobile-vault-open-btn {
@@ -7972,25 +7995,28 @@ html.loading-file-room #fileRoomScreen {
     transition: border 0.15s ease, border-color 0.15s ease;
   }
 
-  /* Focused field gets a 2px orange border */
-
   .mobile-input-row:focus-within {
-    border: 2px solid #FF7A1F !important;
-    padding: 3px 5px 3px 13px !important;
+    border: 1px solid #2B2B2D !important;
+    outline: none !important;
+    box-shadow: none !important;
   }
 
-  .mobile-field-input {
+  .mobile-field-input,
+  .mobile-field-input:focus,
+  .mobile-field-input:focus-visible {
     flex: 1;
     min-width: 0;
-    background: transparent;
-    border: none;
-    outline: none;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
     color: #FFFFFF;
     font-family: inherit;
     font-size: 16px;
     font-weight: 600;
     height: 100%;
     padding: 0;
+    caret-color: #FF7A1F;
   }
 
   .mobile-field-input.font-mono {
