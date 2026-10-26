@@ -20,8 +20,8 @@
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/output.css?v=8.2">
-  <link rel="stylesheet" href="/style.css?v=8.2">
+  <link rel="stylesheet" href="/output.css?v=8.3">
+  <link rel="stylesheet" href="/style.css?v=8.3">
   <script>
     (function () {
       try {
@@ -808,40 +808,84 @@
           </button>
         </div>
 
-        <!-- Circular Snap Recording Overlay (Phase 9) -->
-        <div id="snapRecordingOverlay"
-          class="hidden fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center select-none backdrop-blur-md touch-none">
-          <div class="flex items-center gap-2 mb-6">
-            <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
-            <span class="text-xs font-semibold text-white tracking-wider uppercase">Recording Video Snap</span>
-            <span id="snapRecordTimer"
-              class="ml-2 px-2.5 py-0.5 rounded-full bg-white/10 text-[#ffb682] font-mono text-xs">0:00 / 0:30</span>
-          </div>
-          <div class="relative w-[240px] h-[240px] flex items-center justify-center">
-            <!-- Circular camera preview -->
-            <div class="w-[240px] h-[240px] rounded-full overflow-hidden border-2 border-white/30 shadow-2xl bg-black">
-              <video id="snapRecordVideo" autoplay playsinline muted
-                class="w-full h-full object-cover -scale-x-100"></video>
+        <!-- Circular Snap Recording Overlay (WhatsApp-style Video Note - Screenshot 1) -->
+        <div id="snapRecordingOverlay" class="hidden">
+          
+          <!-- Top Floating Red Timer Pill (Screenshot 1) -->
+          <div class="snap-record-top-timer">
+            <div class="snap-record-timer-pill">
+              <span class="snap-record-pulse-dot"></span>
+              <span id="snapRecordTimer">0:00</span>
             </div>
-            <!-- SVG Progress Ring (30s max) -->
-            <svg class="absolute -inset-2 w-[256px] h-[256px] -rotate-90 pointer-events-none" viewBox="0 0 256 256">
+          </div>
+
+          <!-- Center Circular Viewfinder with WhatsApp Green Progress Ring -->
+          <div class="snap-viewfinder-frame">
+            <div class="snap-viewfinder-circle">
+              <video id="snapRecordVideo" autoplay playsinline muted class="-scale-x-100"></video>
+            </div>
+            <!-- Green SVG Progress Ring -->
+            <svg class="snap-progress-svg" viewBox="0 0 256 256">
               <circle cx="128" cy="128" r="122" stroke="rgba(255,255,255,0.15)" stroke-width="5" fill="none" />
-              <circle id="snapRecordProgressRing" cx="128" cy="128" r="122" stroke="#ff7320" stroke-width="5"
+              <circle id="snapRecordProgressRing" cx="128" cy="128" r="122" stroke="#25D366" stroke-width="5"
                 fill="none" stroke-dasharray="766.5" stroke-dashoffset="766.5" stroke-linecap="round" />
             </svg>
           </div>
-          <div id="snapSlideCancelHint" class="mt-8 flex items-center gap-2 text-white/60 text-xs font-medium">
-            <i class="fas fa-chevron-left animate-pulse"></i>
-            <span>Slide left to cancel</span>
+
+          <!-- Normal Holding Controls (Bottom Bar - Screenshot 1) -->
+          <div id="snapNormalControlsRow">
+            <!-- Left: Flip camera button -->
+            <button id="snapFlipCameraBtn" type="button" title="Switch camera">
+              <i class="fas fa-arrows-rotate"></i>
+            </button>
+
+            <!-- Center: Slide to cancel hint -->
+            <div id="snapSlideCancelHint">
+              <i class="fas fa-chevron-left animate-pulse text-xs"></i>
+              <span>Slide to cancel</span>
+            </div>
+
+            <!-- Right: Recording & Slide to Lock stack -->
+            <div class="snap-lock-stack">
+              <!-- Slide to lock capsule -->
+              <div id="snapLockCapsule">
+                <i id="snapLockIcon" class="fas fa-lock text-sm"></i>
+                <i id="snapLockChevron" class="fas fa-chevron-up text-xs text-white/60 animate-bounce"></i>
+              </div>
+
+              <!-- Green Camera Indicator Button (matching held down state) -->
+              <div id="snapActiveCameraBtn">
+                <i class="fas fa-camera"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Locked State Controls Row (appears when user slides up to lock) -->
+          <div id="snapLockedControlsRow" class="hidden">
+            <!-- Discard Trash button -->
+            <button id="snapLockedTrashBtn" type="button" title="Discard snap">
+              <i class="fas fa-trash-can"></i>
+            </button>
+
+            <!-- Locked badge chip -->
+            <div class="snap-locked-chip">
+              <i class="fas fa-lock"></i>
+              <span>Locked recording</span>
+            </div>
+
+            <!-- Send snap button -->
+            <button id="snapLockedSendBtn" type="button" title="Send video snap">
+              <i class="fas fa-paper-plane"></i>
+            </button>
           </div>
         </div>
 
-        <!-- Circular Snap Review Overlay (Phase 9) -->
+        <!-- Circular Snap Review Overlay (fallback/review support) -->
         <div id="snapReviewOverlay"
           class="hidden fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center select-none backdrop-blur-md">
           <div class="relative w-[240px] h-[240px] flex items-center justify-center">
             <div id="snapReviewWrapper"
-              class="relative w-[240px] h-[240px] rounded-full overflow-hidden border-2 border-[#ff7320]/60 shadow-2xl bg-black cursor-pointer group">
+              class="relative w-[240px] h-[240px] rounded-full overflow-hidden border-3 border-[#25D366] shadow-2xl bg-black cursor-pointer group">
               <video id="snapReviewVideo" loop playsinline muted class="w-full h-full object-cover"></video>
               <div id="snapReviewSoundBadge"
                 class="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center text-xs border border-white/20">
@@ -859,7 +903,7 @@
               <i class="fas fa-trash-can"></i>
             </button>
             <button id="snapSendBtn" type="button"
-              class="w-14 h-14 rounded-full bg-gradient-to-r from-[#ff7320] to-[#ff9858] hover:opacity-95 text-white shadow-lg shadow-[#ff7320]/30 flex items-center justify-center text-xl transition-transform active:scale-95 cursor-pointer"
+              class="w-14 h-14 rounded-full bg-[#25D366] hover:bg-[#20be5a] text-white shadow-lg shadow-[#25D366]/30 flex items-center justify-center text-xl transition-transform active:scale-95 cursor-pointer"
               title="Send video snap">
               <i class="fas fa-paper-plane"></i>
             </button>
@@ -1444,7 +1488,7 @@
 
   <script src="/socket.io.min.js"></script>
   <script src="/audioRecorder.js"></script>
-  <script src="/script.js?v=8.2"></script>
+  <script src="/script.js?v=8.3"></script>
 </body>
 
 </html>

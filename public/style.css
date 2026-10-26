@@ -4203,19 +4203,75 @@ html.loading-file-room #fileRoomScreen {
 
 .snap-container {
   position: relative;
-  width: min(62vw, 220px);
-  height: min(62vw, 220px);
+  width: min(65vw, 240px);
+  height: min(65vw, 240px);
   border-radius: 9999px;
   overflow: hidden;
-  border: 2.5px solid rgba(255, 115, 32, 0.6);
+  border: 3.5px solid #25D366;
   background: #000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  margin-bottom: 2px;
 }
 
 .snap-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 9999px;
+}
+
+.snap-sound-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  padding: 2.5px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+.snap-retry-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  border-radius: 9999px;
+  z-index: 10;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+}
+
+.snap-retry-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 4px;
+  transition: transform 0.15s ease;
+}
+
+.snap-retry-overlay:hover .snap-retry-icon-box {
+  transform: scale(1.1);
 }
 
 .snap-play-overlay {
@@ -4232,6 +4288,259 @@ html.loading-file-room #fileRoomScreen {
 .snap-play-overlay.playing {
   opacity: 0;
   pointer-events: none;
+}
+
+/* ============================================================
+   CIRCULAR SNAP RECORDING OVERLAY (WHATSAPP-STYLE VIDEO NOTES)
+   ============================================================ */
+#snapRecordingOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.94) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  overflow: hidden !important;
+}
+
+#snapRecordingOverlay.hidden {
+  display: none !important;
+}
+
+.snap-record-top-timer {
+  position: absolute !important;
+  top: max(40px, env(safe-area-inset-top, 40px)) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 30 !important;
+  pointer-events: none !important;
+}
+
+.snap-record-timer-pill {
+  padding: 6px 18px !important;
+  border-radius: 9999px !important;
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.45) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.snap-record-pulse-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background: #ffffff !important;
+  animation: snap-pulse 1s infinite alternate ease-in-out !important;
+}
+
+@keyframes snap-pulse {
+  from { opacity: 0.35; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
+.snap-viewfinder-frame {
+  position: relative !important;
+  width: min(72vw, 280px) !important;
+  height: min(72vw, 280px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: auto !important;
+}
+
+.snap-viewfinder-circle {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+  background: #000 !important;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.7) !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  position: relative !important;
+}
+
+#snapRecordVideo {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 9999px !important;
+}
+
+.snap-progress-svg {
+  position: absolute !important;
+  inset: -10px !important;
+  width: calc(100% + 20px) !important;
+  height: calc(100% + 20px) !important;
+  transform: rotate(-90deg) !important;
+  pointer-events: none !important;
+}
+
+#snapNormalControlsRow,
+#snapLockedControlsRow {
+  position: absolute !important;
+  bottom: max(32px, env(safe-area-inset-bottom, 32px)) !important;
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0 28px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  z-index: 30 !important;
+}
+
+#snapNormalControlsRow.hidden,
+#snapLockedControlsRow.hidden {
+  display: none !important;
+}
+
+#snapFlipCameraBtn {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  pointer-events: auto !important;
+}
+
+#snapFlipCameraBtn:active {
+  transform: scale(0.9) !important;
+}
+
+#snapSlideCancelHint {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding-bottom: 12px !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  transition: color 0.15s ease !important;
+}
+
+.snap-lock-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  pointer-events: none !important;
+}
+
+#snapLockCapsule {
+  margin-bottom: 12px !important;
+  padding: 12px 14px !important;
+  border-radius: 9999px !important;
+  background: #1c1c1c !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
+  pointer-events: none !important;
+}
+
+#snapLockCapsule.snap-lock-active {
+  background: #25D366 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.5) !important;
+}
+
+#snapActiveCameraBtn {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 9999px !important;
+  background: #25D366 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.45) !important;
+  pointer-events: none !important;
+}
+
+#snapLockedTrashBtn {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 9999px !important;
+  background: rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  pointer-events: auto !important;
+}
+
+#snapLockedTrashBtn:active {
+  transform: scale(0.92) !important;
+}
+
+.snap-locked-chip {
+  padding: 8px 18px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #25D366 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+#snapLockedSendBtn {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 9999px !important;
+  background: #25D366 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 22px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.45) !important;
+  pointer-events: auto !important;
+}
+
+#snapLockedSendBtn:active {
+  transform: scale(0.92) !important;
 }
 
 /* ============================================================

@@ -899,10 +899,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createPendingMediaBubble({ file, objectUrl, clientMsgId, isSticker, roomInstanceId, onCancel, onRetry, onDelete }) {
         const mime = getResolvedMime(file);
+        const isSnapMsg = Boolean(file?.isSnap || file?.type?.includes('snap'));
         const isStickerMsg = isSticker || (file && file.isSticker) || false;
-        const isVideo = !isStickerMsg && mime.startsWith('video');
-        const isImage = !isStickerMsg && mime.startsWith('image');
-        const isAudio = !isStickerMsg && mime.startsWith('audio');
+        const isVideo = !isStickerMsg && !isSnapMsg && mime.startsWith('video');
+        const isImage = !isStickerMsg && !isSnapMsg && mime.startsWith('image');
+        const isAudio = !isStickerMsg && !isSnapMsg && mime.startsWith('audio');
 
         const domId = `msg-${clientMsgId}`;
         let wrapper = document.getElementById(domId);
@@ -919,7 +920,9 @@ document.addEventListener('DOMContentLoaded', () => {
             messageRow.className = "flex flex-row items-center w-full justify-end message-row relative group";
 
             const messageBubble = document.createElement("div");
-            if (isStickerMsg) {
+            if (isSnapMsg) {
+                messageBubble.className = "snap-bubble message-bubble pending-bubble relative overflow-visible border-none bg-transparent p-0 ml-auto";
+            } else if (isStickerMsg) {
                 messageBubble.className = "sticker-bubble message-bubble pending-bubble relative overflow-visible border-none bg-transparent p-0 ml-auto";
             } else if (isImage || isVideo) {
                 messageBubble.className = "sent-message message-bubble message-bubble-media pending-bubble relative overflow-hidden border border-[#ff7320]/30 ml-auto";
@@ -932,7 +935,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let mediaPreviewHtml = '';
-            if (isStickerMsg) {
+            if (isSnapMsg) {
+                mediaPreviewHtml = `
+                    <div class="relative snap-container cursor-pointer overflow-hidden rounded-full">
+                        <video src="${objectUrl}" class="snap-video w-full h-full object-cover opacity-85" muted playsinline></video>
+                        <!-- Centered Circular Progress Ring with X (Cancel) -->
+                        <div class="pending-overlay absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200">
+                            <div class="pending-progress-ring relative w-12 h-12 flex items-center justify-center pointer-events-auto">
+                                <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15" fill="none" class="stroke-black/50" stroke-width="3"></circle>
+                                    <circle cx="18" cy="18" r="15" fill="none" class="stroke-[#25D366] pending-progress-circle transition-all duration-150" stroke-width="3" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                                </svg>
+                                <button type="button" class="pending-cancel-btn absolute inset-0 flex items-center justify-center text-white/90 hover:text-white transition-colors cursor-pointer" title="Cancel upload">
+                                    <i class="fas fa-times text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Retry Overlay (Screenshot 2) -->
+                        <div class="snap-retry-overlay hidden absolute inset-0 flex flex-col items-center justify-center bg-black/65 text-white rounded-full z-10 cursor-pointer pointer-events-auto">
+                            <div class="snap-retry-icon-box">
+                                <i class="fas fa-arrow-up-from-bracket"></i>
+                            </div>
+                            <span class="text-xs font-semibold tracking-wide">Retry</span>
+                        </div>
+                    </div>
+                `;
+            } else if (isStickerMsg) {
                 mediaPreviewHtml = `
                     <div class="relative inline-block cursor-pointer">
                         <img src="${objectUrl}" class="sticker-message opacity-85 transition-opacity duration-200" alt="Sending sticker...">
@@ -1114,6 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setPendingBubbleFailed(clientMsgId, errorMsg) {
+        console.warn('[PENDING_FAILED]', clientMsgId, errorMsg);
         const wrapper = document.getElementById(`msg-${clientMsgId}`);
         if (!wrapper) return;
         wrapper.classList.add('pending-failed');
@@ -1140,6 +1169,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const chip = wrapper.querySelector('.pending-eta-chip');
         if (chip) chip.classList.add('hidden');
+
+        const snapRetry = wrapper.querySelector('.snap-retry-overlay');
+        if (snapRetry) {
+            snapRetry.classList.remove('hidden');
+            const act = activeUploads.get(clientMsgId);
+            snapRetry.onclick = () => {
+                setPendingBubbleRetrying(clientMsgId);
+                if (act && act.onRetry) act.onRetry();
+            };
+        }
     }
 
     function setPendingBubbleRetrying(clientMsgId) {
@@ -1158,6 +1197,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ring) ring.classList.remove('hidden');
 
         const chip = wrapper.querySelector('.pending-eta-chip');
+        const snapRetry = wrapper.querySelector('.snap-retry-overlay');
+        if (snapRetry) snapRetry.classList.add('hidden');
         if (chip) {
             chip.classList.remove('hidden');
             chip.innerHTML = `
@@ -1208,11 +1249,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (actions) actions.remove();
 
             if (mType === 'audio') {
-                bubble.innerHTML = createVoicePlayerHtml(mediaSrc, msgData.durationMs || 0, true) + `<span class="msg-time select-none ml-1.5 self-end text-[11px]">${formatTime(new Date())}</span>`;
+                bubble.innerHTML = createVoicePlayerHtml(mediaSrc, msgData.durationMs || 0, true) + `<span class="msg-time select-none ml-1.5 self-end text-[11px]">${formatMsgTime(Date.now())}</span>`;
                 const playerEl = bubble.querySelector('.voice-player');
                 if (playerEl) {
                     setupVoicePlayer(playerEl, msgData.durationMs || 0);
                 }
+            } else if (mType === 'snap') {
+                const durSec = msgData.durationMs ? Math.round(msgData.durationMs / 1000) : 0;
+                const mm = Math.floor(durSec / 60);
+                const ss = String(durSec % 60).padStart(2, '0');
+                const durationFormatted = `${mm}:${ss}`;
+
+                bubble.className = `snap-bubble message-bubble ml-auto`;
+                bubble.innerHTML = `
+                <div class="snap-container cursor-pointer select-none" onclick="toggleSnapPlayback(this)">
+                    <video src="${mediaSrc}" playsinline class="snap-video" loop muted preload="auto"></video>
+                    <div class="snap-sound-badge">
+                        <i class="fas fa-volume-xmark text-xs"></i>
+                        <span>${durationFormatted}</span>
+                    </div>
+                    <div class="snap-play-overlay">
+                        <div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white shadow-lg">
+                            <i class="fas fa-play text-sm ml-0.5"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="snap-msg-time-row flex items-center justify-end gap-1 mt-1 pr-1">
+                    <span class="msg-time !static !m-0">${formatMsgTime(Date.now())}</span>
+                    <i class="fas fa-check-double text-[11px] text-[#25D366]"></i>
+                </div>`;
             } else if (mType === 'file') {
                 const fileName = msgData.name || messagePayload.file?.name || 'Document';
                 const fileSize = msgData.size || messagePayload.file?.size || 0;
@@ -1240,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i class="fas fa-download mr-1.5"></i>Save
                             </button>
                         </div>
-                        <span class="msg-time self-end text-[11px] mb-0.5">${formatTime(new Date())}</span>
+                        <span class="msg-time self-end text-[11px] mb-0.5">${formatMsgTime(Date.now())}</span>
                     </div>
                 `;
                 const actionsBox = bubble.querySelector('.file-actions-container');
@@ -1282,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!bubble.querySelector('.msg-time')) {
                     const timeEl = document.createElement('span');
                     timeEl.className = 'msg-time select-none ml-1.5 self-end text-[11px]';
-                    timeEl.textContent = formatTime(new Date());
+                    timeEl.textContent = formatMsgTime(Date.now());
                     bubble.appendChild(timeEl);
                 }
             }
@@ -1664,7 +1729,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     activeUploads.delete(clientMsgId);
                 } catch (err) {
-                    setPendingBubbleFailed(clientMsgId, 'Failed to parse response');
+                    console.error('Upload handling error:', err, 'Response:', xhr.responseText);
+                    setPendingBubbleFailed(clientMsgId, 'Upload processing failed: ' + (err?.message || err));
                 }
             } else {
                 setPendingBubbleFailed(clientMsgId, `Server error ${xhr.status}`);
@@ -2228,17 +2294,31 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (message.type === 'audio') {
                 contentHtml = createVoicePlayerHtml(mediaSrc, message.durationMs || 0, user === username);
             } else if (message.type === 'snap') {
-                messageBubble.className = 'snap-bubble message-bubble';
-                const durationLabel = message.durationMs ? `${Math.round(message.durationMs / 1000)}s` : '';
+                const localBlob = (user === username && clientMsgId && window.localMediaBlobMap) ? window.localMediaBlobMap.get(clientMsgId) : null;
+                const mediaSrc = resolveMediaUrl(message.content);
+                const displayMediaSrc = localBlob || mediaSrc;
+                messageBubble.className = `snap-bubble message-bubble ${user === username ? 'ml-auto' : 'mr-auto'}`;
+                const durSec = message.durationMs ? Math.round(message.durationMs / 1000) : 0;
+                const mm = Math.floor(durSec / 60);
+                const ss = String(durSec % 60).padStart(2, '0');
+                const durationFormatted = `${mm}:${ss}`;
+
                 contentHtml = `
-                <div class="snap-container cursor-pointer" onclick="toggleSnapPlayback(this)">
-                    <video src="${mediaSrc}" playsinline class="snap-video" loop></video>
+                <div class="snap-container cursor-pointer select-none" onclick="toggleSnapPlayback(this)">
+                    <video src="${displayMediaSrc}" playsinline class="snap-video" loop muted preload="auto"></video>
+                    <div class="snap-sound-badge">
+                        <i class="fas fa-volume-xmark text-xs"></i>
+                        <span>${durationFormatted}</span>
+                    </div>
                     <div class="snap-play-overlay">
                         <div class="w-12 h-12 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white shadow-lg">
                             <i class="fas fa-play text-sm ml-0.5"></i>
                         </div>
                     </div>
-                    ${timeBadgeHtml}
+                </div>
+                <div class="snap-msg-time-row flex items-center justify-end gap-1 mt-1 pr-1">
+                    <span class="msg-time !static !m-0">${msgTimeStr}</span>
+                    ${user === username ? '<i class="fas fa-check-double text-[11px] text-[#25D366]"></i>' : ''}
                 </div>`;
             } else if (message.type === 'file' || msgPayload.file) {
                 messageBubble.className = `${bubbleClass} message-bubble file-document-bubble`;
@@ -4240,6 +4320,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const snapRecordProgressRing = document.getElementById("snapRecordProgressRing");
     const snapSlideCancelHint = document.getElementById("snapSlideCancelHint");
 
+    const snapNormalControlsRow = document.getElementById("snapNormalControlsRow");
+    const snapLockedControlsRow = document.getElementById("snapLockedControlsRow");
+    const snapFlipCameraBtn = document.getElementById("snapFlipCameraBtn");
+    const snapLockCapsule = document.getElementById("snapLockCapsule");
+    const snapLockIcon = document.getElementById("snapLockIcon");
+    const snapLockChevron = document.getElementById("snapLockChevron");
+    const snapLockedTrashBtn = document.getElementById("snapLockedTrashBtn");
+    const snapLockedSendBtn = document.getElementById("snapLockedSendBtn");
+
     const snapReviewOverlay = document.getElementById("snapReviewOverlay");
     const snapReviewWrapper = document.getElementById("snapReviewWrapper");
     const snapReviewVideo = document.getElementById("snapReviewVideo");
@@ -4252,8 +4341,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let cameraPressStartTime = 0;
     let cameraPointerStartX = 0;
     let cameraPointerStartY = 0;
+    let cameraPointerId = null;
     let isCameraHolding = false;
+    let wasCameraHolding = false;
+    let cameraHoldFinishedTime = 0;
     let isSnapCancelled = false;
+    let isSnapLocked = false;
+    let shouldSendOnStop = false;
+    let currentFacingMode = 'user'; // 'user' (front) or 'environment' (back)
 
     let snapMediaStream = null;
     let snapMediaRecorder = null;
@@ -4263,7 +4358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let recordedSnapBlob = null;
     let recordedSnapUrl = null;
 
-    const SNAP_MAX_DURATION_MS = 30000;
+    const SNAP_MAX_DURATION_MS = 60000;
     const SNAP_RING_CIRCUMFERENCE = 766.5;
 
     function stopAllSnapTracks() {
@@ -4324,17 +4419,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function startSnapRecording() {
         isSnapCancelled = false;
+        isSnapLocked = false;
+        shouldSendOnStop = false;
         snapRecordedChunks = [];
         snapDurationMs = 0;
 
+        if (snapNormalControlsRow) snapNormalControlsRow.classList.remove('hidden');
+        if (snapLockedControlsRow) snapLockedControlsRow.classList.add('hidden');
+        if (snapLockCapsule) {
+            snapLockCapsule.classList.remove('snap-lock-active');
+        }
+        if (snapLockIcon) snapLockIcon.className = "fas fa-lock text-sm";
+        if (snapLockChevron) snapLockChevron.classList.remove('hidden');
+        if (snapSlideCancelHint) {
+            snapSlideCancelHint.classList.remove('text-red-400');
+            snapSlideCancelHint.innerHTML = '<i class="fas fa-chevron-left animate-pulse text-xs"></i><span>Slide to cancel</span>';
+        }
+        if (snapRecordTimer) snapRecordTimer.textContent = "0:00";
+
         try {
             snapMediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, aspectRatio: 1 },
+                video: { facingMode: currentFacingMode, width: { ideal: 480 }, height: { ideal: 480 }, aspectRatio: 1 },
                 audio: true
             });
 
             if (snapRecordVideo) {
                 snapRecordVideo.srcObject = snapMediaStream;
+                if (currentFacingMode === 'user') {
+                    snapRecordVideo.classList.add('-scale-x-100');
+                    snapRecordVideo.classList.remove('scale-x-100');
+                } else {
+                    snapRecordVideo.classList.remove('-scale-x-100');
+                    snapRecordVideo.classList.add('scale-x-100');
+                }
                 await snapRecordVideo.play();
             }
 
@@ -4351,7 +4468,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             snapMediaRecorder = new MediaRecorder(snapMediaStream, {
                 mimeType,
-                videoBitsPerSecond: 800000,
+                videoBitsPerSecond: 1000000,
                 audioBitsPerSecond: 64000
             });
 
@@ -4364,19 +4481,23 @@ document.addEventListener('DOMContentLoaded', () => {
             snapMediaRecorder.onstop = () => {
                 stopAllSnapTracks();
                 if (isSnapCancelled) return;
-                if (snapDurationMs < 1000) {
+                if (snapDurationMs < 600) {
                     showToast('Hold to record');
                     return;
                 }
                 const blobType = snapMediaRecorder.mimeType || 'video/webm';
                 recordedSnapBlob = new Blob(snapRecordedChunks, { type: blobType });
-                openSnapReviewOverlay(recordedSnapBlob, snapDurationMs);
+
+                if (shouldSendOnStop) {
+                    sendSnapDirectly(recordedSnapBlob, snapDurationMs);
+                } else {
+                    openSnapReviewOverlay(recordedSnapBlob, snapDurationMs);
+                }
             };
 
             snapMediaRecorder.start(100);
 
             if (snapRecordingOverlay) snapRecordingOverlay.classList.remove('hidden');
-            if (snapSlideCancelHint) snapSlideCancelHint.classList.remove('text-red-400');
 
             const startRecTime = Date.now();
             if (snapRecordProgressRing) {
@@ -4390,7 +4511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const mm = Math.floor(totalSec / 60);
                 const ss = String(totalSec % 60).padStart(2, '0');
                 if (snapRecordTimer) {
-                    snapRecordTimer.textContent = `${mm}:${ss} / 0:30`;
+                    snapRecordTimer.textContent = `${mm}:${ss}`;
                 }
 
                 const progress = Math.min(1, elapsed / SNAP_MAX_DURATION_MS);
@@ -4399,6 +4520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (elapsed >= SNAP_MAX_DURATION_MS) {
+                    shouldSendOnStop = true;
                     stopSnapRecording();
                 }
             }, 100);
@@ -4416,6 +4538,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function lockSnapRecording() {
+        if (!isCameraHolding || isSnapLocked) return;
+        isSnapLocked = true;
+        try {
+            if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+        } catch (e) {}
+
+        if (snapLockCapsule) {
+            snapLockCapsule.classList.add('snap-lock-active');
+        }
+        if (snapLockIcon) snapLockIcon.className = "fas fa-lock text-sm animate-pulse";
+        if (snapLockChevron) snapLockChevron.classList.add('hidden');
+
+        setTimeout(() => {
+            if (snapNormalControlsRow) snapNormalControlsRow.classList.add('hidden');
+            if (snapLockedControlsRow) snapLockedControlsRow.classList.remove('hidden');
+        }, 180);
+
+        try {
+            if (cameraBtn && cameraPointerId !== null) {
+                cameraBtn.releasePointerCapture(cameraPointerId);
+            }
+        } catch (e) {}
+    }
+
+    async function flipCamera() {
+        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+        if (!snapMediaStream) return;
+        try {
+            const videoTrack = snapMediaStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.stop();
+                snapMediaStream.removeTrack(videoTrack);
+            }
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: currentFacingMode, width: { ideal: 480 }, height: { ideal: 480 }, aspectRatio: 1 },
+                audio: false
+            });
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            if (!snapMediaStream) {
+                newStream.getTracks().forEach(t => t.stop());
+                return;
+            }
+            if (newVideoTrack) {
+                snapMediaStream.addTrack(newVideoTrack);
+            }
+            if (snapRecordVideo) {
+                snapRecordVideo.srcObject = snapMediaStream;
+                if (currentFacingMode === 'user') {
+                    snapRecordVideo.classList.add('-scale-x-100');
+                    snapRecordVideo.classList.remove('scale-x-100');
+                } else {
+                    snapRecordVideo.classList.remove('-scale-x-100');
+                    snapRecordVideo.classList.add('scale-x-100');
+                }
+            }
+        } catch (err) {
+            console.warn('Flip camera error:', err);
+            showToast('Could not switch camera');
+        }
+    }
+
+    if (snapFlipCameraBtn) {
+        snapFlipCameraBtn.onpointerdown = (e) => {
+            e.stopPropagation();
+        };
+        snapFlipCameraBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            flipCamera();
+        };
+    }
+
     function stopSnapRecording() {
         if (snapRecordInterval) {
             clearInterval(snapRecordInterval);
@@ -4431,9 +4626,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function cancelSnapRecording(reason = 'Cancelled') {
         isSnapCancelled = true;
+        isCameraHolding = false;
+        isSnapLocked = false;
+        cameraHoldFinishedTime = Date.now();
         stopSnapRecording();
         stopAllSnapTracks();
         showToast(reason);
+    }
+
+    function sendSnapDirectly(blob, durationMs) {
+        if (!blob) return;
+        isCameraHolding = false;
+        isSnapLocked = false;
+        cameraHoldFinishedTime = Date.now();
+        const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+        const snapFile = new File([blob], `snap_${Date.now()}.${ext}`, {
+            type: blob.type || 'video/webm'
+        });
+        snapFile.durationMs = durationMs;
+        snapFile.isSnap = true;
+
+        if (snapRecordingOverlay) snapRecordingOverlay.classList.add('hidden');
+        if (snapReviewOverlay) snapReviewOverlay.classList.add('hidden');
+
+        if (typeof dispatchMediaUpload === 'function') {
+            const clientMsgId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const objectUrl = URL.createObjectURL(snapFile);
+            const activeReply = replyContext ? {
+                id: replyContext.id,
+                senderName: replyContext.senderName || replyContext.sender,
+                type: replyContext.type || 'text',
+                snippet: replyContext.snippet || replyContext.previewText,
+                mediaSrc: replyContext.mediaSrc || null
+            } : null;
+            clearReplyContext();
+
+            createPendingMediaBubble({
+                file: snapFile,
+                objectUrl,
+                clientMsgId,
+                roomInstanceId: roomInstanceId || '',
+                onCancel: () => {
+                    const act = activeUploads.get(clientMsgId);
+                    if (act && act.xhr) act.xhr.abort();
+                    removePendingBubble(clientMsgId);
+                    activeUploads.delete(clientMsgId);
+                },
+                onRetry: () => {
+                    setPendingBubbleRetrying(clientMsgId);
+                    dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs, replyTo: activeReply });
+                },
+                onDelete: () => {
+                    removePendingBubble(clientMsgId);
+                    activeUploads.delete(clientMsgId);
+                }
+            });
+            dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs, replyTo: activeReply });
+        }
     }
 
     function openSnapReviewOverlay(blob, durationMs) {
@@ -4485,7 +4734,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (snapReviewSoundBadge) {
                 snapReviewSoundBadge.innerHTML = snapReviewVideo.muted
                     ? '<i class="fas fa-volume-xmark"></i>'
-                    : '<i class="fas fa-volume-high text-[#ffb682]"></i>';
+                    : '<i class="fas fa-volume-high text-[#25D366]"></i>';
             }
         };
     }
@@ -4496,52 +4745,27 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    if (snapLockedTrashBtn) {
+        snapLockedTrashBtn.onclick = () => {
+            cancelSnapRecording('Snap discarded');
+        };
+    }
+
+    if (snapLockedSendBtn) {
+        snapLockedSendBtn.onclick = () => {
+            shouldSendOnStop = true;
+            stopSnapRecording();
+        };
+    }
+
     if (snapSendBtn) {
         snapSendBtn.onclick = () => {
-            if (!recordedSnapBlob) {
+            shouldSendOnStop = true;
+            if (recordedSnapBlob) {
+                sendSnapDirectly(recordedSnapBlob, snapDurationMs);
                 closeSnapReviewOverlay();
-                return;
-            }
-            const ext = recordedSnapBlob.type.includes('mp4') ? 'mp4' : 'webm';
-            const snapFile = new File([recordedSnapBlob], `snap_${Date.now()}.${ext}`, {
-                type: recordedSnapBlob.type || 'video/webm'
-            });
-            const snapDur = snapDurationMs;
-            closeSnapReviewOverlay();
-
-            if (typeof dispatchMediaUpload === 'function') {
-                const clientMsgId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-                const objectUrl = URL.createObjectURL(snapFile);
-                const activeReply = replyContext ? {
-                    id: replyContext.id,
-                    senderName: replyContext.senderName || replyContext.sender,
-                    type: replyContext.type || 'text',
-                    snippet: replyContext.snippet || replyContext.previewText,
-                    mediaSrc: replyContext.mediaSrc || null
-                } : null;
-                clearReplyContext();
-
-                createPendingMediaBubble({
-                    file: snapFile,
-                    objectUrl,
-                    clientMsgId,
-                    roomInstanceId: roomInstanceId || '',
-                    onCancel: () => {
-                        const act = activeUploads.get(clientMsgId);
-                        if (act && act.xhr) act.xhr.abort();
-                        removePendingBubble(clientMsgId);
-                        activeUploads.delete(clientMsgId);
-                    },
-                    onRetry: () => {
-                        setPendingBubbleRetrying(clientMsgId);
-                        dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur, replyTo: activeReply });
-                    },
-                    onDelete: () => {
-                        removePendingBubble(clientMsgId);
-                        activeUploads.delete(clientMsgId);
-                    }
-                });
-                dispatchMediaUpload({ file: snapFile, clientMsgId, type: 'snap', isSnap: true, durationMs: snapDur, replyTo: activeReply });
+            } else {
+                stopSnapRecording();
             }
         };
     }
@@ -4550,6 +4774,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
         const video = container.querySelector('.snap-video');
         const overlay = container.querySelector('.snap-play-overlay');
+        const badge = container.querySelector('.snap-sound-badge i');
         if (!video) return;
 
         if (video.paused) {
@@ -4557,12 +4782,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (el !== video && !el.paused) el.pause();
             });
             document.querySelectorAll('.snap-play-overlay').forEach(el => el.classList.remove('playing'));
+            video.muted = false;
+            if (badge) {
+                badge.className = 'fas fa-volume-high text-[#25D366] text-xs';
+            }
             video.play().then(() => {
                 if (overlay) overlay.classList.add('playing');
             }).catch(() => {});
         } else {
             video.pause();
             if (overlay) overlay.classList.remove('playing');
+            if (badge) {
+                badge.className = 'fas fa-volume-xmark text-xs';
+            }
         }
     }
     window.toggleSnapPlayback = toggleSnapPlayback;
@@ -4583,8 +4815,11 @@ document.addEventListener('DOMContentLoaded', () => {
             cameraPressStartTime = Date.now();
             cameraPointerStartX = e.clientX;
             cameraPointerStartY = e.clientY;
+            cameraPointerId = e.pointerId;
             isCameraHolding = false;
             isSnapCancelled = false;
+            isSnapLocked = false;
+            shouldSendOnStop = false;
 
             cameraHoldTimer = setTimeout(async () => {
                 isCameraHolding = true;
@@ -4592,14 +4827,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     cameraBtn.setPointerCapture(e.pointerId);
                 } catch (err) {}
                 await startSnapRecording();
-            }, 350);
+            }, 220);
         });
 
         const handlePointerMove = (e) => {
-            if (isCameraHolding) {
+            if (cameraPointerId !== null && e.pointerId !== cameraPointerId) {
+                return;
+            }
+            if (isCameraHolding && !isSnapLocked && !isSnapCancelled) {
                 const dx = e.clientX - cameraPointerStartX;
-                if (dx < -80 && !isSnapCancelled) {
-                    cancelSnapRecording('Slide to cancel');
+                const dy = e.clientY - cameraPointerStartY;
+
+                // Slide Up to Lock
+                if (dy < -50) {
+                    lockSnapRecording();
+                    return;
+                }
+
+                // Slide Left to Cancel
+                if (dx < -60) {
+                    if (snapSlideCancelHint) {
+                        snapSlideCancelHint.classList.add('text-red-400');
+                    }
+                    if (dx < -80) {
+                        cancelSnapRecording('Slide to cancel');
+                    }
+                } else {
+                    if (snapSlideCancelHint) {
+                        snapSlideCancelHint.classList.remove('text-red-400');
+                    }
                 }
             }
         };
@@ -4608,29 +4864,57 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('pointermove', handlePointerMove);
 
         const handleCameraPointerEnd = (e) => {
+            if (cameraPointerId !== null && e.pointerId !== cameraPointerId) {
+                return;
+            }
+
             if (cameraHoldTimer) {
                 clearTimeout(cameraHoldTimer);
                 cameraHoldTimer = null;
             }
 
+            // If locked, releasing touch does NOT stop or send
+            if (isSnapLocked) {
+                cameraPointerId = null;
+                return;
+            }
+
             if (isCameraHolding) {
-                stopSnapRecording();
                 isCameraHolding = false;
+                wasCameraHolding = true;
+                cameraHoldFinishedTime = Date.now();
+                cameraPointerId = null;
+                if (!isSnapCancelled) {
+                    if (snapDurationMs < 600) {
+                        cancelSnapRecording('Hold to record');
+                    } else {
+                        // User held and released -> SEND IMMEDIATELY!
+                        shouldSendOnStop = true;
+                        stopSnapRecording();
+                    }
+                }
+            } else {
+                cameraPointerId = null;
             }
         };
 
         cameraBtn.addEventListener('pointerup', handleCameraPointerEnd);
         cameraBtn.addEventListener('pointercancel', handleCameraPointerEnd);
         window.addEventListener('pointerup', (e) => {
-            if (isCameraHolding) {
+            if (isCameraHolding && !isSnapLocked) {
+                if (cameraPointerId !== null && e.pointerId !== cameraPointerId) {
+                    return;
+                }
                 handleCameraPointerEnd(e);
             }
         });
 
         // Direct trusted click handler for taking a photo / opening file chooser on web
         cameraBtn.onclick = (e) => {
-            if (isCameraHolding) {
+            if (isCameraHolding || wasCameraHolding || (Date.now() - cameraHoldFinishedTime < 500)) {
+                wasCameraHolding = false;
                 e.preventDefault();
+                e.stopPropagation();
                 return;
             }
             if (shouldKeepKeyboardOpen || document.activeElement === messageInput) {
