@@ -4650,6 +4650,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     messageInput.addEventListener("input", () => {
+        // Intercept any img tags injected by soft keyboards (Gboard/Samsung/iOS)
+        const leftoverImg = messageInput.querySelector('img');
+        if (leftoverImg) {
+            const imgSrc = leftoverImg.src;
+            leftoverImg.remove();
+            if (imgSrc) {
+                if (imgSrc.startsWith('data:') || imgSrc.startsWith('blob:')) {
+                    const file = dataUrlToFile(imgSrc, `keyboard-sticker-${Date.now()}`);
+                    if (file) {
+                        file.isSticker = true;
+                        handleMediaFilesFromExternal([file], { isSticker: true });
+                    }
+                } else {
+                    const isGif = imgSrc.toLowerCase().includes('.gif') || imgSrc.includes('giphy') || imgSrc.includes('tenor');
+                    sendDirectMediaUrl(imgSrc, isGif ? 'gif' : 'sticker');
+                }
+            }
+        }
+
         autoResizeTextarea();
         updateSendButtonState();
 
@@ -4683,7 +4702,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     messageInput.addEventListener("focus", () => {
-        if (mediaPicker) mediaPicker.style.display = "none";
+        if (mediaPicker) {
+            mediaPicker.classList.add("hidden");
+            mediaPicker.style.display = "none";
+        }
     });
 
     // Phase 13: Handle keyboard content (stickers/GIFs from Gboard, etc.)
@@ -4818,7 +4840,48 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handlePasteEvent(event) {
         if (!event.clipboardData) return;
 
-        // 1. Check for image/sticker files or items in clipboardData
+        // 1. Check for HTML clipboard containing <img> tags FIRST (preserves animated GIFs from Giphy, Tenor, web copy)
+        const html = event.clipboardData.getData('text/html') || '';
+        if (html && html.includes('<img')) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const img = doc.querySelector('img');
+                if (img && img.src) {
+                    const src = img.src.trim();
+                    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:') || src.startsWith('blob:')) {
+                        event.preventDefault();
+                        if (src.startsWith('data:')) {
+                            const file = dataUrlToFile(src, `pasted-sticker-${Date.now()}`);
+                            if (file) {
+                                file.isSticker = true;
+                                handleMediaFilesFromExternal([file], { isSticker: true });
+                                return;
+                            }
+                        } else if (src.startsWith('blob:')) {
+                            fetch(src)
+                                .then(r => r.blob())
+                                .then(blob => {
+                                    const ext = blob.type.includes('gif') ? 'gif' : blob.type.includes('webp') ? 'webp' : 'png';
+                                    const file = new File([blob], `pasted-sticker-${Date.now()}.${ext}`, { type: blob.type });
+                                    file.isSticker = true;
+                                    handleMediaFilesFromExternal([file], { isSticker: true });
+                                })
+                                .catch(() => {});
+                            return;
+                        } else {
+                            // Direct web URL (Giphy, Tenor, web image)
+                            const isGif = src.toLowerCase().includes('.gif') || src.includes('giphy') || src.includes('tenor');
+                            const isSticker = src.toLowerCase().includes('sticker') || src.toLowerCase().includes('.webp') || !isGif;
+                            sendDirectMediaUrl(src, isGif ? 'gif' : (isSticker ? 'sticker' : 'image'));
+                            return;
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        // 2. Check for image/sticker files or items in clipboardData
         const files = Array.from(event.clipboardData.files || []);
         const items = Array.from(event.clipboardData.items || []);
         const mediaFiles = [];
@@ -4839,66 +4902,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mediaFiles.length > 0) {
             event.preventDefault();
+            const hasTyped = (messageInput ? (messageInput.value || '').trim().length > 0 : false);
             mediaFiles.forEach(f => {
-                const isSticker = f.type?.includes('gif') || f.name?.toLowerCase().includes('sticker') || f.name?.toLowerCase().includes('gif') || f.type?.includes('webp');
+                const isSticker = f.type?.includes('gif') || f.name?.toLowerCase().includes('sticker') || f.name?.toLowerCase().includes('gif') || f.type?.includes('webp') || (!hasTyped && (f.type?.includes('png') || !f.name || f.name === 'image.png'));
                 if (isSticker) f.isSticker = true;
             });
             handleMediaFilesFromExternal(mediaFiles, { isSticker: mediaFiles.some(f => f.isSticker) });
             return;
         }
 
-        // 2. Check for HTML clipboard containing <img> tags (Giphy, Tenor, web image copy)
-        const html = event.clipboardData.getData('text/html') || '';
-        if (html && html.includes('<img')) {
-            try {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const img = doc.querySelector('img');
-                if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://') || img.src.startsWith('data:') || img.src.startsWith('blob:'))) {
-                    event.preventDefault();
-                    if (img.src.startsWith('data:')) {
-                        const file = dataUrlToFile(img.src, `pasted-sticker-${Date.now()}`);
-                        if (file) {
-                            file.isSticker = true;
-                            handleMediaFilesFromExternal([file], { isSticker: true });
-                            return;
-                        }
-                    } else {
-                        // Attempt to fetch as blob to preserve animated GIFs and upload directly
-                        fetch(img.src)
-                            .then(r => r.blob())
-                            .then(blob => {
-                                const ext = blob.type.includes('gif') ? 'gif' : blob.type.includes('webp') ? 'webp' : 'png';
-                                const file = new File([blob], `pasted-sticker-${Date.now()}.${ext}`, { type: blob.type });
-                                file.isSticker = true;
-                                handleMediaFilesFromExternal([file], { isSticker: true });
-                            })
-                            .catch(() => {
-                                const isGif = img.src.toLowerCase().includes('.gif') || img.src.includes('giphy') || img.src.includes('tenor');
-                                sendDirectMediaUrl(img.src, isGif ? 'gif' : 'sticker');
-                            });
-                        return;
-                    }
-                }
-            } catch (_) {}
-        }
-
-        // 3. Check for direct pasted media URLs (Giphy, Tenor, direct .gif/.png/.webp)
+        // 3. Check for direct pasted media URLs (Giphy, Tenor, direct .gif/.png/.webp/.jpeg)
         const pastedText = (event.clipboardData.getData('text/plain') || '').trim();
-        const isDirectImageUrl = /^https?:\/\/.+\.(gif|webp|png|jpe?g)($|\?)/i.test(pastedText) ||
-            /^https?:\/\/(media[0-9]*\.giphy\.com|c\.tenor\.com|i\.giphy\.com|i\.imgur\.com)\/.+/i.test(pastedText);
+        const isDirectImageUrl = /^https?:\/\/.+\.(gif|webp|png|jpe?g)($|[?#])/i.test(pastedText) ||
+            /^https?:\/\/(media[0-9]*\.giphy\.com|i\.giphy\.com|giphy\.com\/gifs)\/.+/i.test(pastedText) ||
+            /^https?:\/\/(media[0-9]*\.tenor\.com|c\.tenor\.com|tenor\.com\/view)\/.+/i.test(pastedText) ||
+            /^https?:\/\/(i\.imgur\.com|cdn\.discordapp\.com)\/.+/i.test(pastedText);
 
         const hasTypedText = (messageInput ? (messageInput.value || '').trim().length > 0 : false);
         if (isDirectImageUrl && !hasTypedText) {
             event.preventDefault();
-            const isGif = pastedText.toLowerCase().includes('.gif') || pastedText.includes('giphy') || pastedText.includes('tenor');
-            const msgType = isGif ? 'gif' : 'sticker';
-            sendDirectMediaUrl(pastedText, msgType);
+            let resolvedUrl = pastedText;
+            const giphyMatch = pastedText.match(/giphy\.com\/gifs\/(?:.*-)?([a-zA-Z0-9]+)($|[?#])/i);
+            if (giphyMatch && giphyMatch[1]) {
+                resolvedUrl = `https://media.giphy.com/media/${giphyMatch[1]}/giphy.gif`;
+            }
+            const isGif = resolvedUrl.toLowerCase().includes('.gif') || resolvedUrl.includes('giphy') || resolvedUrl.includes('tenor');
+            const isSticker = resolvedUrl.toLowerCase().includes('sticker') || resolvedUrl.toLowerCase().includes('.webp');
+            sendDirectMediaUrl(resolvedUrl, isGif ? 'gif' : (isSticker ? 'sticker' : 'image'));
             return;
         }
 
         // 4. Plain text paste into messageInput: prevent rich HTML tags from leaking into contenteditable
-        if (event.target === messageInput) {
+        if (messageInput && (event.target === messageInput || messageInput.contains(event.target))) {
             event.preventDefault();
             const plainText = event.clipboardData.getData('text/plain') || '';
             document.execCommand('insertText', false, plainText);
@@ -4915,7 +4950,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('paste', (event) => {
         const chatScreen = document.getElementById('chatScreen');
         if (!chatScreen || chatScreen.classList.contains('hidden')) return;
-        if (event.target === messageInput) return; // already handled
+        if (messageInput && (event.target === messageInput || messageInput.contains(event.target))) return; // already handled
         if (event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA')) return;
         handlePasteEvent(event);
     });
@@ -4952,23 +4987,25 @@ document.addEventListener('DOMContentLoaded', () => {
         let hadImage = false;
         mutations.forEach(mutation => {
             mutation.addedNodes.forEach(node => {
+                let img = null;
                 if (node.nodeName === 'IMG') {
+                    img = node;
+                } else if (node.querySelector) {
+                    img = node.querySelector('img');
+                }
+                if (img) {
                     hadImage = true;
-                    const imgSrc = node.src;
+                    const imgSrc = img.src;
                     node.remove();
                     if (imgSrc) {
                         if (imgSrc.startsWith('data:') || imgSrc.startsWith('blob:')) {
-                            fetch(imgSrc)
-                                .then(r => r.blob())
-                                .then(blob => {
-                                    const ext = blob.type.split('/')[1] || 'png';
-                                    const file = new File([blob], `sticker-${Date.now()}.${ext}`, { type: blob.type });
-                                    file.isSticker = true;
-                                    handleMediaFilesFromExternal([file], { isSticker: true });
-                                })
-                                .catch(() => {});
+                            const file = dataUrlToFile(imgSrc, `keyboard-sticker-${Date.now()}`);
+                            if (file) {
+                                file.isSticker = true;
+                                handleMediaFilesFromExternal([file], { isSticker: true });
+                            }
                         } else {
-                            const isGif = imgSrc.includes('.gif') || imgSrc.includes('giphy');
+                            const isGif = imgSrc.toLowerCase().includes('.gif') || imgSrc.includes('giphy') || imgSrc.includes('tenor');
                             sendDirectMediaUrl(imgSrc, isGif ? 'gif' : 'sticker');
                         }
                     }
@@ -5242,7 +5279,263 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelUploadModal.classList.add("hidden");
     };
 
-    // Built-in emoji/media picker removed; keyboard stickers and GIFs are handled natively
+    // ======== IN-APP EMOJI & GIF / STICKER PICKER ========
+    if (emojiBtn && mediaPicker) {
+        emojiBtn.onclick = (e) => {
+            e.stopPropagation();
+            toggleMediaPicker();
+        };
+    }
+
+    function toggleMediaPicker() {
+        if (!mediaPicker) return;
+        const isHidden = mediaPicker.classList.contains("hidden");
+        if (!isHidden) {
+            mediaPicker.classList.add("hidden");
+            mediaPicker.style.display = "none";
+            scrollMessagesToBottom(true);
+            return;
+        }
+        mediaPicker.classList.remove("hidden");
+        mediaPicker.style.display = "flex";
+        mediaPicker.innerHTML = "";
+        scrollMessagesToBottom(true);
+
+        // Create tabs container
+        const tabsContainer = document.createElement("div");
+        tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4 flex-shrink-0";
+
+        const emojiTab = document.createElement("button");
+        emojiTab.id = "emojiTabBtn";
+        emojiTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors cursor-pointer";
+        emojiTab.textContent = "Emoji";
+        emojiTab.addEventListener("pointerdown", (e) => e.preventDefault());
+        emojiTab.onclick = () => showEmojiPicker();
+
+        const gifTab = document.createElement("button");
+        gifTab.id = "gifsTabBtn";
+        gifTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors cursor-pointer";
+        gifTab.textContent = "GIFs";
+        gifTab.addEventListener("pointerdown", (e) => e.preventDefault());
+        gifTab.onclick = () => showGifPicker();
+
+        tabsContainer.appendChild(emojiTab);
+        tabsContainer.appendChild(gifTab);
+        mediaPicker.appendChild(tabsContainer);
+
+        // Content area
+        const contentArea = document.createElement("div");
+        contentArea.id = "media-picker-content";
+        contentArea.className = "flex-1 overflow-y-auto custom-scrollbar";
+        mediaPicker.appendChild(contentArea);
+
+        // Show emoji by default
+        showEmojiPicker();
+
+        function activateTab(activeTab) {
+            [emojiTab, gifTab].forEach(t => {
+                if (t === activeTab) {
+                    t.classList.add("border-[#ff7320]", "text-[#ff7320]");
+                    t.classList.remove("border-transparent", "text-[#9a9a9a]");
+                } else {
+                    t.classList.remove("border-[#ff7320]", "text-[#ff7320]");
+                    t.classList.add("border-transparent", "text-[#9a9a9a]");
+                }
+            });
+        }
+
+        function showEmojiPicker() {
+            activateTab(emojiTab);
+            contentArea.innerHTML = "";
+            renderEmojis();
+
+            // Enrich emoji list from local emojis.json if available
+            if (emojis.length < 150) {
+                fetch(absUrl('/emojis.json'))
+                    .then(res => res.json())
+                    .then(data => {
+                        if (Array.isArray(data) && data.length > 0) {
+                            emojis = data.map(emoji => emoji.unicode || emoji);
+                            renderEmojis();
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }
+
+        function showGifPicker() {
+            activateTab(gifTab);
+            contentArea.innerHTML = "";
+
+            const searchRow = document.createElement("div");
+            searchRow.className = "flex flex-col gap-2 mb-3 flex-shrink-0";
+
+            const searchInput = document.createElement("input");
+            searchInput.type = "text";
+            searchInput.placeholder = "Search GIFs & animated stickers...";
+            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] text-sm flex-shrink-0";
+
+            const subFilterRow = document.createElement("div");
+            subFilterRow.className = "flex items-center gap-2";
+
+            let currentMode = 'gifs'; // 'gifs' or 'stickers'
+
+            const filterGifsBtn = document.createElement("button");
+            filterGifsBtn.type = "button";
+            filterGifsBtn.className = "px-3 py-1 rounded-full text-xs font-semibold bg-[#ff7320] text-white transition-all cursor-pointer";
+            filterGifsBtn.textContent = "All GIFs";
+
+            const filterStickersBtn = document.createElement("button");
+            filterStickersBtn.type = "button";
+            filterStickersBtn.className = "px-3 py-1 rounded-full text-xs font-semibold bg-[#2a2a2a] text-[#a0a0a0] hover:text-white transition-all cursor-pointer";
+            filterStickersBtn.innerHTML = '<i class="fas fa-shapes mr-1"></i>Transparent FX';
+
+            filterGifsBtn.onclick = () => {
+                if (currentMode === 'gifs') return;
+                currentMode = 'gifs';
+                filterGifsBtn.className = "px-3 py-1 rounded-full text-xs font-semibold bg-[#ff7320] text-white transition-all cursor-pointer";
+                filterStickersBtn.className = "px-3 py-1 rounded-full text-xs font-semibold bg-[#2a2a2a] text-[#a0a0a0] hover:text-white transition-all cursor-pointer";
+                searchMedia(searchInput.value.trim());
+            };
+
+            filterStickersBtn.onclick = () => {
+                if (currentMode === 'stickers') return;
+                currentMode = 'stickers';
+                filterStickersBtn.className = "px-3 py-1 rounded-full text-xs font-semibold bg-[#ff7320] text-white transition-all cursor-pointer";
+                filterGifsBtn.className = "px-3 py-1 rounded-full text-xs font-semibold bg-[#2a2a2a] text-[#a0a0a0] hover:text-white transition-all cursor-pointer";
+                searchMedia(searchInput.value.trim());
+            };
+
+            subFilterRow.appendChild(filterGifsBtn);
+            subFilterRow.appendChild(filterStickersBtn);
+
+            searchRow.appendChild(searchInput);
+            searchRow.appendChild(subFilterRow);
+            contentArea.appendChild(searchRow);
+
+            let searchTimeout = null;
+            searchInput.oninput = () => {
+                if (searchTimeout) clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    searchMedia(searchInput.value.trim());
+                }, 300);
+            };
+
+            const resultsDiv = document.createElement("div");
+            resultsDiv.className = "mt-2 grid grid-cols-3 gap-3";
+            resultsDiv.id = "gif-results";
+            contentArea.appendChild(resultsDiv);
+
+            function searchMedia(query) {
+                const gifResults = document.getElementById("gif-results");
+                if (gifResults) {
+                    gifResults.innerHTML = '<div class="col-span-3 text-center py-8 text-xs text-[#888888]"><i class="fas fa-spinner fa-spin mr-1.5 text-sm text-[#ff7320]"></i>Loading GIFs...</div>';
+                }
+                const endpoint = (currentMode === 'stickers') ? '/api/stickers' : '/api/gifs';
+                const fetchUrl = absUrl(`${endpoint}?query=${encodeURIComponent(query || "trending")}`);
+                fetch(fetchUrl)
+                    .then(res => res.json())
+                    .then(data => {
+                        const targetResults = document.getElementById("gif-results");
+                        if (!targetResults) return;
+                        targetResults.innerHTML = "";
+
+                        if (data && data.error) {
+                            const errContainer = document.createElement("div");
+                            errContainer.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
+                            errContainer.innerHTML = `
+                                <div class="mb-2 text-[#ff7b7b]">${data.error}</div>
+                                <button type="button" class="gif-retry-btn px-3 py-1 bg-[#261a12] text-[#ffb682] border border-[#ffb682]/40 rounded-lg text-xs hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">Retry</button>
+                            `;
+                            errContainer.querySelector('.gif-retry-btn').onclick = () => searchMedia(query);
+                            targetResults.appendChild(errContainer);
+                            return;
+                        }
+
+                        if (data && data.data && data.data.length > 0) {
+                            data.data.forEach(item => {
+                                const img = document.createElement("img");
+                                const imgUrl = item.images?.fixed_height?.url || item.images?.original?.url || item.images?.downsized?.url;
+                                if (!imgUrl) return;
+                                img.src = imgUrl;
+                                img.className = (currentMode === 'stickers')
+                                    ? "cursor-pointer w-full h-24 object-contain rounded-lg hover:scale-105 transition-transform"
+                                    : "cursor-pointer w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity";
+                                img.loading = "lazy";
+                                img.addEventListener("pointerdown", (e) => e.preventDefault());
+                                img.onclick = () => {
+                                    const isSticker = (currentMode === 'stickers');
+                                    sendDirectMediaUrl(imgUrl, isSticker ? 'sticker' : 'gif');
+                                    mediaPicker.classList.add("hidden");
+                                    mediaPicker.style.display = "none";
+                                    scrollMessagesToBottom(true);
+                                };
+                                targetResults.appendChild(img);
+                            });
+                        } else {
+                            const emptyDiv = document.createElement("div");
+                            emptyDiv.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
+                            emptyDiv.textContent = "No GIFs found";
+                            targetResults.appendChild(emptyDiv);
+                        }
+                    })
+                    .catch(() => {
+                        const targetResults = document.getElementById("gif-results");
+                        if (!targetResults) return;
+                        const errContainer = document.createElement("div");
+                        errContainer.className = "col-span-3 text-center py-8 text-xs text-[#888888]";
+                        errContainer.innerHTML = `
+                            <div class="mb-2 text-[#ff7b7b]">Couldn't load GIFs. Check connection.</div>
+                            <button type="button" class="gif-retry-btn px-3 py-1 bg-[#261a12] text-[#ffb682] border border-[#ffb682]/40 rounded-lg text-xs hover:bg-[#ffb682] hover:text-black transition-colors cursor-pointer">Retry</button>
+                        `;
+                        errContainer.querySelector('.gif-retry-btn').onclick = () => searchMedia(query);
+                        targetResults.innerHTML = "";
+                        targetResults.appendChild(errContainer);
+                    });
+            }
+
+            searchMedia("trending");
+        }
+    }
+
+    function renderEmojis() {
+        const contentArea = document.getElementById("media-picker-content");
+        if (!contentArea) return;
+        contentArea.innerHTML = "";
+        const emojiGrid = document.createElement("div");
+        emojiGrid.className = "grid grid-cols-8 gap-2";
+        emojis.forEach(emoji => {
+            const btn = document.createElement("button");
+            btn.innerHTML = emoji;
+            btn.className = "text-2xl p-2 rounded-lg hover:bg-[#2c2c2c] transition-colors cursor-pointer select-none";
+            btn.addEventListener("pointerdown", (e) => e.preventDefault());
+            btn.onclick = (e) => {
+                e.preventDefault();
+                insertTextIntoComposer(emoji);
+            };
+            emojiGrid.appendChild(btn);
+        });
+        contentArea.appendChild(emojiGrid);
+    }
+
+    // Dismiss media picker when clicking outside or pressing Escape
+    document.addEventListener("click", (e) => {
+        if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
+            if (!mediaPicker.contains(e.target) && (!emojiBtn || !emojiBtn.contains(e.target))) {
+                mediaPicker.classList.add("hidden");
+                mediaPicker.style.display = "none";
+            }
+        }
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            if (mediaPicker && !mediaPicker.classList.contains("hidden")) {
+                mediaPicker.classList.add("hidden");
+                mediaPicker.style.display = "none";
+            }
+        }
+    });
 
     function insertTextIntoComposer(text) {
         if (!messageInput) return;

@@ -685,6 +685,9 @@
             <!-- Media Previews Strip (Rewritten Draft System) -->
             <div id="mediaPreviews" class="hidden mb-2.5"></div>
 
+            <!-- Media Picker (Emoji & GIF) -->
+            <div id="media-picker" class="hidden p-4 custom-scrollbar"></div>
+
             <!-- Composer Row Wrapper (Relative container for seamless in-place voice overlay) -->
             <div class="composer-container relative w-full">
               <!-- Standard Input Bar + Send Button Row -->
@@ -701,6 +704,10 @@
                       style="min-height: 38px; max-height: 150px; line-height: 1.4; word-break: break-word;"
                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
                   </div>
+                  <!-- Emoji button -->
+                  <button id="emojiBtn" title="Emoji & GIF" type="button" class="composer-icon-btn">
+                    <i class="far fa-smile text-base"></i>
+                  </button>
                   <!-- Camera button -->
                   <button id="cameraBtn" title="Camera" type="button" class="composer-icon-btn">
                     <i class="fas fa-camera text-base"></i>
