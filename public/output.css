@@ -719,6 +719,10 @@ button:focus-visible,
   visibility: collapse;
 }
 
+.\!static {
+  position: static !important;
+}
+
 .static {
   position: static;
 }
@@ -737,10 +741,6 @@ button:focus-visible,
 
 .sticky {
   position: sticky;
-}
-
-.-inset-2 {
-  inset: -0.5rem;
 }
 
 .inset-0 {
@@ -873,6 +873,14 @@ button:focus-visible,
   z-index: 99999;
 }
 
+.col-span-3 {
+  grid-column: span 3 / span 3;
+}
+
+.\!m-0 {
+  margin: 0px !important;
+}
+
 .m-1 {
   margin: 0.25rem;
 }
@@ -935,10 +943,6 @@ button:focus-visible,
   margin-left: 0.375rem;
 }
 
-.ml-2 {
-  margin-left: 0.5rem;
-}
-
 .ml-auto {
   margin-left: auto;
 }
@@ -957,6 +961,10 @@ button:focus-visible,
 
 .mr-3 {
   margin-right: 0.75rem;
+}
+
+.mr-auto {
+  margin-right: auto;
 }
 
 .mt-0\.5 {
@@ -1019,6 +1027,10 @@ button:focus-visible,
   display: table-row;
 }
 
+.\!grid {
+  display: grid !important;
+}
+
 .grid {
   display: grid;
 }
@@ -1064,10 +1076,6 @@ button:focus-visible,
   height: 0.625rem;
 }
 
-.h-3 {
-  height: 0.75rem;
-}
-
 .h-4 {
   height: 1rem;
 }
@@ -1110,10 +1118,6 @@ button:focus-visible,
 
 .h-\[240px\] {
   height: 240px;
-}
-
-.h-\[256px\] {
-  height: 256px;
 }
 
 .h-\[48px\] {
@@ -1184,10 +1188,6 @@ button:focus-visible,
   width: 0.625rem;
 }
 
-.w-3 {
-  width: 0.75rem;
-}
-
 .w-4 {
   width: 1rem;
 }
@@ -1234,10 +1234,6 @@ button:focus-visible,
 
 .w-\[240px\] {
   width: 240px;
-}
-
-.w-\[256px\] {
-  width: 256px;
 }
 
 .w-\[7px\] {
@@ -1312,8 +1308,29 @@ button:focus-visible,
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
 
+.scale-x-100 {
+  --tw-scale-x: 1;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+
 .transform {
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0.8,0,1,1);
+  }
+
+  50% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0,0,0.2,1);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
 }
 
 @keyframes fade-in {
@@ -1346,17 +1363,6 @@ button:focus-visible,
   animation: modal-in 0.2s ease-out;
 }
 
-@keyframes ping {
-  75%, 100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-
-.animate-ping {
-  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
 @keyframes pulse {
   50% {
     opacity: .5;
@@ -1373,10 +1379,6 @@ button:focus-visible,
 
 .cursor-pointer {
   cursor: pointer;
-}
-
-.touch-none {
-  touch-action: none;
 }
 
 .select-none {
@@ -1584,6 +1586,11 @@ button:focus-visible,
   border-color: rgb(34 34 34 / var(--tw-border-opacity, 1));
 }
 
+.border-\[\#25D366\] {
+  --tw-border-opacity: 1;
+  border-color: rgb(37 211 102 / var(--tw-border-opacity, 1));
+}
+
 .border-\[\#262626\] {
   --tw-border-opacity: 1;
   border-color: rgb(38 38 38 / var(--tw-border-opacity, 1));
@@ -1722,6 +1729,11 @@ button:focus-visible,
   background-color: rgb(34 34 34 / var(--tw-bg-opacity, 1));
 }
 
+.bg-\[\#25D366\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(37 211 102 / var(--tw-bg-opacity, 1));
+}
+
 .bg-\[\#261a12\] {
   --tw-bg-opacity: 1;
   background-color: rgb(38 26 18 / var(--tw-bg-opacity, 1));
@@ -1794,6 +1806,10 @@ button:focus-visible,
   background-color: rgb(0 0 0 / 0.6);
 }
 
+.bg-black\/65 {
+  background-color: rgb(0 0 0 / 0.65);
+}
+
 .bg-black\/70 {
   background-color: rgb(0 0 0 / 0.7);
 }
@@ -1813,11 +1829,6 @@ button:focus-visible,
 
 .bg-emerald-500\/15 {
   background-color: rgb(16 185 129 / 0.15);
-}
-
-.bg-red-500 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(239 68 68 / var(--tw-bg-opacity, 1));
 }
 
 .bg-red-500\/15 {
@@ -1900,10 +1911,6 @@ button:focus-visible,
   --tw-gradient-stops: var(--tw-gradient-from), rgb(0 0 0 / 0.6) var(--tw-gradient-via-position), var(--tw-gradient-to);
 }
 
-.to-\[\#ff9858\] {
-  --tw-gradient-to: #ff9858 var(--tw-gradient-to-position);
-}
-
 .to-\[\#ffb682\] {
   --tw-gradient-to: #ffb682 var(--tw-gradient-to-position);
 }
@@ -1914,6 +1921,10 @@ button:focus-visible,
 
 .to-white\/10 {
   --tw-gradient-to: rgb(255 255 255 / 0.1) var(--tw-gradient-to-position);
+}
+
+.stroke-\[\#25D366\] {
+  stroke: #25D366;
 }
 
 .stroke-\[\#ff7320\] {
@@ -2062,12 +2073,21 @@ button:focus-visible,
   padding-bottom: 1rem;
 }
 
+.py-8 {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
 .pb-2 {
   padding-bottom: 0.5rem;
 }
 
 .pb-3 {
   padding-bottom: 0.75rem;
+}
+
+.pr-1 {
+  padding-right: 0.25rem;
 }
 
 .pr-2 {
@@ -2230,6 +2250,11 @@ button:focus-visible,
   letter-spacing: 0.1em;
 }
 
+.text-\[\#25D366\] {
+  --tw-text-opacity: 1;
+  color: rgb(37 211 102 / var(--tw-text-opacity, 1));
+}
+
 .text-\[\#737373\] {
   --tw-text-opacity: 1;
   color: rgb(115 115 115 / var(--tw-text-opacity, 1));
@@ -2258,6 +2283,11 @@ button:focus-visible,
 .text-\[\#FF7A1F\] {
   --tw-text-opacity: 1;
   color: rgb(255 122 31 / var(--tw-text-opacity, 1));
+}
+
+.text-\[\#a0a0a0\] {
+  --tw-text-opacity: 1;
+  color: rgb(160 160 160 / var(--tw-text-opacity, 1));
 }
 
 .text-\[\#cccccc\] {
@@ -2422,8 +2452,8 @@ button:focus-visible,
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-.shadow-\[\#ff7320\]\/30 {
-  --tw-shadow-color: rgb(255 115 32 / 0.3);
+.shadow-\[\#25D366\]\/30 {
+  --tw-shadow-color: rgb(37 211 102 / 0.3);
   --tw-shadow: var(--tw-shadow-colored);
 }
 
@@ -4335,7 +4365,18 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   -o-object-fit: contain;
      object-fit: contain;
   display: block;
-  margin-left: auto;
+}
+
+.sent-message .sticker-message,
+.message.items-end .sticker-message {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+
+.received-message .sticker-message,
+.message.items-start .sticker-message {
+  margin-left: 0 !important;
+  margin-right: auto !important;
 }
 
 /* In-Place WhatsApp-Style Voice Recording Row */
@@ -4655,6 +4696,185 @@ body.light-mode #messageInput[contenteditable="true"]:empty:before {
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* Media Picker Tabs & Content Layout */
+
+.media-picker-tabs {
+  display: flex;
+  border-bottom: 1px solid #2a2a2a;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.media-picker-tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #9a9a9a;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.media-picker-tab-btn:hover {
+  color: #ffffff;
+}
+
+.media-picker-tab-btn.active {
+  color: #ff7320 !important;
+  border-bottom-color: #ff7320 !important;
+}
+
+/* Search input for emoji and GIFs */
+
+.media-picker-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.media-picker-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #222222;
+  border: 1px solid #333333;
+  color: #ffffff;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.media-picker-search-input:focus {
+  border-color: #ff7320;
+}
+
+/* Emoji Grid */
+
+.media-picker-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 4px 2px;
+  align-items: center;
+}
+
+@media (min-width: 480px) {
+  .media-picker-emoji-grid {
+    grid-template-columns: repeat(9, 1fr);
+  }
+}
+
+.media-picker-emoji-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  font-size: 24px;
+  line-height: 1;
+  border-radius: 8px;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+  padding: 0;
+}
+
+.media-picker-emoji-btn:hover {
+  background: #2a2a2a;
+  transform: scale(1.15);
+}
+
+.media-picker-emoji-btn:active {
+  transform: scale(0.95);
+}
+
+/* GIF & Sticker Grid */
+
+.media-picker-gif-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.media-picker-gif-item {
+  width: 100%;
+  height: 92px;
+  -o-object-fit: cover;
+     object-fit: cover;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #202020;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  display: block;
+}
+
+.media-picker-gif-item:hover {
+  transform: scale(1.02);
+  opacity: 0.9;
+}
+
+.media-picker-sticker-item {
+  width: 100%;
+  height: 92px;
+  -o-object-fit: contain;
+     object-fit: contain;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  transition: transform 0.15s ease;
+  display: block;
+}
+
+.media-picker-sticker-item:hover {
+  transform: scale(1.06);
+}
+
+/* Message Time Overlay Badge for Media & Stickers */
+
+.media-time-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff !important;
+  border-radius: 9999px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-family: inherit;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Only-emojis text message styling */
+
+.msg-text.only-emojis {
+  font-size: 2.1rem;
+  line-height: 1.25;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* ============================================================
@@ -6767,13 +6987,14 @@ html.loading-file-room #fileRoomScreen {
 
 .snap-container {
   position: relative;
-  width: min(62vw, 220px);
-  height: min(62vw, 220px);
+  width: min(65vw, 240px);
+  height: min(65vw, 240px);
   border-radius: 9999px;
   overflow: hidden;
-  border: 2.5px solid rgba(255, 115, 32, 0.6);
+  border: 3.5px solid #25D366;
   background: #000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  margin-bottom: 2px;
 }
 
 .snap-video {
@@ -6781,6 +7002,61 @@ html.loading-file-room #fileRoomScreen {
   height: 100%;
   -o-object-fit: cover;
      object-fit: cover;
+  border-radius: 9999px;
+}
+
+.snap-sound-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  padding: 2.5px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+.snap-retry-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  border-radius: 9999px;
+  z-index: 10;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+}
+
+.snap-retry-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 4px;
+  transition: transform 0.15s ease;
+}
+
+.snap-retry-overlay:hover .snap-retry-icon-box {
+  transform: scale(1.1);
 }
 
 .snap-play-overlay {
@@ -6797,6 +7073,271 @@ html.loading-file-room #fileRoomScreen {
 .snap-play-overlay.playing {
   opacity: 0;
   pointer-events: none;
+}
+
+/* ============================================================
+   CIRCULAR SNAP RECORDING OVERLAY (WHATSAPP-STYLE VIDEO NOTES)
+   ============================================================ */
+
+#snapRecordingOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.94) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  touch-action: none !important;
+  -moz-user-select: none !important;
+       user-select: none !important;
+  -webkit-user-select: none !important;
+  overflow: hidden !important;
+}
+
+#snapRecordingOverlay.hidden {
+  display: none !important;
+}
+
+.snap-record-top-timer {
+  position: absolute !important;
+  top: max(40px, env(safe-area-inset-top, 40px)) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 30 !important;
+  pointer-events: none !important;
+}
+
+.snap-record-timer-pill {
+  padding: 6px 18px !important;
+  border-radius: 9999px !important;
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.45) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.snap-record-pulse-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background: #ffffff !important;
+  animation: snap-pulse 1s infinite alternate ease-in-out !important;
+}
+
+@keyframes snap-pulse {
+  from {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.snap-viewfinder-frame {
+  position: relative !important;
+  width: min(72vw, 280px) !important;
+  height: min(72vw, 280px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: auto !important;
+}
+
+.snap-viewfinder-circle {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+  background: #000 !important;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.7) !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  position: relative !important;
+}
+
+#snapRecordVideo {
+  width: 100% !important;
+  height: 100% !important;
+  -o-object-fit: cover !important;
+     object-fit: cover !important;
+  border-radius: 9999px !important;
+}
+
+.snap-progress-svg {
+  position: absolute !important;
+  inset: -10px !important;
+  width: calc(100% + 20px) !important;
+  height: calc(100% + 20px) !important;
+  transform: rotate(-90deg) !important;
+  pointer-events: none !important;
+}
+
+#snapNormalControlsRow,
+#snapLockedControlsRow {
+  position: absolute !important;
+  bottom: max(32px, env(safe-area-inset-bottom, 32px)) !important;
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0 28px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  z-index: 30 !important;
+}
+
+#snapNormalControlsRow.hidden,
+#snapLockedControlsRow.hidden {
+  display: none !important;
+}
+
+#snapFlipCameraBtn {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  pointer-events: auto !important;
+}
+
+#snapFlipCameraBtn:active {
+  transform: scale(0.9) !important;
+}
+
+#snapSlideCancelHint {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding-bottom: 12px !important;
+  -webkit-user-select: none !important;
+     -moz-user-select: none !important;
+          user-select: none !important;
+  pointer-events: none !important;
+  transition: color 0.15s ease !important;
+}
+
+.snap-lock-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  pointer-events: none !important;
+}
+
+#snapLockCapsule {
+  margin-bottom: 12px !important;
+  padding: 12px 14px !important;
+  border-radius: 9999px !important;
+  background: #1c1c1c !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
+  pointer-events: none !important;
+}
+
+#snapLockCapsule.snap-lock-active {
+  background: #25D366 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.5) !important;
+}
+
+#snapActiveCameraBtn {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 9999px !important;
+  background: #25D366 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.45) !important;
+  pointer-events: none !important;
+}
+
+#snapLockedTrashBtn {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 9999px !important;
+  background: rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  pointer-events: auto !important;
+}
+
+#snapLockedTrashBtn:active {
+  transform: scale(0.92) !important;
+}
+
+.snap-locked-chip {
+  padding: 8px 18px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #25D366 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+#snapLockedSendBtn {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 9999px !important;
+  background: #25D366 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 22px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.45) !important;
+  pointer-events: auto !important;
+}
+
+#snapLockedSendBtn:active {
+  transform: scale(0.92) !important;
 }
 
 /* ============================================================
@@ -8230,6 +8771,11 @@ html.loading-file-room #fileRoomScreen {
   border-color: rgb(239 68 68 / 0.5);
 }
 
+.hover\:bg-\[\#20be5a\]:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(32 190 90 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-\[\#2a2a2a\]:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(42 42 42 / var(--tw-bg-opacity, 1));
@@ -8329,10 +8875,6 @@ html.loading-file-room #fileRoomScreen {
 .hover\:text-white:hover {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
-}
-
-.hover\:opacity-95:hover {
-  opacity: 0.95;
 }
 
 .hover\:brightness-110:hover {
