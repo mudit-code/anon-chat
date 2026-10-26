@@ -2159,22 +2159,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let contentHtml = '';
+        const msgTimeStr = formatMsgTime(message.timestamp || Date.now());
+        const timeBadgeHtml = `<span class="media-time-badge">${msgTimeStr}</span>`;
+
         if (message.type === 'text') {
             messageBubble.className = `${bubbleClass} message-bubble`;
-            const escapedContent = (message.content || '')
+            const rawContent = message.content || '';
+            const escapedContent = rawContent
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>');
-            contentHtml = escapedContent;
+
+            const trimmedContent = rawContent.trim();
+            const emojiRegex = /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\s)+$/u;
+            const isOnlyEmojis = emojiRegex.test(trimmedContent) && trimmedContent.length <= 16;
+            contentHtml = isOnlyEmojis ? `<span class="msg-text only-emojis">${escapedContent}</span>` : `<span class="msg-text">${escapedContent}</span>`;
         } else if (message.type === 'sticker') {
             const localBlob = (user === username && clientMsgId && window.localMediaBlobMap) ? window.localMediaBlobMap.get(clientMsgId) : null;
             const mediaSrc = resolveMediaUrl(message.content);
             const displayMediaSrc = localBlob || mediaSrc;
-            messageBubble.className = 'sticker-bubble message-bubble' + (user === username ? ' ml-auto' : '');
+            messageBubble.className = 'sticker-bubble message-bubble' + (user === username ? ' ml-auto' : ' mr-auto');
             contentHtml = `
-                <div class="relative group cursor-pointer" onclick="openPreview('${mediaSrc}', 'sticker', '${id}')">
+                <div class="relative group cursor-pointer inline-block" onclick="openPreview('${mediaSrc}', 'sticker', '${id}')">
                     <img src="${displayMediaSrc}" class="sticker-message cursor-pointer" loading="lazy">
+                    ${timeBadgeHtml}
                     <a href="${mediaSrc}" download="sticker-${Date.now()}.png" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
@@ -2186,8 +2195,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const displayMediaSrc = localBlob || mediaSrc;
             if (message.type === 'gif') {
                 contentHtml = `
-                <div class="relative group media-container cursor-pointer overflow-hidden rounded-xl" onclick="openPreview('${mediaSrc}', 'gif', '${id}')">
+                <div class="relative group media-container media-fixed-frame cursor-pointer overflow-hidden rounded-xl" onclick="openPreview('${mediaSrc}', 'gif', '${id}')">
                     <img src="${displayMediaSrc}" class="message-file-preview cursor-pointer" loading="lazy">
+                    ${timeBadgeHtml}
                     <a href="${mediaSrc}" download="gif-${Date.now()}.gif" class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download"></i>
                     </a>
@@ -2196,6 +2206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 contentHtml = `
                 <div class="relative group media-container media-fixed-frame overflow-hidden rounded-xl cursor-pointer" onclick="openPreview('${mediaSrc}', 'image', '${id}')">
                     <img src="${displayMediaSrc}" class="message-file-preview cursor-pointer" loading="lazy" alt="Photo">
+                    ${timeBadgeHtml}
                     <a href="${mediaSrc}" download="image-${Date.now()}.jpg" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download text-xs"></i>
                     </a>
@@ -2209,6 +2220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fas fa-play text-base ml-0.5"></i>
                         </div>
                     </div>
+                    ${timeBadgeHtml}
                     <a href="${mediaSrc}" download="video-${Date.now()}.mp4" class="media-download-btn absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" title="Download" onclick="event.stopPropagation();">
                         <i class="fas fa-download text-xs"></i>
                     </a>
@@ -2226,6 +2238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fas fa-play text-sm ml-0.5"></i>
                         </div>
                     </div>
+                    ${timeBadgeHtml}
                 </div>`;
             } else if (message.type === 'file' || msgPayload.file) {
                 messageBubble.className = `${bubbleClass} message-bubble file-document-bubble`;
@@ -2257,23 +2270,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fas fa-download mr-1.5"></i>Save
                         </button>
                     </div>
-                    <span class="msg-time self-end text-[11px] mb-0.5">${formatMsgTime(message.timestamp || Date.now())}</span>
+                    <span class="msg-time self-end text-[11px] mb-0.5">${msgTimeStr}</span>
                 </div>`;
             }
         }
 
-        const msgTimeHtml = `<span class="msg-time">${formatMsgTime(message.timestamp || Date.now())}</span>`;
+        const msgTimeHtml = `<span class="msg-time">${msgTimeStr}</span>`;
         let senderHtml = '';
         if (!isConsecutive && user !== username) {
             senderHtml = `<div class="msg-sender" style="color: ${getSenderColor(user)};">${user}</div>`;
         }
 
         if (message.type === 'text') {
-            messageBubble.innerHTML = senderHtml + quotedReplyHtml + `<span class="msg-text">${contentHtml}</span>` + msgTimeHtml;
+            messageBubble.innerHTML = senderHtml + quotedReplyHtml + contentHtml + msgTimeHtml;
         } else if (message.type === 'file' || msgPayload.file) {
             messageBubble.innerHTML = senderHtml + quotedReplyHtml + contentHtml;
             const actionsBox = messageBubble.querySelector('.file-actions-container');
             if (actionsBox) bindDownloadButtons(actionsBox);
+        } else if (message.type === 'sticker' || message.type === 'gif' || message.type === 'image' || message.type === 'video' || message.type === 'snap') {
+            messageBubble.innerHTML = senderHtml + quotedReplyHtml + contentHtml;
         } else {
             messageBubble.innerHTML = senderHtml + quotedReplyHtml + contentHtml + msgTimeHtml;
         }
@@ -5303,19 +5318,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Create tabs container
         const tabsContainer = document.createElement("div");
-        tabsContainer.className = "flex border-b border-[#2a2a2a] mb-4 flex-shrink-0";
+        tabsContainer.className = "media-picker-tabs";
 
         const emojiTab = document.createElement("button");
         emojiTab.id = "emojiTabBtn";
-        emojiTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors cursor-pointer";
-        emojiTab.textContent = "Emoji";
+        emojiTab.type = "button";
+        emojiTab.className = "media-picker-tab-btn active";
+        emojiTab.innerHTML = '<i class="far fa-smile text-sm mr-1.5"></i>Emoji';
         emojiTab.addEventListener("pointerdown", (e) => e.preventDefault());
         emojiTab.onclick = () => showEmojiPicker();
 
         const gifTab = document.createElement("button");
         gifTab.id = "gifsTabBtn";
-        gifTab.className = "flex-1 py-2 px-3 text-sm font-semibold text-[#9a9a9a] hover:text-white border-b-2 border-transparent transition-colors cursor-pointer";
-        gifTab.textContent = "GIFs";
+        gifTab.type = "button";
+        gifTab.className = "media-picker-tab-btn";
+        gifTab.innerHTML = '<i class="fas fa-film text-sm mr-1.5"></i>GIFs';
         gifTab.addEventListener("pointerdown", (e) => e.preventDefault());
         gifTab.onclick = () => showGifPicker();
 
@@ -5335,11 +5352,9 @@ document.addEventListener('DOMContentLoaded', () => {
         function activateTab(activeTab) {
             [emojiTab, gifTab].forEach(t => {
                 if (t === activeTab) {
-                    t.classList.add("border-[#ff7320]", "text-[#ff7320]");
-                    t.classList.remove("border-transparent", "text-[#9a9a9a]");
+                    t.classList.add("active");
                 } else {
-                    t.classList.remove("border-[#ff7320]", "text-[#ff7320]");
-                    t.classList.add("border-transparent", "text-[#9a9a9a]");
+                    t.classList.remove("active");
                 }
             });
         }
@@ -5347,7 +5362,56 @@ document.addEventListener('DOMContentLoaded', () => {
         function showEmojiPicker() {
             activateTab(emojiTab);
             contentArea.innerHTML = "";
-            renderEmojis();
+
+            const searchRow = document.createElement("div");
+            searchRow.className = "media-picker-search-bar";
+            const searchInput = document.createElement("input");
+            searchInput.type = "text";
+            searchInput.placeholder = "Search emojis...";
+            searchInput.className = "media-picker-search-input";
+            searchRow.appendChild(searchInput);
+            contentArea.appendChild(searchRow);
+
+            const emojiGrid = document.createElement("div");
+            emojiGrid.id = "emoji-grid-results";
+            emojiGrid.className = "media-picker-emoji-grid";
+            contentArea.appendChild(emojiGrid);
+
+            function filterAndRenderEmojis(filter = "") {
+                const grid = document.getElementById("emoji-grid-results");
+                if (!grid) return;
+                grid.innerHTML = "";
+                const f = filter.toLowerCase().trim();
+                const filtered = f
+                    ? emojis.filter(e => {
+                        if (typeof e === 'object' && e !== null) {
+                            return (e.name && e.name.toLowerCase().includes(f)) || (e.unicode && e.unicode.includes(f));
+                        }
+                        return String(e).includes(f);
+                    })
+                    : emojis;
+
+                filtered.forEach(item => {
+                    const emojiChar = (typeof item === 'object' && item !== null) ? (item.unicode || item.char || item) : item;
+                    if (!emojiChar) return;
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.textContent = emojiChar;
+                    btn.className = "media-picker-emoji-btn";
+                    btn.addEventListener("pointerdown", (e) => e.preventDefault());
+                    btn.onclick = (e) => {
+                        e.preventDefault();
+                        insertTextIntoComposer(emojiChar);
+                    };
+                    grid.appendChild(btn);
+                });
+            }
+
+            searchInput.oninput = () => {
+                filterAndRenderEmojis(searchInput.value);
+            };
+
+            filterAndRenderEmojis("");
 
             // Enrich emoji list from local emojis.json if available
             if (emojis.length < 150) {
@@ -5356,7 +5420,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .then(data => {
                         if (Array.isArray(data) && data.length > 0) {
                             emojis = data.map(emoji => emoji.unicode || emoji);
-                            renderEmojis();
+                            filterAndRenderEmojis(searchInput.value);
                         }
                     })
                     .catch(() => {});
@@ -5373,7 +5437,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchInput = document.createElement("input");
             searchInput.type = "text";
             searchInput.placeholder = "Search GIFs & animated stickers...";
-            searchInput.className = "w-full p-2.5 rounded-lg bg-[#242424] border border-[#333333] text-white placeholder-[#808080] focus:outline-none focus:border-[#ffb682] text-sm flex-shrink-0";
+            searchInput.className = "media-picker-search-input flex-shrink-0";
 
             const subFilterRow = document.createElement("div");
             subFilterRow.className = "flex items-center gap-2";
@@ -5422,7 +5486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const resultsDiv = document.createElement("div");
-            resultsDiv.className = "mt-2 grid grid-cols-3 gap-3";
+            resultsDiv.className = "media-picker-gif-grid";
             resultsDiv.id = "gif-results";
             contentArea.appendChild(resultsDiv);
 
@@ -5459,8 +5523,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (!imgUrl) return;
                                 img.src = imgUrl;
                                 img.className = (currentMode === 'stickers')
-                                    ? "cursor-pointer w-full h-24 object-contain rounded-lg hover:scale-105 transition-transform"
-                                    : "cursor-pointer w-full h-24 object-cover rounded-lg hover:opacity-80 transition-opacity";
+                                    ? "media-picker-sticker-item"
+                                    : "media-picker-gif-item";
                                 img.loading = "lazy";
                                 img.addEventListener("pointerdown", (e) => e.preventDefault());
                                 img.onclick = () => {
@@ -5503,11 +5567,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!contentArea) return;
         contentArea.innerHTML = "";
         const emojiGrid = document.createElement("div");
-        emojiGrid.className = "grid grid-cols-8 gap-2";
+        emojiGrid.className = "media-picker-emoji-grid";
         emojis.forEach(emoji => {
             const btn = document.createElement("button");
+            btn.type = "button";
             btn.innerHTML = emoji;
-            btn.className = "text-2xl p-2 rounded-lg hover:bg-[#2c2c2c] transition-colors cursor-pointer select-none";
+            btn.className = "media-picker-emoji-btn";
             btn.addEventListener("pointerdown", (e) => e.preventDefault());
             btn.onclick = (e) => {
                 e.preventDefault();
