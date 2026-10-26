@@ -4711,22 +4711,36 @@ document.addEventListener('DOMContentLoaded', () => {
     function sendDirectMediaUrl(mediaUrl, mediaType = 'gif') {
         if (!mediaUrl) return;
         const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const currentInstance = roomInstanceId;
+        const activeReply = replyContext ? {
+            id: replyContext.id,
+            senderName: replyContext.senderName || replyContext.sender,
+            type: replyContext.type || 'text',
+            snippet: replyContext.snippet || replyContext.previewText,
+            mediaSrc: replyContext.mediaSrc || null
+        } : null;
+        if (replyContext) clearReplyContext();
+
         const payload = {
             roomKey,
+            roomInstanceId: currentInstance,
+            sessionToken,
+            clientMsgId: messageId,
             username,
             id: messageId,
             message: { type: mediaType, content: mediaUrl },
             seenBy: []
         };
-        if (replyContext) {
-            payload.replyTo = {
-                messageId: replyContext.messageId,
-                sender: replyContext.sender,
-                previewText: replyContext.previewText
-            };
-            clearReplyContext();
-        }
-        displayMessage(username, payload.message, messageId, [], payload.replyTo);
+        if (activeReply) payload.replyTo = activeReply;
+
+        renderMessageBubble({
+            username,
+            message: payload.message,
+            id: messageId,
+            clientMsgId: messageId,
+            seenBy: [],
+            replyTo: activeReply
+        });
         socket.emit("chat-message", payload);
         scrollMessagesToBottom(true);
     }
@@ -4779,71 +4793,89 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Helper to handle external media files from paste, drop, or keyboard insertion
-    function handleMediaFilesFromExternal(files) {
-        if (!files || files.length === 0) return;
-        const imageFiles = Array.from(files).filter(f => f && f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
-        if (imageFiles.length === 0) return;
-        sendMediaFilesDirectly(imageFiles);
+    // Helper to detect if a file or data item is media (image, gif, webp, sticker)
+    function isMediaFileOrSticker(f) {
+        if (!f) return false;
+        const type = (f.type || '').toLowerCase();
+        const name = (f.name || '').toLowerCase();
+        return type.startsWith('image/') || type.includes('gif') || /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(name);
     }
 
-    // Paste handler supporting files, HTML copied images (GIFs/stickers), direct image URLs, and text
-    messageInput.addEventListener('paste', async (event) => {
-        // 1. Check for image files in clipboardData
-        const files = event.clipboardData?.files;
-        if (files && files.length > 0) {
-            const imgFiles = Array.from(files).filter(f => f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
-            if (imgFiles.length > 0) {
-                event.preventDefault();
-                handleMediaFilesFromExternal(imgFiles);
-                return;
-            }
-        }
+    // Helper to handle external media files from paste, drop, or keyboard insertion
+    function handleMediaFilesFromExternal(files, options = {}) {
+        if (!files || files.length === 0) return;
+        const list = Array.from(files);
+        const imageFiles = list.filter(isMediaFileOrSticker);
+        if (imageFiles.length === 0) return;
+        imageFiles.forEach(f => {
+            const isSticker = options.isSticker || f.isSticker || f.type?.includes('gif') || f.name?.toLowerCase().includes('sticker') || f.name?.toLowerCase().includes('gif') || false;
+            f.isSticker = isSticker;
+        });
+        sendMediaFilesDirectly(imageFiles, options);
+    }
 
-        if (event.clipboardData?.items) {
-            const itemFiles = [];
-            for (let i = 0; i < event.clipboardData.items.length; i++) {
-                const item = event.clipboardData.items[i];
-                if (item.kind === 'file' && item.type.startsWith('image/')) {
-                    const f = item.getAsFile();
-                    if (f) itemFiles.push(f);
+    // Comprehensive paste handler for web browsers and PWAs
+    async function handlePasteEvent(event) {
+        if (!event.clipboardData) return;
+
+        // 1. Check for image/sticker files or items in clipboardData
+        const files = Array.from(event.clipboardData.files || []);
+        const items = Array.from(event.clipboardData.items || []);
+        const mediaFiles = [];
+
+        for (const f of files) {
+            if (isMediaFileOrSticker(f)) mediaFiles.push(f);
+        }
+        for (const item of items) {
+            if (item.kind === 'file') {
+                const f = item.getAsFile();
+                if (f && isMediaFileOrSticker(f)) {
+                    if (!mediaFiles.some(m => m.name === f.name && m.size === f.size && m.type === f.type)) {
+                        mediaFiles.push(f);
+                    }
                 }
             }
-            if (itemFiles.length > 0) {
-                event.preventDefault();
-                handleMediaFilesFromExternal(itemFiles);
-                return;
-            }
         }
 
-        // 2. Check for HTML clipboard containing <img> tags (Giphy, Tenor, Web images, Discord)
-        const html = event.clipboardData ? event.clipboardData.getData('text/html') : '';
+        if (mediaFiles.length > 0) {
+            event.preventDefault();
+            mediaFiles.forEach(f => {
+                const isSticker = f.type?.includes('gif') || f.name?.toLowerCase().includes('sticker') || f.name?.toLowerCase().includes('gif') || f.type?.includes('webp');
+                if (isSticker) f.isSticker = true;
+            });
+            handleMediaFilesFromExternal(mediaFiles, { isSticker: mediaFiles.some(f => f.isSticker) });
+            return;
+        }
+
+        // 2. Check for HTML clipboard containing <img> tags (Giphy, Tenor, web image copy)
+        const html = event.clipboardData.getData('text/html') || '';
         if (html && html.includes('<img')) {
             try {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 const img = doc.querySelector('img');
-                if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://') || img.src.startsWith('data:'))) {
+                if (img && img.src && (img.src.startsWith('http://') || img.src.startsWith('https://') || img.src.startsWith('data:') || img.src.startsWith('blob:'))) {
                     event.preventDefault();
                     if (img.src.startsWith('data:')) {
-                        const file = dataUrlToFile(img.src, `pasted-${Date.now()}`);
+                        const file = dataUrlToFile(img.src, `pasted-sticker-${Date.now()}`);
                         if (file) {
                             file.isSticker = true;
-                            handleMediaFilesFromExternal([file]);
+                            handleMediaFilesFromExternal([file], { isSticker: true });
                             return;
                         }
                     } else {
-                        // Attempt to fetch as blob to preserve full animation (e.g. GIF)
+                        // Attempt to fetch as blob to preserve animated GIFs and upload directly
                         fetch(img.src)
                             .then(r => r.blob())
                             .then(blob => {
                                 const ext = blob.type.includes('gif') ? 'gif' : blob.type.includes('webp') ? 'webp' : 'png';
-                                const file = new File([blob], `pasted-${Date.now()}.${ext}`, { type: blob.type });
+                                const file = new File([blob], `pasted-sticker-${Date.now()}.${ext}`, { type: blob.type });
                                 file.isSticker = true;
-                                handleMediaFilesFromExternal([file]);
+                                handleMediaFilesFromExternal([file], { isSticker: true });
                             })
                             .catch(() => {
-                                sendDirectMediaUrl(img.src, img.src.includes('.gif') ? 'gif' : 'sticker');
+                                const isGif = img.src.toLowerCase().includes('.gif') || img.src.includes('giphy') || img.src.includes('tenor');
+                                sendDirectMediaUrl(img.src, isGif ? 'gif' : 'sticker');
                             });
                         return;
                     }
@@ -4851,57 +4883,71 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (_) {}
         }
 
-        // 3. Check for pasted direct image/GIF URLs (Giphy, Tenor, direct .gif/.png/.webp)
-        const pastedText = event.clipboardData ? event.clipboardData.getData('text/plain').trim() : '';
+        // 3. Check for direct pasted media URLs (Giphy, Tenor, direct .gif/.png/.webp)
+        const pastedText = (event.clipboardData.getData('text/plain') || '').trim();
         const isDirectImageUrl = /^https?:\/\/.+\.(gif|webp|png|jpe?g)($|\?)/i.test(pastedText) ||
-            /^https?:\/\/(media[0-9]*\.giphy\.com|c\.tenor\.com|tenor\.com\/view|i\.giphy\.com)\/.+/i.test(pastedText);
+            /^https?:\/\/(media[0-9]*\.giphy\.com|c\.tenor\.com|i\.giphy\.com|i\.imgur\.com)\/.+/i.test(pastedText);
 
-        const hasTypedText = (messageInput.value || '').trim().length > 0;
+        const hasTypedText = (messageInput ? (messageInput.value || '').trim().length > 0 : false);
         if (isDirectImageUrl && !hasTypedText) {
             event.preventDefault();
             const isGif = pastedText.toLowerCase().includes('.gif') || pastedText.includes('giphy') || pastedText.includes('tenor');
-            const msgType = isGif ? 'gif' : 'image';
+            const msgType = isGif ? 'gif' : 'sticker';
             sendDirectMediaUrl(pastedText, msgType);
             return;
         }
 
-        // 4. Plain text paste: prevent rich HTML tags from leaking into contenteditable
-        event.preventDefault();
-        const plainText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
-        document.execCommand('insertText', false, plainText);
-        autoResizeTextarea();
-        updateSendButtonState();
+        // 4. Plain text paste into messageInput: prevent rich HTML tags from leaking into contenteditable
+        if (event.target === messageInput) {
+            event.preventDefault();
+            const plainText = event.clipboardData.getData('text/plain') || '';
+            document.execCommand('insertText', false, plainText);
+            autoResizeTextarea();
+            updateSendButtonState();
+        }
+    }
+
+    if (messageInput) {
+        messageInput.addEventListener('paste', handlePasteEvent);
+    }
+
+    // Global paste listener for chat screen (works on desktop / PWA when clicking outside input)
+    window.addEventListener('paste', (event) => {
+        const chatScreen = document.getElementById('chatScreen');
+        if (!chatScreen || chatScreen.classList.contains('hidden')) return;
+        if (event.target === messageInput) return; // already handled
+        if (event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA')) return;
+        handlePasteEvent(event);
     });
 
-    // Handle beforeinput (e.g. keyboard GIF/sticker commit on Android WebView)
-    messageInput.addEventListener('beforeinput', (e) => {
-        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertReplacementText' || e.inputType === 'insertFromYank') {
-            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                const imgFiles = Array.from(e.dataTransfer.files).filter(f => f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
-                if (imgFiles.length > 0) {
-                    e.preventDefault();
-                    handleMediaFilesFromExternal(imgFiles);
-                    return;
+    // Handle beforeinput (e.g. keyboard GIF/sticker commit on Android Chrome or WebView)
+    if (messageInput) {
+        messageInput.addEventListener('beforeinput', (e) => {
+            if (e.dataTransfer) {
+                const files = Array.from(e.dataTransfer.files || []);
+                const items = Array.from(e.dataTransfer.items || []);
+                const imgFiles = [];
+                for (const f of files) {
+                    if (isMediaFileOrSticker(f)) imgFiles.push(f);
                 }
-            }
-            if (e.dataTransfer && e.dataTransfer.items) {
-                const itemFiles = [];
-                for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                    const item = e.dataTransfer.items[i];
-                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                for (const item of items) {
+                    if (item.kind === 'file') {
                         const f = item.getAsFile();
-                        if (f) itemFiles.push(f);
+                        if (f && isMediaFileOrSticker(f) && !imgFiles.some(m => m.name === f.name)) {
+                            imgFiles.push(f);
+                        }
                     }
                 }
-                if (itemFiles.length > 0) {
+                if (imgFiles.length > 0) {
                     e.preventDefault();
-                    handleMediaFilesFromExternal(itemFiles);
+                    imgFiles.forEach(f => { f.isSticker = true; });
+                    handleMediaFilesFromExternal(imgFiles, { isSticker: true });
                 }
             }
-        }
-    });
+        });
+    }
 
-    // MutationObserver on messageInput to intercept image tags inserted by soft keyboards (Gboard/Samsung)
+    // MutationObserver on messageInput to intercept image tags inserted by soft keyboards
     const composerObserver = new MutationObserver((mutations) => {
         let hadImage = false;
         mutations.forEach(mutation => {
@@ -4918,32 +4964,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const ext = blob.type.split('/')[1] || 'png';
                                     const file = new File([blob], `sticker-${Date.now()}.${ext}`, { type: blob.type });
                                     file.isSticker = true;
-                                    handleMediaFilesFromExternal([file]);
+                                    handleMediaFilesFromExternal([file], { isSticker: true });
                                 })
                                 .catch(() => {});
                         } else {
-                            // Direct URL (e.g. Giphy/Tenor from keyboard)
                             const isGif = imgSrc.includes('.gif') || imgSrc.includes('giphy');
-                            const msgType = isGif ? 'gif' : 'sticker';
-                            const messageId = `media-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                            const payload = {
-                                roomKey,
-                                username,
-                                id: messageId,
-                                message: { type: msgType, content: imgSrc },
-                                seenBy: []
-                            };
-                            if (replyContext) {
-                                payload.replyTo = {
-                                    messageId: replyContext.messageId,
-                                    sender: replyContext.sender,
-                                    previewText: replyContext.previewText
-                                };
-                                clearReplyContext();
-                            }
-                            displayMessage(username, payload.message, messageId, [], payload.replyTo);
-                            socket.emit("chat-message", payload);
-                            scrollMessagesToBottom(true);
+                            sendDirectMediaUrl(imgSrc, isGif ? 'gif' : 'sticker');
                         }
                     }
                 }
@@ -4959,16 +4985,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Handle drop directly onto messageInput
-    messageInput.addEventListener('drop', (e) => {
-        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const imgFiles = Array.from(e.dataTransfer.files).filter(f => f.type && (f.type.startsWith('image/') || f.type.includes('gif')));
-            if (imgFiles.length > 0) {
-                e.preventDefault();
-                e.stopPropagation();
-                handleMediaFilesFromExternal(imgFiles);
+    if (messageInput) {
+        messageInput.addEventListener('drop', (e) => {
+            if (e.dataTransfer) {
+                const files = Array.from(e.dataTransfer.files || []);
+                const imgFiles = files.filter(isMediaFileOrSticker);
+                if (imgFiles.length > 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleMediaFilesFromExternal(imgFiles);
+                }
             }
-        }
-    });
+        });
+    }
 
     // Drag and drop file upload with overlay
     const dragDropOverlay = document.getElementById('dragDropOverlay');
